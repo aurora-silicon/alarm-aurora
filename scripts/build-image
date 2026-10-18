@@ -89,6 +89,14 @@ chroot "$mountroot" usermod -L root
 rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"
 printf 'uninitialized\n' > "$mountroot/etc/machine-id"
 chroot "$mountroot" systemctl enable NetworkManager.service bluetooth.service aurora-peripherals.service aurora-alarm-keyring.service
+# asahi-scripts' generic first-boot rewrites fstab to its @/@home layout and
+# randomizes the ESP ID. Aurora seals both filesystem layout and EFI identity.
+chroot "$mountroot" systemctl mask first-boot.service
+chroot "$mountroot" systemctl disable systemd-networkd.service systemd-networkd.socket systemd-networkd-wait-online.service
+chroot "$mountroot" systemctl enable systemd-resolved.service
+install -d -m 0755 "$mountroot/etc/NetworkManager/conf.d"
+printf '[main]\ndns=systemd-resolved\n' > "$mountroot/etc/NetworkManager/conf.d/20-aurora-dns.conf"
+ln -sfn /run/systemd/resolve/stub-resolv.conf "$mountroot/etc/resolv.conf"
 case $profile in
   arch-kde) chroot "$mountroot" systemctl enable sddm; chroot "$mountroot" systemctl set-default graphical.target;;
   arch-gnome) chroot "$mountroot" systemctl enable gdm; chroot "$mountroot" systemctl set-default graphical.target;;
