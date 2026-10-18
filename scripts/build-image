@@ -90,6 +90,8 @@ chroot "$mountroot" grub-install --target=arm64-efi --efi-directory=/boot/efi --
 chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
 mkdir -p "$mountroot/boot/efi/m1n1"
 chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
+# Initial assembly is pinned; subsequent installed-system updates use the signed rolling feed.
+sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/testing/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
 for path in dev proc sys run boot/efi boot ''; do

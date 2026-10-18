@@ -1,0 +1,62 @@
+name: Deploy authenticated ALARM testing snapshot
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: Immutable signed native package snapshot
+        required: true
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: alarm-repository-deployment
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify all signed databases, packages and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          [[ $RELEASE_TAG =~ ^testing-[A-Za-z0-9._-]+$ ]]
+          mkdir -p site/testing/aarch64
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir site/testing/aarch64
+          export GNUPGHOME="$RUNNER_TEMP/aurora-verification-keyring"
+          mkdir -m 0700 "$GNUPGHOME"
+          gpg --batch --import keys/aurora-alarm.asc
+          fingerprint=$(gpg --batch --with-colons --list-keys | awk -F: '$1=="fpr" {print $10; exit}')
+          [[ $fingerprint == "$(cat keys/fingerprint.txt)" ]]
+          for signature in site/testing/aarch64/*.sig; do
+            gpg --batch --verify "$signature" "${signature%.sig}"
+          done
+          test -s site/testing/aarch64/aurora.db.sig
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('site/testing/aarch64')
+          manifest=json.loads((root/'manifest.json').read_text())
+          for record in manifest['packages']:
+              p=root/record['filename']
+              assert p.is_file() and not p.is_symlink()
+              assert p.stat().st_size == record['bytes']
+              with p.open('rb') as stream: assert hashlib.file_digest(stream,'sha256').hexdigest()==record['sha256']
+          assert sum(p.stat().st_size for p in root.rglob('*') if p.is_file()) < 900_000_000
+          PY
+          cp keys/aurora-alarm.asc site/
+          printf '%s\n' 'Aurora ALARM signed testing repository' > site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
