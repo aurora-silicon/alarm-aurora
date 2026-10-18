@@ -12,7 +12,7 @@ mount --rbind /dev "$container/dev"
 mount -t proc proc "$container/proc"
 mount --rbind /sys "$container/sys"
 mount --bind "$root" "$container/src"
-cp -L /etc/resolv.conf "$container/etc/resolv.conf"
+cp --remove-destination -L /etc/resolv.conf "$container/etc/resolv.conf"
 chroot "$container" /bin/bash -euo pipefail -c '
   pacman-key --init
   pacman-key --populate archlinuxarm

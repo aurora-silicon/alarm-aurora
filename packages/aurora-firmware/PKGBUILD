@@ -6,7 +6,7 @@ arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
 source=('aurora-firmware-order.conf' 'aurora-peripheral-firmware.sh' 'aurora-peripherals.service' '90-aurora-peripherals.preset' 'aurora-vendor.install' 'aurora-vendor.hook')
-sha256sums=('e6338787cc03c7704589df20f7551ac17bc2ae25aa2f8df3b6d9532a1c5b79f9' '8441b327bdb8107718101a0c8bbd1955db9bbb547eae3e602b0368c4b99469b5' 'f15a6afe22bcb26e01caf16ab410e4a75c3d535f1b4a70731ca428a551a1f9ef' '39a5034afd1d2cd03475bb1cd46c56c6695e5c315cd027319f2d29017e854db6' '227366203b753c852564a3c1adb6f7caab321332987051efb3c399818eb50a6a' 'a88691dda1641a0b06fd823f03316b7e2037f04e3fb692fe5d44b9e18a4f687c')
+sha256sums=('e6338787cc03c7704589df20f7551ac17bc2ae25aa2f8df3b6d9532a1c5b79f9' '65afad57c2d1e9e28cb2d726f9b78b1a68a127092e2871c305dd627781347e33' 'f15a6afe22bcb26e01caf16ab410e4a75c3d535f1b4a70731ca428a551a1f9ef' '39a5034afd1d2cd03475bb1cd46c56c6695e5c315cd027319f2d29017e854db6' '227366203b753c852564a3c1adb6f7caab321332987051efb3c399818eb50a6a' 'a88691dda1641a0b06fd823f03316b7e2037f04e3fb692fe5d44b9e18a4f687c')
 package() {
   depends=('bash' 'asahi-scripts' 'kmod' 'wireless-regdb')
   install -Dm644 aurora-firmware-order.conf "$pkgdir/usr/lib/modprobe.d/aurora-firmware-order.conf"

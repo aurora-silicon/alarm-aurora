@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # SPDX-License-Identifier: MIT
 # Never reset a running device. Repeated modprobe of a loaded module is inert.
 set -eu
