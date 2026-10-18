@@ -44,8 +44,10 @@ mount "${loop}p2" "$mountroot/boot"
 mkdir -p "$mountroot/boot/efi"
 mount "${loop}p1" "$mountroot/boot/efi"
 mount --rbind /dev "$mountroot/dev"
+mount --make-rslave "$mountroot/dev"
 mount -t proc proc "$mountroot/proc"
 mount --rbind /sys "$mountroot/sys"
+mount --make-rslave "$mountroot/sys"
 mount -t tmpfs tmpfs "$mountroot/run"
 cp --remove-destination -L /etc/resolv.conf "$mountroot/etc/resolv.conf"
 cp "$root/keys/asahi-alarm.gpg" "$root/keys/aurora-alarm.asc" "$mountroot/tmp/"
@@ -95,6 +97,8 @@ chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
 sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/testing/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
+# Retire only this disposable chroot's key agent before unmounting its devices.
+chroot "$mountroot" gpgconf --homedir /etc/pacman.d/gnupg --kill all
 for path in dev proc sys run boot/efi boot ''; do
   if mountpoint -q "$mountroot${path:+/$path}"; then umount -R "$mountroot${path:+/$path}"; fi
 done
