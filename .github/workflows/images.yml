@@ -28,7 +28,7 @@ jobs:
           set -euo pipefail
           docker run --rm --privileged --ipc=host -v /dev:/dev -v /run/udev:/run/udev:ro -v "$PWD:/src" -w /src \
             registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
-              dnf install -y python3 gnupg2 tar gzip util-linux coreutils btrfs-progs e2fsprogs dosfstools zstd
+              dnf install -y python3 gnupg2 tar gzip util-linux coreutils btrfs-progs e2fsprogs dosfstools zstd systemd-udev
               bash scripts/build-image "$1" "$2"
             ' image "$PROFILE" "$RELEASE_TAG" 2>&1 | tee image-build.log
       - uses: actions/upload-artifact@v4
