@@ -10,6 +10,7 @@ uuid=${uuid,,}
 destination=/run/aurora-firmware
 mkdir -p "$destination" /run/aurora-esp
 if [[ ! -s $destination/vendorfw/.vendorfw.manifest ]]; then
+  udevadm wait --timeout=60 "/dev/disk/by-partuuid/$uuid"
   mount -t vfat -o ro "/dev/disk/by-partuuid/$uuid" /run/aurora-esp
   trap 'umount /run/aurora-esp' EXIT
   test -s /run/aurora-esp/vendorfw/firmware.cpio
