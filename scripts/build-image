@@ -100,7 +100,12 @@ rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
 # Retire only this disposable chroot's key agent before unmounting its devices.
 chroot "$mountroot" gpgconf --homedir /etc/pacman.d/gnupg --kill all
 for path in dev proc sys run boot/efi boot ''; do
-  if mountpoint -q "$mountroot${path:+/$path}"; then umount -R "$mountroot${path:+/$path}"; fi
+  if mountpoint -q "$mountroot${path:+/$path}"; then
+    if ! umount -R "$mountroot${path:+/$path}"; then
+      python3 "$root/scripts/diagnose-image-mounts.py" "$mountroot"
+      exit 1
+    fi
+  fi
 done
 losetup -d "$loop";loop=''
 # Fetch the same immutable common source used by the firstboot package.
