@@ -7,6 +7,9 @@ python3 "$root/scripts/fetch-base.py"
 container=$root/out/container
 mkdir -p "$container"
 tar --exclude='dev/*' -xpf "$root/cache/base/ArchLinuxARM-aarch64.tar.gz" -C "$container"
+# Give libalpm a real root mount in the chroot's mount table so its free-space
+# checks resolve the package cache correctly.
+mount --bind "$container" "$container"
 mkdir -p "$container"/{dev,proc,sys,src}
 mount --rbind /dev "$container/dev"
 mount -t proc proc "$container/proc"
