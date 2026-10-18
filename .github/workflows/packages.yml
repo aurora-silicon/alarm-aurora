@@ -16,12 +16,22 @@ jobs:
       packages: ${{ steps.plan.outputs.packages }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - id: plan
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           from pathlib import Path
-          import json
-          print('packages=' + json.dumps(sorted(p.parent.name for p in Path('packages').glob('*/PKGBUILD'))))
+          import json,os,subprocess
+          names=sorted(p.parent.name for p in Path('packages').glob('*/PKGBUILD'))
+          event=json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
+          before=event.get('before','')
+          if os.environ['GITHUB_EVENT_NAME']=='push' and before.strip('0'):
+              paths=subprocess.check_output(['git','diff','--name-only',before,os.environ['GITHUB_SHA']],text=True).splitlines()
+              core={'scripts/ci-build-package','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','.github/workflows/packages.yml','sources.json'}
+              if not core.intersection(paths):
+                  names=sorted({p.split('/')[1] for p in paths if p.startswith('packages/') and p.split('/')[1] in names})
+          print('packages='+json.dumps(names))
           PY
       - run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
@@ -30,6 +40,7 @@ jobs:
           done
   build:
     needs: metadata
+    if: needs.metadata.outputs.packages != '[]'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
     strategy:

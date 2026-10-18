@@ -33,6 +33,11 @@ jobs:
           jq -e --arg repo "$GITHUB_REPOSITORY" --arg head "$GITHUB_SHA" \
             '.conclusion == "success" and .head_branch == "main" and .head_sha == $head and .head_repository.full_name == $repo and .path == ".github/workflows/packages.yml" and (.event == "push" or .event == "workflow_dispatch")' build.json
           gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --pattern 'alarm-*' --dir downloaded
+          python3 - <<'PY'
+          from pathlib import Path
+          expected={'alarm-'+p.parent.name for p in Path('packages').glob('*/PKGBUILD')}
+          assert expected <= {p.name for p in Path('downloaded').iterdir()}, 'publication requires the complete recipe matrix'
+          PY
           mkdir input-packages
           find downloaded -name '*.pkg.tar.*' ! -name '*.sig' -exec cp {} input-packages/ \;
           test "$(find input-packages -type f | wc -l)" -ge 12
