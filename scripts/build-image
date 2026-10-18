@@ -20,7 +20,7 @@ cleanup() {
   local status=$? clean=1
   trap - EXIT
   if [[ -x $mountroot/usr/bin/gpgconf && -d $mountroot/etc/pacman.d/gnupg ]]; then
-    chroot "$mountroot" gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
+    python3 "$root/scripts/stop-image-key-agents.py" "$mountroot" || true
   fi
   if (( status != 0 )); then python3 "$root/scripts/diagnose-image-mounts.py" /tmp; fi
   for path in dev proc sys run boot/efi boot ''; do
@@ -109,7 +109,7 @@ sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
 # Retire only this disposable chroot's key agent before unmounting its devices.
-chroot "$mountroot" gpgconf --homedir /etc/pacman.d/gnupg --kill all
+python3 "$root/scripts/stop-image-key-agents.py" "$mountroot"
 for path in dev proc sys run boot/efi boot ''; do
   if mountpoint -q "$mountroot${path:+/$path}"; then
     if ! umount -R "$mountroot${path:+/$path}"; then
