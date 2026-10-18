@@ -88,6 +88,7 @@ printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/defau
 chroot "$mountroot" mkinitcpio -P
 chroot "$mountroot" grub-install --target=arm64-efi --efi-directory=/boot/efi --removable --no-nvram
 chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
+mkdir -p "$mountroot/boot/efi/m1n1"
 chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
