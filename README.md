@@ -14,3 +14,8 @@ Package builds require native AArch64 Linux. CI uses an isolated signed ALARM ro
 Development status: package recipes, verified base acquisition and native CI are present. Full package builds, a signed Aurora pacman repository, desktop image assembly and actual installation tests remain qualification work. No ALARM OS image is published yet. Device firmware/calibration is always extracted from the target Mac.
 
 Package recipes originated from aurora-silicon/omarchy-pkgs at 533635f0715c28c5e375b1ec7324f31d43b69efc. This repository carries the independent Aurora distribution integration; it does not install the Omarchy desktop.
+
+
+The dedicated ALARM package/database signing key is committed under `keys/aurora-alarm.asc`, fingerprint `A33623FB30665BEFAA0FFB6DE35EC749219B20F7`. `scripts/sign-repository.py` signs and verifies every archive and both pacman databases. The manual publication workflow requires a successful complete main-branch build at the same commit and publishes an immutable testing snapshot. Packages preserve their epoch metadata while using portable asset filenames. No private signing material is committed.
+
+Native local Aura, U-Boot, ALSA/audio, bless, speakerguardd, firmware and boot package builds have passed. Mesa passes all 72 tests and the compiler-runtime dependency check. The kernel, complete signed feed and installer images still require qualification; these results do not establish an ALARM boot on Neo.

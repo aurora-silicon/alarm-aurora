@@ -28,5 +28,8 @@ chroot "$container" /bin/bash -euo pipefail -c '
   cd /tmp/package-build
   runuser -u builder -- makepkg --syncdeps --noconfirm
   mkdir -p /src/out/packages
-  cp ./*.pkg.tar.* /src/out/packages/
+  for archive in ./*.pkg.tar.*; do
+    name=${archive##*/}
+    cp "$archive" "/src/out/packages/${name//:/_}"
+  done
 ' package "$package"

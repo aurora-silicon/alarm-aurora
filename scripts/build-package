@@ -9,3 +9,10 @@ mkdir -p "$build" "$root/out/packages"
 cp -a "$root/packages/$name/." "$build/"
 cd "$build"
 PKGDEST="$root/out/packages" makepkg --syncdeps --noconfirm --cleanbuild
+
+# Keep the epoch in .PKGINFO; GitHub artifacts require portable basenames.
+for archive in "$root/out/packages/"*:*; do
+  [[ -f $archive ]] || continue
+  name=${archive##*/}
+  mv "$archive" "$root/out/packages/${name//:/_}"
+done

@@ -1,0 +1,55 @@
+name: Publish signed ALARM testing snapshot
+on:
+  workflow_dispatch:
+    inputs:
+      build-run:
+        description: Successful full Native ALARM packages run at this main commit
+        required: true
+      release-tag:
+        description: New immutable testing snapshot tag
+        required: true
+permissions:
+  contents: write
+  actions: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: alarm-repository-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - name: Authenticate the complete candidate build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build-run }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          [[ $BUILD_RUN =~ ^[0-9]+$ && $RELEASE_TAG =~ ^testing-[A-Za-z0-9._-]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > build.json
+          jq -e --arg repo "$GITHUB_REPOSITORY" --arg head "$GITHUB_SHA" \
+            '.conclusion == "success" and .head_branch == "main" and .head_sha == $head and .head_repository.full_name == $repo and .path == ".github/workflows/packages.yml" and (.event == "push" or .event == "workflow_dispatch")' build.json
+          gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --pattern 'alarm-*' --dir downloaded
+          mkdir input-packages
+          find downloaded -name '*.pkg.tar.*' ! -name '*.sig' -exec cp {} input-packages/ \;
+          test "$(find input-packages -type f | wc -l)" -ge 12
+      - name: Sign the package set and pacman databases
+        env:
+          ALARM_SIGNING_KEY: ${{ secrets.ALARM_SIGNING_KEY }}
+          ALARM_SIGNING_PASSPHRASE: ${{ secrets.ALARM_SIGNING_PASSPHRASE }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pacman-package-manager libarchive-tools gnupg python3
+          python3 scripts/sign-repository.py --packages input-packages --output repository
+      - name: Publish the immutable testing snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          cp build.json repository/build.json
+          gh release create "$RELEASE_TAG" repository/* --target "$GITHUB_SHA" \
+            --prerelease --title "Aurora ALARM $RELEASE_TAG" \
+            --notes 'Signed native ALARM development package snapshot. Package and database signatures are verified before upload. Physical installation qualification is recorded separately.'
