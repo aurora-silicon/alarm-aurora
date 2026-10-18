@@ -1,0 +1,13 @@
+pkgname=aurora-boot
+pkgver=20261018
+pkgrel=1
+pkgdesc='Aurora ALARM boot integration'
+arch=('any')
+license=('MIT')
+url='https://github.com/aurora-silicon/alarm-aurora'
+source=('90-aurora.conf')
+sha256sums=('4f6f50e92abbcca8f5c2e7832e8dc3645b1bf87a71ac976f3cb0613655ec83cb')
+package() {
+  depends=('mkinitcpio' 'grub' 'asahi-scripts' 'aura' 'uboot-aurora' 'aurora-firmware')
+  install -Dm644 90-aurora.conf "$pkgdir/etc/mkinitcpio.conf.d/90-aurora.conf"
+}

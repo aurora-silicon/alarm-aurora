@@ -1,0 +1,12 @@
+[Unit]
+Description=Admit Aurora peripherals after vendor firmware handoff
+After=local-fs.target
+Before=bluetooth.service
+ConditionPathExists=/sys/firmware/devicetree/base/compatible
+[Service]
+Environment=AURORA_ADMIT_BLUETOOTH=1
+Type=oneshot
+ExecStart=/usr/libexec/aurora/peripheral-firmware
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target

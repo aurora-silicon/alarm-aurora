@@ -1,0 +1,11 @@
+#!/bin/bash
+build() {
+  add_module aop
+  add_module mt7932-fullmac
+  add_module mt7932_bt_pcie
+  add_file /usr/lib/modprobe.d/aurora-firmware-order.conf
+  add_binary /usr/bin/grep
+  add_file /usr/libexec/aurora/peripheral-firmware
+  add_runscript
+}
+help() { echo 'Admit Apple peripherals after Asahi vendor firmware extraction.'; }

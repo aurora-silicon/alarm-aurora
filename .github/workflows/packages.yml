@@ -1,0 +1,57 @@
+name: Native ALARM packages
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      packages: ${{ steps.plan.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: plan
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          from pathlib import Path
+          import json
+          print('packages=' + json.dumps(sorted(p.parent.name for p in Path('packages').glob('*/PKGBUILD'))))
+          PY
+      - run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          for file in packages/*/PKGBUILD scripts/*; do
+            [[ $file == *.py ]] || bash -n "$file"
+          done
+  build:
+    needs: metadata
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        package: ${{ fromJSON(needs.metadata.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build package in signed ALARM root filesystem
+        run: |
+          set -euo pipefail
+          docker run --rm --privileged -v "$PWD:/src" -w /src \
+            registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
+              dnf install -y python3 gnupg2 tar gzip util-linux coreutils
+              bash scripts/ci-build-package "$1"
+            ' build '${{ matrix.package }}' 2>&1 | tee build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alarm-${{ matrix.package }}
+          path: |
+            out/packages/*.pkg.tar.*
+            build.log
+          retention-days: 30

@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+name=${1:?package required}
+[[ $name =~ ^[a-z0-9][a-z0-9-]*$ && -f $root/packages/$name/PKGBUILD ]] || exit 2
+[[ $(uname -m) == aarch64 ]] || { echo 'A native AArch64 builder is required' >&2; exit 2; }
+build=$root/out/build/$name
+mkdir -p "$build" "$root/out/packages"
+cp -a "$root/packages/$name/." "$build/"
+cd "$build"
+PKGDEST="$root/out/packages" makepkg --syncdeps --noconfirm --cleanbuild
