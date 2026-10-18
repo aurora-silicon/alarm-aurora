@@ -19,6 +19,9 @@ loop=''; mountroot=$(mktemp -d)
 cleanup() {
   local status=$? clean=1
   trap - EXIT
+  if [[ -x $mountroot/usr/bin/gpgconf && -d $mountroot/etc/pacman.d/gnupg ]]; then
+    chroot "$mountroot" gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
+  fi
   if (( status != 0 )); then python3 "$root/scripts/diagnose-image-mounts.py" /tmp; fi
   for path in dev proc sys run boot/efi boot ''; do
     if mountpoint -q "$mountroot${path:+/$path}"; then umount -R "$mountroot${path:+/$path}" || clean=0; fi
@@ -75,6 +78,12 @@ case $profile in
   arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
+# The generic signed base contains its PC kernel; the installed image uses Aurora.
+if chroot "$mountroot" pacman -Q linux-aarch64 >/dev/null 2>&1; then
+  chroot "$mountroot" pacman -R --noconfirm linux-aarch64
+fi
+[[ ! -e $mountroot/etc/mkinitcpio.d/linux-aarch64.preset ]]
+chroot "$mountroot" pacman -Q linux-aurora
 chroot "$mountroot" userdel -r alarm
 chroot "$mountroot" usermod -L root
 rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"
