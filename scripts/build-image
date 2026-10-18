@@ -1,0 +1,110 @@
+#!/bin/bash
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+profile=${1:?arch-kde, arch-gnome or arch-minimal required}
+tag=${2:?immutable signed Aurora testing snapshot required}
+[[ $profile =~ ^arch-(kde|gnome|minimal)$ && $tag =~ ^testing-[A-Za-z0-9._-]+$ ]]
+[[ $(id -u) == 0 && $(uname -m) == aarch64 ]]
+python3 "$root/scripts/fetch-base.py"
+output=$root/out/$profile
+[[ ! -e $output ]]
+mkdir -p "$output"
+image=$output/aurora.raw
+size=6G
+[[ $profile == arch-minimal ]] || size=16G
+truncate -s "$size" "$image"
+printf 'label: gpt\nsector-size: 4096\n\nstart=2048,size=131072,type=U\nsize=262144,type=BC13C2FF-59E6-4262-A352-B275FD6F7172\ntype=B921B045-1DF0-41C3-AF44-4C6F280D3FAE\n' | sfdisk --sector-size 4096 "$image"
+loop=''; mountroot=$(mktemp -d)
+cleanup() {
+  local status=$? clean=1
+  trap - EXIT
+  for path in dev proc sys run boot/efi boot ''; do
+    if mountpoint -q "$mountroot${path:+/$path}"; then umount -R "$mountroot${path:+/$path}" || clean=0; fi
+  done
+  if (( clean )); then
+    [[ -z $loop ]] || losetup -d "$loop"
+    rmdir "$mountroot"
+  else echo "Image mounts remain at $mountroot" >&2; status=1; fi
+  exit "$status"
+}
+trap cleanup EXIT
+loop=$(losetup --find --show --partscan --sector-size 4096 "$image")
+udevadm settle
+mkfs.vfat -F32 -n AURORA_EFI "${loop}p1"
+mkfs.ext4 -F -L AURORA_BOOT "${loop}p2"
+mkfs.btrfs -f -L AURORA_ROOT -s 4096 -n 16384 "${loop}p3"
+mount "${loop}p3" "$mountroot"
+btrfs subvolume create "$mountroot/root"
+btrfs subvolume create "$mountroot/home"
+umount "$mountroot"
+mount -o subvol=root,compress=zstd:1 "${loop}p3" "$mountroot"
+tar --exclude='dev/*' -xpf "$root/cache/base/ArchLinuxARM-aarch64.tar.gz" -C "$mountroot"
+mkdir -p "$mountroot"/{dev,proc,sys,run,boot/efi}
+mount "${loop}p2" "$mountroot/boot"
+mount "${loop}p1" "$mountroot/boot/efi"
+mount --rbind /dev "$mountroot/dev"
+mount -t proc proc "$mountroot/proc"
+mount --rbind /sys "$mountroot/sys"
+mount -t tmpfs tmpfs "$mountroot/run"
+cp --remove-destination -L /etc/resolv.conf "$mountroot/etc/resolv.conf"
+cp "$root/keys/asahi-alarm.gpg" "$root/keys/aurora-alarm.asc" "$mountroot/tmp/"
+# A new local build master key authenticates the pinned public repository keys.
+chroot "$mountroot" pacman-key --init
+chroot "$mountroot" pacman-key --populate archlinuxarm
+chroot "$mountroot" pacman-key --add /tmp/asahi-alarm.gpg
+chroot "$mountroot" pacman-key --lsign-key 12CE6799A94A3F1B5DDFFE88F576553597FB8FEB
+chroot "$mountroot" pacman-key --add /tmp/aurora-alarm.asc
+chroot "$mountroot" pacman-key --lsign-key "$(cat "$root/keys/fingerprint.txt")"
+python3 - "$mountroot/etc/pacman.conf" "$tag" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]);s=p.read_text();at=s.index('[core]')
+s=s[:at]+('[aurora]\nSigLevel = Required DatabaseRequired\nServer = https://github.com/aurora-silicon/alarm-aurora/releases/download/'+sys.argv[2]+'\n\n[asahi-alarm]\nServer = https://github.com/asahi-alarm/asahi-alarm/releases/download/$arch\n\n')+s[at:]
+p.write_text(s)
+PY
+packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez bluez-utils wireless-regdb linux-firmware
+  asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-firmware aura uboot-aurora
+  mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
+case $profile in
+  arch-kde) packages+=(plasma-meta sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde);;
+  arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome);;
+esac
+chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
+chroot "$mountroot" userdel -r alarm
+chroot "$mountroot" usermod -L root
+rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"
+printf 'uninitialized\n' > "$mountroot/etc/machine-id"
+chroot "$mountroot" systemctl enable NetworkManager.service bluetooth.service aurora-peripherals.service aurora-alarm-keyring.service
+case $profile in
+  arch-kde) chroot "$mountroot" systemctl enable sddm; chroot "$mountroot" systemctl set-default graphical.target;;
+  arch-gnome) chroot "$mountroot" systemctl enable gdm; chroot "$mountroot" systemctl set-default graphical.target;;
+  *) chroot "$mountroot" systemctl set-default multi-user.target;;
+esac
+root_uuid=$(blkid -s UUID -o value "${loop}p3")
+boot_uuid=$(blkid -s UUID -o value "${loop}p2")
+efi_uuid=$(blkid -s UUID -o value "${loop}p1")
+printf 'UUID=%s / btrfs subvol=root,compress=zstd:1 0 0\nUUID=%s /home btrfs subvol=home,compress=zstd:1 0 0\nUUID=%s /boot ext4 defaults 0 2\nUUID=%s /boot/efi vfat umask=0077 0 2\n' "$root_uuid" "$root_uuid" "$boot_uuid" "$efi_uuid" > "$mountroot/etc/fstab"
+printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/default/grub"
+chroot "$mountroot" mkinitcpio -P
+chroot "$mountroot" grub-install --target=arm64-efi --efi-directory=/boot/efi --removable --no-nvram
+chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
+chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
+chroot "$mountroot" pacman -Scc --noconfirm
+rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
+for path in dev proc sys run boot/efi boot ''; do
+  if mountpoint -q "$mountroot${path:+/$path}"; then umount -R "$mountroot${path:+/$path}"; fi
+done
+losetup -d "$loop";loop=''
+# Fetch the same immutable common source used by the firstboot package.
+python3 - "$root" <<'PY'
+import hashlib,json,sys,urllib.request,tarfile
+from pathlib import Path
+root=Path(sys.argv[1]);p=json.loads((root/'sources.json').read_text())['aurora-firstboot']
+archive=root/'out/finalizer.tar.gz';data=urllib.request.urlopen(p['source_url']).read()
+assert hashlib.sha256(data).hexdigest()==p['sha256'];archive.write_bytes(data)
+with tarfile.open(archive) as tar:tar.extractall(root/'out/finalizer',filter='data')
+PY
+revision=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["aurora-firstboot"]["archive_root"])' "$root/sources.json")
+bash "$root/out/finalizer/$revision/images/finalize-image" "$image" "$profile" "$root/out/$profile-installer"
+tar --sparse -C "$root/out/$profile-installer" -cf - . | zstd -T4 -3 -o "$root/out/$profile-filesystems.tar.zst"
+sha256sum "$root/out/$profile-filesystems.tar.zst" > "$root/out/$profile-filesystems.tar.zst.sha256"

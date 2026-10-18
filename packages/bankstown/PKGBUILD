@@ -1,0 +1,19 @@
+pkgname=bankstown
+pkgver=1.1.0
+pkgrel=1
+pkgdesc='LV2 bass enhancement used by Aurora Apple Silicon audio profiles'
+arch=('aarch64')
+license=('MIT')
+url='https://github.com/chadmed/bankstown'
+_commit=8e6f96f06d0e51c2a1dc513cf2fdf57ab32a2a64
+makedepends=('rust' 'cargo' 'make')
+depends=('glibc' 'gcc-libs')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/chadmed/bankstown/tar.gz/$_commit")
+sha256sums=('11caa8cb41dfe724692414a378faf7425a0319ced2ad90c2eeaa90710d3eee38')
+build() { cd "$pkgname-$_commit"; cargo build --locked --release; }
+check() { cd "$pkgname-$_commit"; cargo test --locked; }
+package() {
+  cd "$pkgname-$_commit"
+  make install DESTDIR="$pkgdir" LIBDIR=/usr/lib
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

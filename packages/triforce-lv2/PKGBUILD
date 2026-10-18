@@ -1,0 +1,19 @@
+pkgname=triforce-lv2
+pkgver=0.3.2
+pkgrel=1
+pkgdesc='Microphone-array beamformer used by Apple Silicon audio profiles'
+arch=('aarch64')
+license=('GPL-2.0-or-later')
+url='https://github.com/chadmed/triforce'
+_commit=c5e9cacb88e6d2bae476e5c2394ce022793c6d5c
+makedepends=('rust' 'cargo' 'make')
+depends=('glibc' 'gcc-libs')
+source=("triforce-$_commit.tar.gz::https://codeload.github.com/chadmed/triforce/tar.gz/$_commit")
+sha256sums=('03c7ffbb2873d779394c02d5eaeeabc334b23e549ced85af1d90e1fa74652eeb')
+build() { cd "triforce-$_commit"; cargo build --locked --release; }
+check() { cd "triforce-$_commit"; cargo test --locked; }
+package() {
+  cd "triforce-$_commit"
+  make install DESTDIR="$pkgdir" LIBDIR=/usr/lib
+  install -Dm644 LICENCE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/asahi-alarm/asahi-alarm-keyring",
+  "commit": "5103f1eb621b54d7e6fe87070042c2d297878456",
+  "files": {
+    "asahi-alarm.gpg": "bd5a05085bc9ec99bc17156e60f5c7f1cd29f2b550bb80f652e0ba4a4820d5b2",
+    "asahi-alarm-trusted": "52d713b038dacd61919e926d944ea7b8b66e1ad579155e03d85e901e4516261b"
+  }
+}

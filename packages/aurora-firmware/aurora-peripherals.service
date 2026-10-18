@@ -6,7 +6,7 @@ ConditionPathExists=/sys/firmware/devicetree/base/compatible
 [Service]
 Environment=AURORA_ADMIT_BLUETOOTH=1
 Type=oneshot
-ExecStart=/usr/libexec/aurora/peripheral-firmware
+ExecStart=/usr/libexec/aurora/load-vendor-firmware runtime
 RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target

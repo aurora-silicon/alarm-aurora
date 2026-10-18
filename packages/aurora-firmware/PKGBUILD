@@ -1,18 +1,19 @@
 pkgname=aurora-firmware
 pkgver=20261018
-pkgrel=1
+pkgrel=2
 pkgdesc='Aurora target-device firmware and peripheral admission'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
-source=('aurora-firmware-order.conf' 'aurora-peripheral-firmware.sh' 'aurora-peripherals.service' '90-aurora-peripherals.preset' 'aurora-vendor.install' 'aurora-vendor.hook')
-sha256sums=('e6338787cc03c7704589df20f7551ac17bc2ae25aa2f8df3b6d9532a1c5b79f9' '65afad57c2d1e9e28cb2d726f9b78b1a68a127092e2871c305dd627781347e33' 'f15a6afe22bcb26e01caf16ab410e4a75c3d535f1b4a70731ca428a551a1f9ef' '39a5034afd1d2cd03475bb1cd46c56c6695e5c315cd027319f2d29017e854db6' '227366203b753c852564a3c1adb6f7caab321332987051efb3c399818eb50a6a' 'a88691dda1641a0b06fd823f03316b7e2037f04e3fb692fe5d44b9e18a4f687c')
+source=('aurora-firmware-order.conf' 'aurora-peripheral-firmware.sh' 'aurora-peripherals.service' '90-aurora-peripherals.preset' 'aurora-vendor.install' 'load-vendor-firmware' 'aurora-vendor-firmware.service')
+sha256sums=('e6338787cc03c7704589df20f7551ac17bc2ae25aa2f8df3b6d9532a1c5b79f9' 'e3198afcddc743d78288752dd5dcd4404a6f185f3547c1b0b55c4fb7b72a8fa2' 'ddd817f8c70ec4efc4ea62cc5957cb065a11d9c2156f0d31e4113dd6a9f0708f' '39a5034afd1d2cd03475bb1cd46c56c6695e5c315cd027319f2d29017e854db6' 'fd65a4f2968848425bb7604bd6f8c8f56399d3657def67d1b8eb1b3cb4cf2b2f' '8fc748e6bbd761f222fd33dec22f63a849d8d3756d84caa96d3e63f96a7fa63d' '30bb6b24f5267fdd4b985d657738e326c6504abe2aa0866c8d588319fa36a9ce')
 package() {
-  depends=('bash' 'asahi-scripts' 'kmod' 'wireless-regdb')
+  depends=('bash' 'asahi-scripts' 'kmod' 'wireless-regdb' 'cpio' 'util-linux')
   install -Dm644 aurora-firmware-order.conf "$pkgdir/usr/lib/modprobe.d/aurora-firmware-order.conf"
   install -Dm755 aurora-peripheral-firmware.sh "$pkgdir/usr/libexec/aurora/peripheral-firmware"
   install -Dm644 aurora-peripherals.service "$pkgdir/usr/lib/systemd/system/aurora-peripherals.service"
   install -Dm644 90-aurora-peripherals.preset "$pkgdir/usr/lib/systemd/system-preset/90-aurora-peripherals.preset"
   install -Dm644 aurora-vendor.install "$pkgdir/usr/lib/initcpio/install/aurora-vendor"
-  install -Dm644 aurora-vendor.hook "$pkgdir/usr/lib/initcpio/hooks/aurora-vendor"
+  install -Dm755 load-vendor-firmware "$pkgdir/usr/libexec/aurora/load-vendor-firmware"
+  install -Dm644 aurora-vendor-firmware.service "$pkgdir/usr/lib/aurora/initrd/aurora-vendor-firmware.service"
 }

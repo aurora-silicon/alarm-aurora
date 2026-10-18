@@ -1,0 +1,43 @@
+name: Native Aurora ALARM images
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        type: choice
+        options: [arch-minimal, arch-kde, arch-gnome]
+        default: arch-minimal
+      release-tag:
+        description: Immutable signed Aurora ALARM snapshot
+        required: true
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  image:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and seal the distribution image
+        env:
+          PROFILE: ${{ inputs.profile }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          docker run --rm --privileged --ipc=host -v /dev:/dev -v /run/udev:/run/udev:ro -v "$PWD:/src" -w /src \
+            registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
+              dnf install -y python3 gnupg2 tar gzip util-linux coreutils btrfs-progs e2fsprogs dosfstools zstd
+              bash scripts/build-image "$1" "$2"
+            ' image "$PROFILE" "$RELEASE_TAG" 2>&1 | tee image-build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ inputs.profile }}-candidate
+          compression-level: 0
+          path: |
+            image-build.log
+            out/*-filesystems.tar.zst*
+            out/*-installer/image.json
+          retention-days: 14

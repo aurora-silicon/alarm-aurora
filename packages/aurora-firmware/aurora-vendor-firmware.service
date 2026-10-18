@@ -1,0 +1,10 @@
+[Unit]
+Description=Extract this Mac's firmware before Aurora peripheral admission
+DefaultDependencies=no
+Wants=systemd-udev-settle.service
+After=systemd-udev-settle.service
+Before=sysroot.mount cryptsetup-pre.target aurora-initrd-root.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/aurora/load-vendor-firmware

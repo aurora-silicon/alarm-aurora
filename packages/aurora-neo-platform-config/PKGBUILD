@@ -1,0 +1,17 @@
+pkgname=aurora-neo-platform-config
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Driver-scoped Aurora Neo NetworkManager configuration'
+arch=('any')
+license=('MIT')
+url='https://github.com/aurora-silicon/aurora-neo-platform-config'
+_commit=834fe2dda273540b184b57ed16985b9d7effd244
+makedepends=('make')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-neo-platform-config/tar.gz/$_commit")
+sha256sums=('5fe9c9d14e8942466b514c676102634135afdc2bf76011332576ae05cd02597c')
+check() { cd "$pkgname-$_commit"; sh tests/run.sh; }
+package() {
+  cd "$pkgname-$_commit"
+  make install DESTDIR="$pkgdir" PREFIX=/usr
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

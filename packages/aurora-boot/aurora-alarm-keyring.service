@@ -1,0 +1,10 @@
+[Unit]
+Description=Create this Mac's pacman trust database
+ConditionPathExists=/var/lib/aurora/firstboot/pending
+After=local-fs.target systemd-random-seed.service
+Before=aurora-firstboot.service
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aurora/initialize-keyring
+[Install]
+WantedBy=multi-user.target

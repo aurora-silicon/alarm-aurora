@@ -1,11 +1,17 @@
 #!/bin/bash
 build() {
+  local binary
   add_module aop
   add_module mt7932-fullmac
   add_module mt7932_bt_pcie
+  add_module vfat
   add_file /usr/lib/modprobe.d/aurora-firmware-order.conf
-  add_binary /usr/bin/grep
+  for binary in bash mount umount mkdir tr cpio grep modprobe; do
+    add_binary "$(command -v "$binary")"
+  done
   add_file /usr/libexec/aurora/peripheral-firmware
-  add_runscript
+  add_file /usr/libexec/aurora/load-vendor-firmware
+  add_file /usr/lib/aurora/initrd/aurora-vendor-firmware.service /usr/lib/systemd/system/aurora-vendor-firmware.service
+  add_symlink /usr/lib/systemd/system/initrd.target.wants/aurora-vendor-firmware.service ../aurora-vendor-firmware.service
 }
-help() { echo 'Admit Apple peripherals after Asahi vendor firmware extraction.'; }
+help() { echo 'Extract vendor firmware and admit Apple peripherals in the systemd initrd.'; }
