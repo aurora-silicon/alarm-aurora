@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+trap 'status=$?; echo "Aurora image failed ($status) at line $LINENO: $BASH_COMMAND" >&2; exit "$status"' ERR
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 profile=${1:?arch-kde, arch-gnome or arch-minimal required}
 tag=${2:?immutable signed Aurora testing snapshot required}
@@ -18,6 +19,7 @@ loop=''; mountroot=$(mktemp -d)
 cleanup() {
   local status=$? clean=1
   trap - EXIT
+  if (( status != 0 )); then python3 "$root/scripts/diagnose-image-mounts.py" /tmp; fi
   for path in dev proc sys run boot/efi boot ''; do
     if mountpoint -q "$mountroot${path:+/$path}"; then umount -R "$mountroot${path:+/$path}" || clean=0; fi
   done
