@@ -1,0 +1,32 @@
+pkgname=aurora-sep
+pkgver=1
+pkgrel=4
+pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
+arch=('any')
+groups=('aurora-platform-apple-silicon')
+license=('GPL-2.0-only')
+url='https://github.com/aurora-silicon/linux'
+source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'prepare-sep-calibration' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'provenance.json' )
+sha256sums=('98d88d028d4a1e703cc9a3bb20d3248d9cd33899288b51bd17fa6af4d71e56df' 'a026a0d983a0338c9aa4c4f285dba37449a1e48a71375f8db6b311104d114a05' 'f8d0c4b9385e6716d5ac5dd9941a57459fbc551a8238383bcde36cd929d0523f' 'd30523611b7bade715551a1185bfe9d81efdea6dfc2bde6f02714ac474189530' '30b27c1e9fa8e73cae3e151ce932352b15d13e10da4b8725afda51faeff5589d' '2db07d3a0191e8d14581a3056505a8c4225b2fc8e6ea4a1956ae5493abcbb0ae' '5a5e5c7e93d1462d9d1023446fdb297926aeb93d8988867b515aca7adafe4487' '8d8df0ba2a6861b2edb2110e606906d84ca4848617621ad3cb48493a1522971d' '65f76d04b80cbc1d964139e92c50947c29cfd7626edae080587e0920bda4dd79' '15a878dcf382a22c5d807f0f2c754fe70d39baec88f65aea183b1fe56cf69441' '87de46450fe3322b74b50db64861cf42eeb725a0460a04f2a034c62e21f8f72f' '122147a26a700532efebeb8bd70536909352b7b3a0f7c61d64fba38c1ff5e097' '928924f8e7b5ea8db6fb209a83dfaf349ca5abe3e907b11a1990355096c78b79' )
+
+package() {
+  depends=('coreutils' 'fprintd' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'systemd' 'libfprint-aurora' 'linux-aurora>=7.2.10-4')
+  install -Dm755 load-driver "$pkgdir/usr/libexec/aurora-sep-load"
+  install -Dm755 aurora-sep-ready "$pkgdir/usr/libexec/aurora-sep-ready"
+  for name in prepare-sep-calibration extract-mesa-calibration; do
+    install -Dm755 "$name" "$pkgdir/usr/libexec/aurora/$name"
+  done
+  for name in aurora-sep.service aurora-sep-ready.service aurora-sep.timer; do
+    install -Dm644 "$name" "$pkgdir/usr/lib/systemd/system/$name"
+    sed -i 's|/usr/local/sbin/|/usr/libexec/|g' "$pkgdir/usr/lib/systemd/system/$name"
+  done
+  install -Dm644 aurora-sep-load.conf "$pkgdir/usr/lib/modprobe.d/aurora-sep-load.conf"
+  install -Dm644 fprintd-aurora.conf "$pkgdir/usr/lib/systemd/system/fprintd.service.d/aurora-sep.conf"
+  sed 's|@FPRINTD@|/usr/lib/fprintd|' fprintd-no-timeout.conf.in > fprintd-no-timeout.conf
+  install -Dm644 fprintd-no-timeout.conf "$pkgdir/usr/lib/systemd/system/fprintd.service.d/50-aurora-sep-no-timeout.conf"
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/80-aurora-sep.preset" <<'EOF'
+enable aurora-sep.timer
+EOF
+  install -Dm644 README.md "$pkgdir/usr/share/doc/aurora-sep/README.md"
+  install -Dm644 XART-SAFETY.md "$pkgdir/usr/share/doc/aurora-sep/XART-SAFETY.md"
+}

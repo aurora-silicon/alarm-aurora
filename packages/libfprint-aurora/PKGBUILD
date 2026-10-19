@@ -1,0 +1,45 @@
+pkgname=libfprint-aurora
+pkgver=1.94.100
+pkgrel=1
+pkgdesc='Fingerprint reader library with the Aurora SEP driver'
+arch=('aarch64')
+groups=('aurora-platform-apple-silicon')
+license=('LGPL-2.1-or-later' 'LicenseRef-NIST-PD')
+url='https://github.com/aurora-silicon/aurora-sep-userspace'
+provides=('libfprint=1.94.100' 'libfprint-2.so')
+conflicts=('libfprint')
+depends=('glib2' 'libgusb' 'libgudev' 'nss' 'openssl' 'pixman' 'systemd-libs')
+makedepends=('meson' 'ninja' 'glib2-devel' 'gobject-introspection' 'gtk-doc' 'systemd')
+checkdepends=('cairo' 'python-cairo' 'python-gobject' 'umockdev')
+_commit=80a4b5ec612892c5c056c48dddaa561452cf37ec
+source=("libfprint-$_commit.tar.gz::https://gitlab.freedesktop.org/api/v4/projects/libfprint%2Flibfprint/repository/archive.tar.gz?sha=80a4b5ec612892c5c056c48dddaa561452cf37ec"
+  '0002-aurora-report-unusable-captures-as-retries.patch'
+  '0003-hide-lid-covered-readers-while-the-lid-is-closed.patch'
+  'apple-sep.h'
+  'fprintd-lid-switch.conf'
+  'libfprint-1.94.100-apple-sep.patch'
+)
+sha256sums=('94ff7f3689d14da28389a4d9cad5fb523065bbed3e6c8e3694522fde1316e780' '6a594471084ce5d6e65e3edaccc7f10a62dd3bb1cfc2bcdfa6b3f2357906620a' '598ef73a4fa13e9860542aeeb5084d53dc0df32e99c1170311dd2c1b5364f4b9' '00cb09430461e0b0772619bc2054c8f9794484fbc3d807268955c0fb2de45c10' 'dd53832d8da285112742d1f8a4726236e724293c6f96af0f1309c01c45b065a4' '55aef4a2019568a13aea48064ed83858a7ce4902636f8e85e46877ce9d8ef172' )
+
+prepare() {
+  cd "libfprint-$_commit-$_commit"
+  patch -Np1 -i "$srcdir/libfprint-1.94.100-apple-sep.patch"
+  patch -Np1 -i "$srcdir/0002-aurora-report-unusable-captures-as-retries.patch"
+  patch -Np1 -i "$srcdir/0003-hide-lid-covered-readers-while-the-lid-is-closed.patch"
+  install -Dm644 "$srcdir/apple-sep.h" aurora-uapi/linux/apple-sep.h
+}
+
+build() {
+  export CFLAGS="$CFLAGS -I$srcdir/libfprint-$_commit-$_commit/aurora-uapi"
+  arch-meson "libfprint-$_commit-$_commit" build -Ddrivers=all
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "$srcdir/fprintd-lid-switch.conf" "$pkgdir/usr/lib/systemd/system/fprintd.service.d/50-libfprint-lid-switch.conf"
+}

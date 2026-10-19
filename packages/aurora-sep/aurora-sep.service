@@ -1,0 +1,16 @@
+[Unit]
+Description=Aurora SEP services
+After=local-fs.target aurora-peripherals.service
+RequiresMountsFor=/var/lib
+ConditionPathExists=/dev/disk/by-partlabel/iBootSystemContainer
+Wants=aurora-sep-ready.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecCondition=/bin/sh -c 'modinfo apple_sep >/dev/null 2>&1'
+ExecStartPre=/usr/libexec/aurora/prepare-sep-calibration
+ExecStart=/usr/local/sbin/aurora-sep-load
+StateDirectory=aurora-sep
+StateDirectoryMode=0700
+TimeoutStartSec=180

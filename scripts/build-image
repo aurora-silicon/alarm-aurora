@@ -71,7 +71,7 @@ s=s[:at]+('[aurora]\nSigLevel = Required DatabaseRequired\nServer = https://gith
 p.write_text(s)
 PY
 packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez bluez-utils wireless-regdb linux-firmware
-  asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-firmware aura uboot-aurora
+  asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw upower-aurora mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
   arch-kde) packages+=(plasma-meta sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde);;
