@@ -1,11 +1,13 @@
 import hashlib
 import importlib.util
 import json
+from contextlib import chdir
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('publication', Path(__file__).resolve().parents[1] / 'scripts/collect-publication-inputs.py')
 module = importlib.util.module_from_spec(spec)
@@ -91,6 +93,35 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(module.collect_archive(thin, thin_metadata, output), [])
         self.assertEqual((output / 'test-1-aarch64.pkg.tar.zst').read_bytes(), b'package')
         self.assertEqual(list(output.glob('*.incoming')), [])
+
+    def test_complete_collector_rejects_a_log_only_recipe_artifact(self):
+        artifacts = []
+        sources = {}
+        for index, name in enumerate(('linux-aurora', 'firstboot', 'mesa'), 1):
+            files = {} if name == 'firstboot' else {name + '-1-aarch64.pkg.tar.zst': name.encode()}
+            archive, metadata = self.artifact(name + '.zip', files)
+            sources[str(index)] = archive
+            artifacts.append({**metadata, 'id': index, 'name': 'alarm-' + name,
+                              'expired': False, 'size_in_bytes': archive.stat().st_size})
+        metadata = {**self.metadata, 'id': 99}
+        original = subprocess.run
+
+        def download(args, **kwargs):
+            if args[:2] == ['gh', 'api']:
+                artifact = args[2].split('/')[-2]
+                kwargs['stdout'].write(sources[artifact].read_bytes())
+                return subprocess.CompletedProcess(args, 0)
+            return original(args, **kwargs)
+
+        def api(*args):
+            return [{'artifacts': artifacts}] if 'artifacts?' in args[-1] else metadata
+
+        with chdir(self.root), patch.object(module, '__file__', str(self.root / 'scripts/collect-publication-inputs.py')), \
+                patch.object(module, 'gh_json', side_effect=api), patch.object(subprocess, 'run', side_effect=download), \
+                patch('sys.argv', ['collect', '--runs', '99', '--repository', 'aurora-silicon/alarm-aurora', '--output', 'complete']):
+            with self.assertRaisesRegex(ValueError, 'no actual package'):
+                module.main()
+        self.assertFalse((self.root / 'publication-inputs.json').exists())
 
 
 if __name__ == '__main__':
