@@ -1,5 +1,5 @@
 import hashlib
-import importlib.util
+import types
 import json
 from contextlib import chdir
 from pathlib import Path
@@ -9,9 +9,11 @@ import unittest
 import zipfile
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('publication', Path(__file__).resolve().parents[1] / 'scripts/collect-publication-inputs.py')
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
+script = Path(__file__).resolve().parents[1] / 'scripts/collect-publication-inputs.py'
+module = types.ModuleType('publication')
+module.__file__ = str(script)
+# Load the fixture without leaving bytecode in the shell-script scan directory.
+exec(compile(script.read_text(), str(script), 'exec'), module.__dict__)
 
 
 class PublicationTests(unittest.TestCase):
