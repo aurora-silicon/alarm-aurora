@@ -72,7 +72,7 @@ p.write_text(s)
 PY
 packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez bluez-utils wireless-regdb linux-firmware
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-firmware aura uboot-aurora
-  mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
+  avd-fw upower-aurora mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
   arch-kde) packages+=(plasma-meta sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde);;
   arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome);;
@@ -83,7 +83,8 @@ if chroot "$mountroot" pacman -Q linux-aarch64 >/dev/null 2>&1; then
   chroot "$mountroot" pacman -R --noconfirm linux-aarch64
 fi
 [[ ! -e $mountroot/etc/mkinitcpio.d/linux-aarch64.preset ]]
-chroot "$mountroot" pacman -Q linux-aurora
+chroot "$mountroot" pacman -Q linux-aurora avd-fw upower-aurora
+! chroot "$mountroot" pacman -Q upower >/dev/null 2>&1
 chroot "$mountroot" userdel -r alarm
 chroot "$mountroot" usermod -L root
 rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"

@@ -4,6 +4,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      packages:
+        description: Space-separated package directories; empty builds all
+        default: ''
 permissions:
   contents: read
 defaults:
@@ -26,15 +30,21 @@ jobs:
           names=sorted(p.parent.name for p in Path('packages').glob('*/PKGBUILD'))
           event=json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
           before=event.get('before','')
-          if os.environ['GITHUB_EVENT_NAME']=='push' and before.strip('0'):
+          requested=event.get('inputs',{}).get('packages','').split()
+          if requested:
+              if not set(requested)<=set(names): raise SystemExit('Unknown requested package')
+              names=sorted(set(requested))
+          elif os.environ['GITHUB_EVENT_NAME']=='push' and before.strip('0'):
               paths=subprocess.check_output(['git','diff','--name-only',before,os.environ['GITHUB_SHA']],text=True).splitlines()
               if 'sources.json' in paths:
                   previous=json.loads(subprocess.check_output(['git','show',before+':sources.json'],text=True))
                   current=json.loads(Path('sources.json').read_text())
                   changed={key for key in previous.keys()|current.keys() if previous.get(key)!=current.get(key)}
-                  if changed <= {'aurora-firstboot'}:
+                  source_packages={name:name for name in names}
+                  source_packages['kernel-aurora']='linux-aurora'
+                  if changed <= set(source_packages):
                       paths.remove('sources.json')
-                      if changed: paths.append('packages/aurora-firstboot/PKGBUILD')
+                      paths.extend('packages/'+source_packages[name]+'/PKGBUILD' for name in changed)
               core={'scripts/ci-build-package','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','.github/workflows/packages.yml','sources.json'}
               if not core.intersection(paths):
                   names=sorted({p.split('/')[1] for p in paths if p.startswith('packages/') and p.split('/')[1] in names})

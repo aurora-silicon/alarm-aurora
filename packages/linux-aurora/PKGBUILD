@@ -6,7 +6,7 @@
 
 _auroraver=7.2.10
 _aurorarel=1
-pkgrel=1
+pkgrel=2
 
 # Immutable pin on aurora-silicon/linux (branch unified/7.2.10). Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -41,6 +41,9 @@ sha256sums=('e54876197d94c291e15e175dffc6e889670f59e828c5762a56cf6ac1a5071c1a'
             '0732060bdf4215c4e00e02afaca378044658923831a9bdae31f25a48e21527e5'
             '8e81d2a1c317a6080966b0d52cbb241ff6d4cd7d32ea9aaddb8dfc7aec0b6684'
             '6804a0b0ef200548b9ee4b7f10a345165dc6c1ba2ef9de00e2b43c48e8a58440')
+
+source+=(0001-arm64-apple-m4-wait-state.patch)
+sha256sums+=('97d30fbb292e2c849bc1f7041ba374591f12ab439bf822b51ffc2c8ac40b61a0')
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
 export ARCH=arm64

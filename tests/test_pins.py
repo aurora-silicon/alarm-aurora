@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class PinTests(unittest.TestCase):
     def test_hardware_recipes_match_the_recorded_source_pins(self):
         pins = json.loads((ROOT / 'sources.json').read_text())
-        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless']:
+        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'upower-aurora']:
             self.assertIn(pins[name]['commit'], (ROOT / 'packages' / name / 'PKGBUILD').read_text())
         self.assertIn(pins['kernel-aurora']['commit'], (ROOT / 'packages/linux-aurora/PKGBUILD').read_text())
     def test_base_image_is_signed_and_hash_pinned(self):
