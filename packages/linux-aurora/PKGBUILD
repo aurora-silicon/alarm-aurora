@@ -6,7 +6,7 @@
 
 _auroraver=7.2.10
 _aurorarel=1
-pkgrel=2
+pkgrel=3
 
 # Immutable pin on aurora-silicon/linux (branch unified/7.2.10). Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -39,7 +39,7 @@ sha256sums=('e54876197d94c291e15e175dffc6e889670f59e828c5762a56cf6ac1a5071c1a'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
             '0732060bdf4215c4e00e02afaca378044658923831a9bdae31f25a48e21527e5'
-            '8e81d2a1c317a6080966b0d52cbb241ff6d4cd7d32ea9aaddb8dfc7aec0b6684'
+            'a91b8d9bc5d670c7c4a8a9ca6035922754cadf990dfafed502316cba741fa951'
             '6804a0b0ef200548b9ee4b7f10a345165dc6c1ba2ef9de00e2b43c48e8a58440')
 
 source+=(0001-arm64-apple-m4-wait-state.patch)
