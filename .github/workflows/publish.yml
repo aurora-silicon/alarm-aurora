@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       build-run:
-        description: Successful full Native ALARM packages run at this main commit
+        description: Successful full native package build with unchanged package inputs
         required: true
       release-tag:
         description: New immutable testing snapshot tag
@@ -30,8 +30,16 @@ jobs:
         run: |
           [[ $BUILD_RUN =~ ^[0-9]+$ && $RELEASE_TAG =~ ^testing-[A-Za-z0-9._-]+$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > build.json
-          jq -e --arg repo "$GITHUB_REPOSITORY" --arg head "$GITHUB_SHA" \
-            '.conclusion == "success" and .head_branch == "main" and .head_sha == $head and .head_repository.full_name == $repo and .path == ".github/workflows/packages.yml" and (.event == "push" or .event == "workflow_dispatch")' build.json
+          jq -e --arg repo "$GITHUB_REPOSITORY" \
+            '.conclusion == "success" and .head_branch == "main" and .head_repository.full_name == $repo and .path == ".github/workflows/packages.yml" and (.event == "push" or .event == "workflow_dispatch")' build.json
+          build_head=$(jq -r .head_sha build.json)
+          [[ $build_head =~ ^[a-f0-9]{40}$ ]]
+          git fetch --depth=1 origin "$build_head"
+          # A publisher-only correction may reuse a fully successful build.
+          # Every package recipe, source pin, build script and build workflow
+          # must be byte-identical; any other difference requires a new build.
+          changed=$(git diff --name-only "$build_head" "$GITHUB_SHA" -- . ':(exclude).github/workflows/publish.yml')
+          [[ -z $changed ]] || { printf 'Package input changes require a new full build:\n%s\n' "$changed" >&2; exit 1; }
           gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --pattern 'alarm-*' --dir downloaded
           python3 - <<'PY'
           from pathlib import Path
@@ -52,6 +60,8 @@ jobs:
               dnf install -y pacman bsdtar gnupg2 python3
               python3 scripts/sign-repository.py --packages input-packages --output repository
             '
+      - name: Return signed output ownership to the publisher
+        run: sudo chown -R "$(id -u):$(id -g)" repository
       - name: Publish the immutable testing snapshot
         env:
           GH_TOKEN: ${{ github.token }}
