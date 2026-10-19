@@ -7,7 +7,9 @@ early built-in probe cannot initialize the driver reliably.
 The boot timer starts the loader after local filesystems are available, without
 holding up the desktop. fprintd also joins initialization when requested. The
 modprobe alias blacklist only defers automatic probing: the service explicitly
-loads SEP on every supported boot. Dracut omits the module from the initramfs.
+loads SEP on every supported boot. Dracut omits the module from the initramfs. The loader skips an older running
+kernel with SEP built in, and starts normally after reboot into the module-based
+kernel.
 
 Calibration extraction reads the local boot container without modifying it. A
 private cache is bound to its partition identity and SHA-256. The device-tree
