@@ -96,11 +96,11 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual((output / 'test-1-aarch64.pkg.tar.zst').read_bytes(), b'package')
         self.assertEqual(list(output.glob('*.incoming')), [])
 
-    def test_complete_collector_rejects_a_log_only_recipe_artifact(self):
+    def collect_fixture(self, log_only):
         artifacts = []
         sources = {}
         for index, name in enumerate(('linux-aurora', 'firstboot', 'mesa'), 1):
-            files = {} if name == 'firstboot' else {name + '-1-aarch64.pkg.tar.zst': name.encode()}
+            files = {} if log_only and name == 'firstboot' else {name + '-1-aarch64.pkg.tar.zst': name.encode()}
             archive, metadata = self.artifact(name + '.zip', files)
             sources[str(index)] = archive
             artifacts.append({**metadata, 'id': index, 'name': 'alarm-' + name,
@@ -121,9 +121,20 @@ class PublicationTests(unittest.TestCase):
         with chdir(self.root), patch.object(module, '__file__', str(self.root / 'scripts/collect-publication-inputs.py')), \
                 patch.object(module, 'gh_json', side_effect=api), patch.object(subprocess, 'run', side_effect=download), \
                 patch('sys.argv', ['collect', '--runs', '99', '--repository', 'aurora-silicon/alarm-aurora', '--output', 'complete']):
-            with self.assertRaisesRegex(ValueError, 'no actual package'):
-                module.main()
+            module.main()
+
+    def test_complete_collector_rejects_a_log_only_recipe_artifact(self):
+        with self.assertRaisesRegex(ValueError, 'no actual package'):
+            self.collect_fixture(True)
         self.assertFalse((self.root / 'publication-inputs.json').exists())
+
+    def test_complete_collector_records_every_authenticated_recipe(self):
+        self.collect_fixture(False)
+        record = json.loads((self.root / 'publication-inputs.json').read_text())
+        self.assertEqual(len(record['artifacts']), 3)
+        self.assertEqual({a['name'] for a in record['artifacts']}, {'alarm-linux-aurora', 'alarm-firstboot', 'alarm-mesa'})
+        self.assertTrue(all(a['packages'] for a in record['artifacts']))
+        self.assertEqual(len(list((self.root / 'complete').glob('*.pkg.tar.zst'))), 3)
 
 
 if __name__ == '__main__':
