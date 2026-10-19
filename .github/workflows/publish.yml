@@ -40,15 +40,47 @@ jobs:
           # must be byte-identical; any other difference requires a new build.
           changed=$(git diff --name-only "$build_head" "$GITHUB_SHA" -- . ':(exclude).github/workflows/publish.yml')
           [[ -z $changed ]] || { printf 'Package input changes require a new full build:\n%s\n' "$changed" >&2; exit 1; }
-          gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --pattern 'alarm-*' --dir downloaded
           python3 - <<'PY'
           from pathlib import Path
+          import hashlib,json,os,re,shutil,subprocess,zipfile
           expected={'alarm-'+p.parent.name for p in Path('packages').glob('*/PKGBUILD')}
-          assert expected <= {p.name for p in Path('downloaded').iterdir()}, 'publication requires the complete recipe matrix'
+          endpoint=f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["BUILD_RUN"]}/artifacts?per_page=100'
+          pages=json.loads(subprocess.check_output(['gh','api','--paginate','--slurp',endpoint]))
+          artifacts=[a for page in pages for a in page['artifacts'] if a['name'] in expected]
+          assert expected <= {a['name'] for a in artifacts}, 'complete recipe matrix required'
+          assert sum(a['size_in_bytes'] for a in artifacts) < 1_500_000_000
+          downloads=Path('downloaded'); downloads.mkdir()
+          output=Path('input-packages'); output.mkdir()
+          populated=set(); receipt=[]
+          for artifact in artifacts:
+              assert not artifact['expired'] and isinstance(artifact['id'],int)
+              archive=downloads/f"{artifact['name']}-{artifact['id']}.zip"
+              with archive.open('wb') as stream:
+                  subprocess.run(['gh','api',f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/artifacts/{artifact["id"]}/zip'],stdout=stream,check=True)
+              with archive.open('rb') as stream:
+                  digest='sha256:'+hashlib.file_digest(stream,'sha256').hexdigest()
+              assert digest == artifact['digest'], 'CI artifact digest mismatch'
+              packages=[]
+              with zipfile.ZipFile(archive) as entries:
+                  for entry in entries.infolist():
+                      name=Path(entry.filename).name
+                      if not re.fullmatch(r'[A-Za-z0-9_.+:~-]+\.pkg\.tar\.(xz|zst|gz)',name): continue
+                      assert not entry.is_dir() and entry.file_size < 900_000_000
+                      assert (entry.external_attr >> 16) & 0o170000 != 0o120000
+                      candidate=output/(name+'.incoming')
+                      with entries.open(entry) as source,candidate.open('xb') as target:
+                          shutil.copyfileobj(source,target)
+                      destination=output/name
+                      if destination.exists():
+                          with candidate.open('rb') as left,destination.open('rb') as right:
+                              assert hashlib.file_digest(left,'sha256').digest()==hashlib.file_digest(right,'sha256').digest(), 'conflicting duplicate package'
+                          candidate.unlink()
+                      else: candidate.rename(destination)
+                      packages.append(name); populated.add(artifact['name'])
+              receipt.append({'artifact_id':artifact['id'],'name':artifact['name'],'digest':digest,'packages':packages})
+          assert expected == populated, 'a recipe has no actual package archive'
+          Path('publication-inputs.json').write_text(json.dumps(receipt,indent=2)+'\n')
           PY
-          mkdir input-packages
-          find downloaded -name '*.pkg.tar.*' ! -name '*.sig' -exec cp {} input-packages/ \;
-          test "$(find input-packages -type f | wc -l)" -ge 12
       - name: Sign the package set and pacman databases
         env:
           ALARM_SIGNING_KEY: ${{ secrets.ALARM_SIGNING_KEY }}
@@ -67,7 +99,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release-tag }}
         run: |
-          cp build.json repository/build.json
+          cp build.json publication-inputs.json repository/
           gh release create "$RELEASE_TAG" repository/* --target "$GITHUB_SHA" \
             --prerelease --title "Aurora ALARM $RELEASE_TAG" \
             --notes 'Signed native ALARM development package snapshot. Package and database signatures are verified before upload. Physical installation qualification is recorded separately.'
