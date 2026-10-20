@@ -50,6 +50,16 @@ class PublicationTests(unittest.TestCase):
         self.commit()
         self.assertEqual(self.eligible(), {'alarm-linux-aurora', 'alarm-firstboot', 'alarm-mesa'})
 
+    def test_manual_branch_build_can_be_reused_only_after_its_commit_is_merged(self):
+        manual = {**self.metadata, 'head_branch': 'update/kernel', 'event': 'workflow_dispatch'}
+        self.assertEqual(self.eligible(manual), {'alarm-linux-aurora', 'alarm-firstboot', 'alarm-mesa'})
+        (self.root / 'README').write_text('not merged\n')
+        self.commit()
+        manual['head_sha'] = self.git('rev-parse', 'HEAD')
+        self.git('checkout', '-q', '--detach', self.metadata['head_sha'])
+        with self.assertRaisesRegex(ValueError, 'not merged'):
+            self.eligible(manual)
+
     def test_changed_recipe_or_source_pin_cannot_reuse_its_old_artifact(self):
         (self.root / 'packages/firstboot/PKGBUILD').write_text('pkgver=2\n')
         pins = json.loads((self.root / 'sources.json').read_text())

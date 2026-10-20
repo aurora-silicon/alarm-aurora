@@ -6,12 +6,12 @@
 
 _auroraver=7.2.10
 _aurorarel=1
-pkgrel=4
+pkgrel=5
 
-# Immutable pin on aurora-silicon/linux (branch unified/7.2.10). Every bump is a
+# Immutable pin on omacom/linux-aurora integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=e0fa50d863ee7747de0af16525dfd974cdd826f8
+_commit=1b4997bbab620051e01fb807c6561a483c0f06f6
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
@@ -24,7 +24,7 @@ _desc="AArch64 Apple Silicon (Aurora kernel)"
 pkgver="${_auroraver}.aurora${_aurorarel}"
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
-url="https://github.com/aurora-silicon/linux"
+url="https://github.com/omacom/linux-aurora"
 license=('GPL2')
 
 makedepends=(
@@ -32,7 +32,7 @@ makedepends=(
   tar xz xmlto python git patch
 )
 options=('!strip')
-source=(validate-config.py "linux::git+https://github.com/aurora-silicon/linux.git#commit=${_commit}"
+source=(validate-config.py "linux::git+https://github.com/omacom/linux-aurora.git#commit=${_commit}"
         rust-toolchain.toml bindgen-kernel.py config common.config neo.config)
 sha256sums=('e54876197d94c291e15e175dffc6e889670f59e828c5762a56cf6ac1a5071c1a'
             'SKIP'
@@ -42,8 +42,6 @@ sha256sums=('e54876197d94c291e15e175dffc6e889670f59e828c5762a56cf6ac1a5071c1a'
             'b38ae403fdf9bf47ce79c89210ff3950c0a8cdcd4dae01abcf2a7efbdce1e68a'
             '6804a0b0ef200548b9ee4b7f10a345165dc6c1ba2ef9de00e2b43c48e8a58440')
 
-source+=(0001-arm64-apple-m4-wait-state.patch)
-sha256sums+=('97d30fbb292e2c849bc1f7041ba374591f12ab439bf822b51ffc2c8ac40b61a0')
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
 export ARCH=arm64
@@ -95,7 +93,7 @@ prepare() {
   rustup toolchain install 1.99.0 --profile minimal --component rust-src
   mkdir -p build/base
   cp ../config build/base/.config
-  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config ../common.config ../neo.config
+  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config ../neo.config
   # Keep shared kexec support: apple_piodma_lock_transition() in
   # pcie-apple-piodma-diag.c acquires the kernel kexec blocker before Neo radio
   # admission retains DMA/firmware ownership. Both kexec
