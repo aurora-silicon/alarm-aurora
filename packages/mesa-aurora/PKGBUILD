@@ -1,14 +1,14 @@
 pkgbase=mesa-aurora
 pkgname=('mesa-aurora' 'vulkan-aurora')
 epoch=1
-pkgver=26.3.0_devel.20261017.af3d9c6fc84
+pkgver=26.3.0_devel.20261020.2305fd923ca
 pkgrel=1
 pkgdesc='Aurora Asahi Gallium, Zink and Honeykrisp'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/mesa'
 license=('MIT')
-_commit=af3d9c6fc84f6e5bc6ee23f1eb0b47a5ee466826
+_commit=2305fd923cac881985ec67ec3f1f4284e4170fab
 # Matched to the DRM UAPI in omacom/linux-aurora integration/aurora.
 # The drivers link neither LLVM nor SPIRV-Tools. Arch Linux ARM moves both
 # (llvm-libs changes soname every major, SPIRV-Tools has no versioned soname),
@@ -21,9 +21,8 @@ makedepends=('git' 'meson' 'ninja' 'python-mako' 'python-yaml' 'python-packaging
              'libx11' 'libxcb' 'libxext' 'libxfixes' 'libxrandr' 'libxshmfence' 'libxxf86vm'
              'wayland' 'wayland-protocols' 'vulkan-headers' 'vulkan-icd-loader' 'libdisplay-info'
              'lm_sensors' 'zlib' 'zstd' 'xcb-util-keysyms')
-source=("mesa::git+$url.git#commit=$_commit"
-        0001-hk-preserve-library-assertion-mode-in-test.patch)
-sha256sums=('SKIP' 'e8684509bed4c22c89064399842ce7646ad1572c176b1794953454f80edbb412')
+source=("mesa::git+$url.git#commit=$_commit")
+sha256sums=('SKIP')
 options=('!debug')
 _options=(-Dplatforms=x11,wayland
   -Dgallium-drivers=asahi,zink,softpipe -Dvulkan-drivers=asahi
@@ -35,9 +34,6 @@ _options=(-Dplatforms=x11,wayland
 _meson() {
   meson setup --prefix /usr --libexecdir lib --sbindir bin --buildtype plain \
     --wrap-mode nodownload -Db_pie=true -Db_ndebug=true -Dpython.bytecompile=1 "$@"
-}
-prepare() {
-  patch -d mesa -Np1 -i "$srcdir/0001-hk-preserve-library-assertion-mode-in-test.patch"
 }
 build() {
   # The bootstrap builds only three shader tools; the driver build runs tests.
