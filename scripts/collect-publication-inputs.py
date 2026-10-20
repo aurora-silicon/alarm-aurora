@@ -20,12 +20,13 @@ def git(root, *args):
 
 def eligible_recipes(root, metadata, repository):
     commit = metadata.get('head_sha', '')
-    if (metadata.get('conclusion') != 'success' or metadata.get('head_branch') != 'main'
+    if (metadata.get('conclusion') != 'success'
             or metadata.get('head_repository', {}).get('full_name') != repository
             or metadata.get('path') != '.github/workflows/packages.yml'
             or metadata.get('event') not in ('push', 'workflow_dispatch')
+            or (metadata.get('event') == 'push' and metadata.get('head_branch') != 'main')
             or not re.fullmatch('[a-f0-9]{40}', commit)):
-        raise ValueError('Not a successful native main-branch build from this repository')
+        raise ValueError('Not a successful native main-branch or manual build from this repository')
     if subprocess.run(['git', '-C', str(root), 'merge-base', '--is-ancestor', commit, 'HEAD']).returncode:
         raise ValueError('Build source is not merged into the publisher')
     for path in SHARED:
