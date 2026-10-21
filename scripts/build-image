@@ -74,7 +74,7 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez blue
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw upower-aurora mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
-  arch-kde) packages+=(plasma-meta sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde);;
+  arch-kde) packages+=(plasma-meta kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde);;
   arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"

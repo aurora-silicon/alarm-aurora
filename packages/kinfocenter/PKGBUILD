@@ -1,0 +1,77 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: Andrea Scarpino <andrea@archlinux.org>
+
+pkgname=kinfocenter
+pkgver=6.8.0
+_dirver=$(echo $pkgver | cut -d. -f1-3)
+pkgrel=2
+pkgdesc='A utility that provides information about a computer system'
+arch=(aarch64)
+url='https://kde.org/plasma-desktop/'
+license=(LGPL-2.0-or-later)
+depends=(aha
+         clinfo
+         dmidecode
+         glibc
+         glu
+         iproute2 # ip
+         kauth
+         kcmutils
+         kconfig
+         kcoreaddons
+         kdeclarative
+         ki18n
+         kio
+         kirigami
+         kservice
+         libdisplay-info
+         libdrm
+         libglvnd
+         libpulse # pactl
+         libstdc++
+         libusb
+         libva-utils
+         lm_sensors
+         mesa-utils
+         qt6-base
+         qt6-declarative
+         qt6-graphs
+         sh
+         solid
+         systemd-libs
+         systemsettings
+         vulkan-tools
+         wayland-utils
+         xorg-xdpyinfo)
+makedepends=(extra-cmake-modules
+             fwupd
+             kdoctools
+             vulkan-headers)
+optdepends=('fwupd: firmware security module'
+            'plasma-disks: SMART devices health monitor')
+groups=(plasma)
+source=(https://download.kde.org/stable/plasma/$_dirver/$pkgname-$pkgver.tar.xz{,.sig}
+        0001-handle-unknown-installed-memory.patch)
+sha256sums=('56ca33428a14c7963e75be1c39025e62b70253b0e0fdc500072a38df9411a761'
+            'SKIP'
+            'e77c81336d8cb3f1a74b876c261bf4fc902315b4864b2c9146adb176754c6367')
+validpgpkeys=('E0A3EB202F8E57528E13E72FD7574483BB57B18D'  # Jonathan Esk-Riddell <jr@jriddell.org>
+              '0AAC775BB6437A8D9AF7A3ACFE0784117FBCE11D'  # Bhushan Shah <bshah@kde.org>
+              'D07BD8662C56CB291B316EB2F5675605C74E02CF'  # David Edmundson <davidedmundson@kde.org>
+              '1FA881591C26B276D7A5518EEAAF29B42A678C20') # Marco Martin <notmart@gmail.com>
+
+prepare() {
+  patch -d $pkgname-$pkgver -p1 < 0001-handle-unknown-installed-memory.patch
+}
+
+build() {
+  cmake -B build  -S $pkgname-$pkgver \
+    -DBUILD_TESTING=OFF \
+    -DKDE_INSTALL_LIBEXECDIR=lib
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
