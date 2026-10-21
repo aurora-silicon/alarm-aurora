@@ -1,18 +1,32 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=5
+pkgrel=6
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 license=('GPL-2.0-only')
 url='https://github.com/aurora-silicon/linux'
-source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'prepare-sep-calibration' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'provenance.json' )
-sha256sums=('98d88d028d4a1e703cc9a3bb20d3248d9cd33899288b51bd17fa6af4d71e56df' '1bb0f37f5057c64ba5f6ca024b05c314abefc3b756f95e858c5c2c1213ca7d89' 'f8d0c4b9385e6716d5ac5dd9941a57459fbc551a8238383bcde36cd929d0523f' '875f8857c2fb61b139072e08625e1b4d4726680e276c8ecd486dc2c2ebc25372' '30b27c1e9fa8e73cae3e151ce932352b15d13e10da4b8725afda51faeff5589d' '2db07d3a0191e8d14581a3056505a8c4225b2fc8e6ea4a1956ae5493abcbb0ae' '5a5e5c7e93d1462d9d1023446fdb297926aeb93d8988867b515aca7adafe4487' '8d8df0ba2a6861b2edb2110e606906d84ca4848617621ad3cb48493a1522971d' '65f76d04b80cbc1d964139e92c50947c29cfd7626edae080587e0920bda4dd79' '15a878dcf382a22c5d807f0f2c754fe70d39baec88f65aea183b1fe56cf69441' '87de46450fe3322b74b50db64861cf42eeb725a0460a04f2a034c62e21f8f72f' '122147a26a700532efebeb8bd70536909352b7b3a0f7c61d64fba38c1ff5e097' '928924f8e7b5ea8db6fb209a83dfaf349ca5abe3e907b11a1990355096c78b79' )
+source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'prepare-sep-calibration' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'provenance.json' )
+sha256sums=('98d88d028d4a1e703cc9a3bb20d3248d9cd33899288b51bd17fa6af4d71e56df'
+            '1bb0f37f5057c64ba5f6ca024b05c314abefc3b756f95e858c5c2c1213ca7d89'
+            'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
+            '875f8857c2fb61b139072e08625e1b4d4726680e276c8ecd486dc2c2ebc25372'
+            '30b27c1e9fa8e73cae3e151ce932352b15d13e10da4b8725afda51faeff5589d'
+            '2db07d3a0191e8d14581a3056505a8c4225b2fc8e6ea4a1956ae5493abcbb0ae'
+            '540e0fb2995fe6e34da9a1c6128430e4ac921405de94efcd2b20d8d1ac2310e6'
+            '8d8df0ba2a6861b2edb2110e606906d84ca4848617621ad3cb48493a1522971d'
+            '65f76d04b80cbc1d964139e92c50947c29cfd7626edae080587e0920bda4dd79'
+            '15a878dcf382a22c5d807f0f2c754fe70d39baec88f65aea183b1fe56cf69441'
+            '87de46450fe3322b74b50db64861cf42eeb725a0460a04f2a034c62e21f8f72f'
+            '122147a26a700532efebeb8bd70536909352b7b3a0f7c61d64fba38c1ff5e097'
+            'a07ea64ab1ae82761ee07c22af502e3701a37781f00bd2c2ad92864ecc5cf61c'
+            '928924f8e7b5ea8db6fb209a83dfaf349ca5abe3e907b11a1990355096c78b79')
 
 package() {
   depends=('coreutils' 'fprintd' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'systemd' 'libfprint-aurora' 'linux-aurora>=7.2.10-4')
   install -Dm755 load-driver "$pkgdir/usr/libexec/aurora-sep-load"
   install -Dm755 aurora-sep-ready "$pkgdir/usr/libexec/aurora-sep-ready"
+  install -Dm755 sensor-present "$pkgdir/usr/libexec/aurora-sep-sensor-present"
   for name in prepare-sep-calibration extract-mesa-calibration; do
     install -Dm755 "$name" "$pkgdir/usr/libexec/aurora/$name"
   done

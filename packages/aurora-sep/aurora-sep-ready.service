@@ -14,5 +14,6 @@ JobTimeoutSec=90
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+ExecCondition=/usr/libexec/aurora-sep-sensor-present
 ExecStart=/usr/local/sbin/aurora-sep-ready
 TimeoutStartSec=60
