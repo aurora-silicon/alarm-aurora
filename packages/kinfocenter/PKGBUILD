@@ -51,16 +51,10 @@ makedepends=(extra-cmake-modules
 optdepends=('fwupd: firmware security module'
             'plasma-disks: SMART devices health monitor')
 groups=(plasma)
-source=(https://download.kde.org/stable/plasma/$_dirver/$pkgname-$pkgver.tar.xz{,.sig}
+source=(https://download.kde.org/stable/plasma/$_dirver/$pkgname-$pkgver.tar.xz
         0001-handle-unknown-installed-memory.patch)
 sha256sums=('56ca33428a14c7963e75be1c39025e62b70253b0e0fdc500072a38df9411a761'
-            'SKIP'
             'e77c81336d8cb3f1a74b876c261bf4fc902315b4864b2c9146adb176754c6367')
-validpgpkeys=('E0A3EB202F8E57528E13E72FD7574483BB57B18D'  # Jonathan Esk-Riddell <jr@jriddell.org>
-              '0AAC775BB6437A8D9AF7A3ACFE0784117FBCE11D'  # Bhushan Shah <bshah@kde.org>
-              'D07BD8662C56CB291B316EB2F5675605C74E02CF'  # David Edmundson <davidedmundson@kde.org>
-              '1FA881591C26B276D7A5518EEAAF29B42A678C20') # Marco Martin <notmart@gmail.com>
-
 prepare() {
   patch -d $pkgname-$pkgver -p1 < 0001-handle-unknown-installed-memory.patch
 }
