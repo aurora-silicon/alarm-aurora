@@ -4,6 +4,7 @@ build() {
   add_module aop
   add_module mt7932-fullmac
   add_module mt7932_bt_pcie
+  add_module dockchannel-hid
   add_module vfat
   add_file /usr/lib/modprobe.d/aurora-firmware-order.conf
   for binary in bash mount umount mkdir tr cpio grep modprobe udevadm; do
