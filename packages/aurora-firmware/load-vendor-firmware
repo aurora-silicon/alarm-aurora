@@ -2,23 +2,38 @@
 # SPDX-License-Identifier: MIT
 # systemd initrd/runtime handoff; calibrated firmware remains outside the image.
 set -euo pipefail
-property=/sys/firmware/devicetree/base/chosen/asahi,efi-system-partition
-[[ -r $property ]] || exit 0
-uuid=$(tr -d '\000' < "$property")
-[[ $uuid =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$ ]] || exit 1
-uuid=${uuid,,}
+property=${AURORA_ESP_PROPERTY:-/sys/firmware/devicetree/base/chosen/asahi,efi-system-partition}
+admission=${AURORA_PERIPHERAL_ADMISSION:-/usr/libexec/aurora/peripheral-firmware}
 destination=/run/aurora-firmware
-mkdir -p "$destination" /run/aurora-esp
-if [[ ! -s $destination/vendorfw/.vendorfw.manifest ]]; then
-  udevadm wait --timeout=60 "/dev/disk/by-partuuid/$uuid"
-  mount -t vfat -o ro "/dev/disk/by-partuuid/$uuid" /run/aurora-esp
-  trap 'umount /run/aurora-esp' EXIT
-  test -s /run/aurora-esp/vendorfw/firmware.cpio
-  (cd "$destination"; cpio --quiet --extract --no-absolute-filenames < /run/aurora-esp/vendorfw/firmware.cpio)
+status=0
+if [[ -r $property ]]; then
+  # Admission must run even if the handoff fails: the keyboard driver does
+  # not autoload, so admission is what loads it.
+  set +e
+  (
+    set -e
+    uuid=$(tr -d '\000' < "$property")
+    [[ $uuid =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$ ]] || exit 1
+    uuid=${uuid,,}
+    mkdir -p "$destination" /run/aurora-esp
+    if [[ ! -s $destination/vendorfw/.vendorfw.manifest ]]; then
+      udevadm wait --timeout=60 "/dev/disk/by-partuuid/$uuid"
+      mount -t vfat -o ro "/dev/disk/by-partuuid/$uuid" /run/aurora-esp
+      trap 'umount /run/aurora-esp' EXIT
+      test -s /run/aurora-esp/vendorfw/firmware.cpio
+      (cd "$destination"; cpio --quiet --extract --no-absolute-filenames < /run/aurora-esp/vendorfw/firmware.cpio)
+    fi
+    # This also works when firmware_class was built into the kernel.
+    printf '%s' "$destination/vendorfw" > /sys/module/firmware_class/parameters/path
+  )
+  status=$?
+  set -e
+  if (( status )); then
+    echo 'Aurora: vendor firmware handoff failed; admitting peripherals without it' >&2
+  fi
 fi
-# This also works when firmware_class was built into the kernel.
-printf '%s' "$destination/vendorfw" > /sys/module/firmware_class/parameters/path
 export AURORA_FIRMWARE_ROOT="$destination/vendorfw"
 export AURORA_ADMIT_BLUETOOTH=0
 if [[ ${1:-initrd} == runtime ]]; then export AURORA_ADMIT_BLUETOOTH=1; fi
-/usr/libexec/aurora/peripheral-firmware
+"$admission"
+exit "$status"

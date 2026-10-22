@@ -1,12 +1,12 @@
 pkgname=aurora-firmware
 pkgver=20261018
-pkgrel=3
+pkgrel=4
 pkgdesc='Aurora target-device firmware and peripheral admission'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
 source=('aurora-firmware-order.conf' 'aurora-peripheral-firmware.sh' 'aurora-peripherals.service' '90-aurora-peripherals.preset' 'aurora-vendor.install' 'load-vendor-firmware' 'aurora-vendor-firmware.service')
-sha256sums=('e6338787cc03c7704589df20f7551ac17bc2ae25aa2f8df3b6d9532a1c5b79f9' 'e3198afcddc743d78288752dd5dcd4404a6f185f3547c1b0b55c4fb7b72a8fa2' 'ddd817f8c70ec4efc4ea62cc5957cb065a11d9c2156f0d31e4113dd6a9f0708f' '39a5034afd1d2cd03475bb1cd46c56c6695e5c315cd027319f2d29017e854db6' 'f9fa04e1e3e65050774f8dee3a999814aa93902d14021b125f6d6d530ec42186' 'aa4800654b556178d6f60db3b23836422cea4524342446f0bb2adf45c4ac09c2' '104d8c2a41051a6628ee76188e499bcf7eebc7a0849325c9b49bf408d36d625d')
+sha256sums=('4ce5526d55069561200e5f08eca3330a9536aaaaf88691f65fe2f236d0364c3a' '0c943c1688396d1f76c7862fc5c9230985ec56bb09c0ac86c3b825a6d7bc9301' 'ddd817f8c70ec4efc4ea62cc5957cb065a11d9c2156f0d31e4113dd6a9f0708f' '39a5034afd1d2cd03475bb1cd46c56c6695e5c315cd027319f2d29017e854db6' 'eb48d45eddd9d97d83e33f74c92dccb961204aea302c19b7be91bcb0cbb57228' 'aa54456ce41c15bae1bb6cd379dc89c3e327b560aa73e5833fd87d3ef83669df' '104d8c2a41051a6628ee76188e499bcf7eebc7a0849325c9b49bf408d36d625d')
 package() {
   depends=('bash' 'asahi-scripts' 'kmod' 'wireless-regdb' 'cpio' 'util-linux')
   install -Dm644 aurora-firmware-order.conf "$pkgdir/usr/lib/modprobe.d/aurora-firmware-order.conf"
