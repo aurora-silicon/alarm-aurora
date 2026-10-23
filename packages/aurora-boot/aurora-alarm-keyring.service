@@ -1,6 +1,7 @@
 [Unit]
 Description=Create this Mac's pacman trust database
-ConditionPathExists=/var/lib/aurora/firstboot/pending
+# Retried on every boot until it has succeeded once.
+ConditionPathExists=!/var/lib/aurora/pacman-keyring-ready
 After=local-fs.target systemd-random-seed.service
 Before=aurora-firstboot.service
 [Service]

@@ -110,6 +110,9 @@ boot_uuid=$(blkid -s UUID -o value "${loop}p2")
 efi_uuid=$(blkid -s UUID -o value "${loop}p1")
 printf 'UUID=%s / btrfs subvol=root,compress=zstd:1 0 0\nUUID=%s /home btrfs subvol=home,compress=zstd:1 0 0\nUUID=%s /boot ext4 defaults 0 2\nUUID=%s /boot/efi vfat umask=0077 0 2\n' "$root_uuid" "$root_uuid" "$boot_uuid" "$efi_uuid" > "$mountroot/etc/fstab"
 printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/default/grub"
+# Quiet by default: failures still reach the console, and systemd shows
+# status only when a unit fails or stalls.
+printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto"\n' >> "$mountroot/etc/default/grub"
 chroot "$mountroot" mkinitcpio -P
 chroot "$mountroot" grub-install --target=arm64-efi --efi-directory=/boot/efi --removable --no-nvram
 chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg

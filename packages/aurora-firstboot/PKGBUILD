@@ -1,15 +1,15 @@
 pkgname=aurora-firstboot
-pkgver=0.1.6
-pkgrel=2
+pkgver=0.1.7
+pkgrel=1
 pkgdesc='Aurora per-install root encryption and Linux owner setup'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/aurora-platform'
-_commit=a09cafd9dbb961460c91fc57eed377a4e163f79e
+_commit=5eefa3a93dcebcfb0fe1c3015de2bdaa57e8efe2
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/$_commit")
-sha256sums=('91112bfe90987460f97c68d4f284709869114a5b238fd723424dc49dce95d201')
+sha256sums=('42b49a2f4c0801bc9131453f57f96ebb7c01402d07daf0cdab5aad4727f1e57c')
 package() {
-  depends=('bash' 'cryptsetup>=2.8' 'btrfs-progs' 'util-linux' 'coreutils' 'systemd' 'python' 'shadow' 'sudo' 'kbd' 'mkinitcpio')
+  depends=('bash' 'cryptsetup>=2.8' 'btrfs-progs' 'util-linux' 'coreutils' 'systemd' 'python' 'shadow' 'sudo' 'kbd' 'procps-ng' 'mkinitcpio')
   make -C "aurora-platform-$_commit" install-common install-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr
   install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-firstboot.preset" <<'EOF'
