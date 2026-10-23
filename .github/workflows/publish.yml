@@ -3,58 +3,352 @@ on:
   workflow_dispatch:
     inputs:
       build-run:
-        description: Successful native build IDs; later runs override unchanged recipes
-        required: true
+        description: Optional native build IDs, oldest first (later runs win). Empty resolves the newest build of every recipe
+        default: ''
+      base-release:
+        description: Optional snapshot to carry unchanged recipes from. Empty uses the newest testing-* release
+        default: ''
       release-tag:
-        description: New immutable testing snapshot tag
-        required: true
-permissions:
-  contents: write
-  actions: read
+        description: Optional new tag. Empty creates testing-YYYYMMDD.N
+        default: ''
+      deploy:
+        description: Make the snapshot the live testing feed (auto follows the AUTO_DEPLOY_TESTING variable)
+        type: choice
+        options: [auto, 'yes', 'no']
+        default: auto
+      allow-downgrade:
+        description: Publish even if a package version would go backwards
+        type: boolean
+        default: false
+      dry-run:
+        description: Resolve, collect and sign with a throwaway key; publish nothing
+        type: boolean
+        default: false
+  workflow_run:
+    workflows: [Native ALARM packages]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '23 */6 * * *'
+permissions: {}
 defaults:
   run:
     shell: bash
 concurrency:
   group: alarm-repository-publication
   cancel-in-progress: false
+env:
+  SIGNER_IMAGE: registry.fedoraproject.org/fedora:44@sha256:b96f024cecbe9515eb049107d2856e7ad923f7aac09a3c90e7a0d52a46fa3454
 jobs:
-  publish:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04-arm
+  plan:
+    # Automatic runs start only once AUTO_PUBLISH_TESTING is enabled.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.AUTO_PUBLISH_TESTING == 'true' &&
+       (github.event_name == 'schedule' || github.event.workflow_run.conclusion == 'success'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      action: ${{ steps.resolve.outputs.action }}
+      rebuild: ${{ steps.resolve.outputs.rebuild }}
+      base-release: ${{ steps.resolve.outputs.base_release }}
+      release-tag: ${{ steps.tag.outputs.tag }}
+      dry-run: ${{ steps.mode.outputs.dry-run }}
+      deploy: ${{ steps.mode.outputs.deploy }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
-      - name: Authenticate the complete candidate build
+          persist-credentials: false
+      - id: mode
+        env:
+          DRY_RUN: ${{ inputs.dry-run || false }}
+          DEPLOY: ${{ inputs.deploy || 'auto' }}
+          AUTO_DEPLOY: ${{ vars.AUTO_DEPLOY_TESTING }}
+        run: |
+          if [[ $DRY_RUN != true && $GITHUB_REF != refs/heads/main ]]; then
+            echo 'Only main publishes; use dry-run on other branches.' >&2
+            exit 1
+          fi
+          deploy=false
+          if [[ $DEPLOY == yes || ( $DEPLOY == auto && $AUTO_DEPLOY == true ) ]]; then deploy=true; fi
+          [[ $DRY_RUN != true ]] || deploy=false
+          printf 'dry-run=%s\ndeploy=%s\n' "$DRY_RUN" "$deploy" >> "$GITHUB_OUTPUT"
+      - id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_RUN: ${{ inputs.build-run }}
+          BASE_RELEASE: ${{ inputs.base-release }}
+        run: |
+          set -euo pipefail
+          options=()
+          if [[ -n $BASE_RELEASE ]]; then
+            [[ $BASE_RELEASE =~ ^testing-[A-Za-z0-9._-]+$ ]]
+            options+=(--base-release "$BASE_RELEASE")
+          fi
+          if [[ -n $BUILD_RUN ]]; then
+            # Explicit runs keep the original publication path.
+            read -r -a runs <<< "$BUILD_RUN"
+            for run in "${runs[@]}"; do [[ $run =~ ^[0-9]+$ ]]; done
+            printf 'action=publish\nrebuild=\nbase_release=\n' >> "$GITHUB_OUTPUT"
+            printf '{"explicit_runs": "%s"}\n' "$BUILD_RUN" > build-plan.json
+          else
+            python3 scripts/resolve-build-runs.py --repository "$GITHUB_REPOSITORY" "${options[@]}" \
+              --output build-plan.json | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release-tag }}
         run: |
+          set -euo pipefail
+          if [[ -z $RELEASE_TAG ]]; then
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' > existing-tags
+            RELEASE_TAG=$(python3 scripts/next-tag.py testing- < existing-tags)
+          fi
           [[ $RELEASE_TAG =~ ^testing-[A-Za-z0-9._-]+$ ]]
-          read -r -a runs <<< "$BUILD_RUN"
-          ((${#runs[@]}))
-          python3 scripts/collect-publication-inputs.py --runs "${runs[@]}" \
-            --repository "$GITHUB_REPOSITORY" --output input-packages
+          ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: build-plan
+          path: build-plan.json
+          retention-days: 30
+
+  request-builds:
+    # A recipe without a publishable build is rebuilt on main; the build's
+    # completion starts this workflow again.
+    needs: plan
+    if: needs.plan.outputs.action == 'missing' && needs.plan.outputs.dry-run != 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REBUILD: ${{ needs.plan.outputs.rebuild }}
+        run: |
+          set -euo pipefail
+          active=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/packages.yml/runs?branch=main&per_page=20" \
+            --jq '[.workflow_runs[] | select(.status != "completed")] | length')
+          if (( active )); then
+            echo "A main package build is already running; publication waits for it." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh workflow run packages.yml --repo "$GITHUB_REPOSITORY" --ref main -f packages="$REBUILD"
+          echo "Requested native builds on main: $REBUILD" >> "$GITHUB_STEP_SUMMARY"
+
+  collect:
+    needs: plan
+    if: needs.plan.outputs.action == 'publish'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
+    outputs:
+      digest: ${{ steps.bundle.outputs.digest }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: build-plan
+      - name: Authenticate every chosen build output
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build-run }}
+          BASE_RELEASE: ${{ needs.plan.outputs.base-release }}
+        run: |
+          set -euo pipefail
+          if [[ -n $BUILD_RUN ]]; then
+            read -r -a runs <<< "$BUILD_RUN"
+            python3 scripts/collect-publication-inputs.py --runs "${runs[@]}" \
+              --repository "$GITHUB_REPOSITORY" --output input-packages
+          else
+            options=()
+            if [[ -n $BASE_RELEASE ]] && jq -e '[.recipes[] | select(.base)] | length > 0' build-plan.json >/dev/null; then
+              gh release download "$BASE_RELEASE" --repo "$GITHUB_REPOSITORY" --dir base-snapshot \
+                --pattern '*.pkg.tar.*' --pattern manifest.json
+              options=(--base-dir base-snapshot)
+            fi
+            python3 scripts/collect-publication-inputs.py --plan build-plan.json "${options[@]}" \
+              --repository "$GITHUB_REPOSITORY" --output input-packages
+          fi
+      - name: Refuse version regressions against the newest snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALLOW_DOWNGRADE: ${{ inputs.allow-downgrade || false }}
+        run: |
+          set -euo pipefail
+          previous=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '[.[] | select(.tag_name | startswith("testing-"))] | sort_by(.created_at) | last | .tag_name // ""')
+          if [[ -z $previous ]]; then echo 'No previous snapshot.'; exit 0; fi
+          gh release download "$previous" --repo "$GITHUB_REPOSITORY" --pattern aurora.db.tar.gz --dir previous-db
+          flags=()
+          [[ $ALLOW_DOWNGRADE != true ]] || flags=(--allow-downgrade)
+          python3 scripts/check-feed-versions.py --old previous-db/aurora.db.tar.gz --new input-packages "${flags[@]}" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - id: bundle
+        run: |
+          set -euo pipefail
+          mkdir candidate
+          mv input-packages build.json publication-inputs.json candidate/
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf candidate.tar -C candidate .
+          echo "digest=$(sha256sum candidate.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unsigned-candidate
+          path: candidate.tar
+          compression-level: 0
+          retention-days: 7
+
+  sign:
+    # The signing key lives in the testing-signing environment (main only). This
+    # job sees only the verified candidate; the key reaches the network-isolated
+    # signer on stdin, never the environment of a tool installer.
+    needs: [plan, collect]
+    if: needs.plan.outputs.dry-run != 'true'
+    runs-on: ubuntu-24.04-arm
+    environment: testing-signing
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: unsigned-candidate
+      - name: Check the candidate is the one collected
+        env:
+          DIGEST: ${{ needs.collect.outputs.digest }}
+        run: |
+          echo "$DIGEST  candidate.tar" | sha256sum -c -
+          mkdir candidate && tar -xf candidate.tar -C candidate
+      - name: Prepare the signer without credentials
+        run: |
+          docker build -t aurora-signer - <<EOF
+          FROM $SIGNER_IMAGE
+          RUN dnf install -y pacman bsdtar gnupg2 python3 && dnf clean all
+          EOF
       - name: Sign the package set and pacman databases
         env:
           ALARM_SIGNING_KEY: ${{ secrets.ALARM_SIGNING_KEY }}
           ALARM_SIGNING_PASSPHRASE: ${{ secrets.ALARM_SIGNING_PASSPHRASE }}
         run: |
-          docker run --rm -v "$PWD:/src" -w /src \
-            -e ALARM_SIGNING_KEY -e ALARM_SIGNING_PASSPHRASE \
-            registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
-              dnf install -y pacman bsdtar gnupg2 python3
-              python3 scripts/sign-repository.py --packages input-packages --output repository
-            '
-      - name: Return signed output ownership to the publisher
-        run: sudo chown -R "$(id -u):$(id -g)" repository
+          set -euo pipefail
+          jq -n '{key: env.ALARM_SIGNING_KEY, passphrase: env.ALARM_SIGNING_PASSPHRASE}' |
+            docker run --rm -i --network none -v "$PWD:/src" -w /src aurora-signer \
+              python3 scripts/sign-repository.py --credentials-stdin --packages candidate/input-packages --output repository
+          sudo chown -R "$(id -u):$(id -g)" repository
+          cp candidate/build.json candidate/publication-inputs.json repository/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-snapshot
+          path: repository
+          compression-level: 0
+          retention-days: 7
+
+  sign-dry-run:
+    needs: [plan, collect]
+    if: needs.plan.outputs.dry-run == 'true'
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: unsigned-candidate
+      - env:
+          DIGEST: ${{ needs.collect.outputs.digest }}
+        run: |
+          echo "$DIGEST  candidate.tar" | sha256sum -c -
+          mkdir candidate && tar -xf candidate.tar -C candidate
+          docker build -t aurora-signer - <<EOF
+          FROM $SIGNER_IMAGE
+          RUN dnf install -y pacman bsdtar gnupg2 python3 && dnf clean all
+          EOF
+      - name: Sign with a throwaway key
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/dry-run-gnupg"
+          mkdir -m 0700 "$GNUPGHOME"
+          gpg --batch --pinentry-mode loopback --passphrase dry-run \
+            --quick-gen-key 'Aurora ALARM dry run <dry-run@aurorasilicon.invalid>' ed25519 sign 1d
+          gpg --batch --armor --export > dry-run.asc
+          gpg --batch --pinentry-mode loopback --passphrase dry-run --armor --export-secret-keys |
+            jq -Rs '{key: ., passphrase: "dry-run"}' |
+            docker run --rm -i --network none -v "$PWD:/src" -w /src aurora-signer \
+              python3 scripts/sign-repository.py --credentials-stdin --dry-run-public-key dry-run.asc \
+                --packages candidate/input-packages --output repository
+          sudo chown -R "$(id -u):$(id -g)" repository
+          cp candidate/build.json candidate/publication-inputs.json repository/
+          { echo '### Dry run'; echo; echo 'Signed with a throwaway key; nothing was published.'; echo;
+            jq -r '.packages[] | "- \(.filename) (\(.bytes) bytes)"' repository/manifest.json; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dry-run-snapshot
+          path: repository
+          retention-days: 3
+
+  release:
+    needs: [plan, sign]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    outputs:
+      tag: ${{ needs.plan.outputs.release-tag }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-snapshot
+          path: repository
+      - name: Verify every signature against the committed key
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/verify"
+          mkdir -m 0700 "$GNUPGHOME"
+          gpg --batch --import keys/aurora-alarm.asc
+          [[ $(gpg --batch --with-colons --list-keys | awk -F: '$1=="fpr" {print $10; exit}') == "$(cat keys/fingerprint.txt)" ]]
+          for signature in repository/*.sig; do gpg --batch --verify "$signature" "${signature%.sig}"; done
+          jq -e '.dry_run != true and .signing_key == $fpr' --arg fpr "$(cat keys/fingerprint.txt)" repository/manifest.json
+          (cd repository && sha256sum -- * > ../SHA256SUMS) && mv SHA256SUMS repository/
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: repository/SHA256SUMS
       - name: Publish the immutable testing snapshot
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release-tag }}
+          RELEASE_TAG: ${{ needs.plan.outputs.release-tag }}
         run: |
-          cp build.json publication-inputs.json repository/
-          gh release create "$RELEASE_TAG" repository/* --target "$GITHUB_SHA" \
+          gh release create "$RELEASE_TAG" repository/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease --title "Aurora ALARM $RELEASE_TAG" \
-            --notes 'Signed native ALARM development package snapshot. Package and database signatures are verified before upload. Physical installation qualification is recorded separately.'
+            --notes 'Signed native ALARM development package snapshot. Package and database signatures are verified before upload, and every asset carries a GitHub build provenance attestation (SHA256SUMS). Physical installation qualification is recorded separately.'
+          echo "Published [$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)." >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: [plan, release]
+    if: needs.plan.outputs.deploy == 'true'
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+      actions: read
+      attestations: read
+    uses: ./.github/workflows/deploy-snapshot.yml
+    with:
+      channel: testing
+      release-tag: ${{ needs.release.outputs.tag }}
