@@ -1,17 +1,20 @@
 pkgname=aurora-keyring
 pkgver=20261018
-pkgrel=1
+pkgrel=2
 pkgdesc='Public signing trust for Aurora ALARM packages'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
-source=('aurora.key' 'aurora-fingerprint')
-sha256sums=('61958de67d68a099bb73075da94b244223d811a80e65edd512403a147734236d' 'aa86a69efb05bb35bbcd6b110d61a03cc403896d6c6c052b1f2d8d5ff90d45ab')
+install=aurora-keyring.install
+source=('aurora.key' 'aurora-fingerprint' 'aurora-revoked')
+sha256sums=('61958de67d68a099bb73075da94b244223d811a80e65edd512403a147734236d' 'aa86a69efb05bb35bbcd6b110d61a03cc403896d6c6c052b1f2d8d5ff90d45ab' 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
 makedepends=('gnupg')
 package() {
   depends=('pacman' 'gnupg')
   gpg --batch --no-options --dearmor < aurora.key > aurora.gpg
   install -Dm644 aurora.gpg "$pkgdir/usr/share/pacman/keyrings/aurora.gpg"
-  printf '%s:6:\n' "$(cat aurora-fingerprint)" > aurora-trusted
+  # One fingerprint per line: during a key rotation both keys are trusted.
+  sed '/^$/d; s/$/:6:/' aurora-fingerprint > aurora-trusted
   install -Dm644 aurora-trusted "$pkgdir/usr/share/pacman/keyrings/aurora-trusted"
+  install -Dm644 aurora-revoked "$pkgdir/usr/share/pacman/keyrings/aurora-revoked"
 }
