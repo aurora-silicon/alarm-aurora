@@ -115,6 +115,18 @@ printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/defau
 printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto"\n' >> "$mountroot/etc/default/grub"
 chroot "$mountroot" mkinitcpio -P
 chroot "$mountroot" grub-install --target=arm64-efi --efi-directory=/boot/efi --removable --no-nvram
+# grub-install names /boot by its partition number in this image, (,gpt2).
+# On a Mac the Linux partitions follow macOS and its containers, so that
+# number points at APFS and GRUB stops with "unknown filesystem". Find /boot
+# by its filesystem UUID instead, as grub-install does across disks.
+printf 'search.fs_uuid %s root\nset prefix=($root)/grub\n' "$boot_uuid" > "$mountroot/tmp/grub-early.cfg"
+chroot "$mountroot" grub-mkimage -O arm64-efi -p /grub -c /tmp/grub-early.cfg \
+  -o /boot/efi/EFI/BOOT/BOOTAA64.EFI part_gpt part_msdos ext2 search_fs_uuid
+rm -f "$mountroot/tmp/grub-early.cfg"
+if grep -aq '(,gpt' "$mountroot/boot/efi/EFI/BOOT/BOOTAA64.EFI"; then
+  echo "GRUB still names /boot by partition number" >&2
+  exit 1
+fi
 chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
 mkdir -p "$mountroot/boot/efi/m1n1"
 chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
