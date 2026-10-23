@@ -29,30 +29,43 @@ def local_sources(directory):
             if path.is_file() and path.name != 'PKGBUILD'}
 
 
+def full_version(text):
+    """pacman's [epoch:]pkgver-pkgrel of a PKGBUILD whose pkgver may be built
+    from shell variables (the kernel's ${_auroraver}.aurora${_aurorarel})."""
+    values = dict(re.findall(r'^(\w+)="?([^"\n]*)"?$', text, re.M))
+    expand = lambda value: re.sub(r'\$\{?(\w+)\}?', lambda m: values.get(m[1], ''), value)
+    epoch = values.get('epoch')
+    return (f'{epoch}:' if epoch else '') + expand(values['pkgver']) + '-' + values['pkgrel']
+
+
 def update_recipe(root, item, today):
     """Apply one source update to its PKGBUILD. Returns review notes."""
     key = item['key']
     directory = root / 'packages' / RECIPES[key]
+    pkgbuild = directory / 'PKGBUILD'
     before = local_sources(directory)
+    previous = full_version(pkgbuild.read_text())
     for path in sorted(p for p in directory.iterdir() if p.is_file()):
         text = path.read_text()
         updated = tl.replace_commit(text, item['old'], item['new'])
         if updated != text:
             path.write_text(updated)
-    pkgbuild = directory / 'PKGBUILD'
     text = pkgbuild.read_text()
     if f'_commit={item["new"]}' not in text:
         raise ValueError(f'{key}: PKGBUILD does not pin _commit to the new commit')
     notes = []
-    stamp = today.strftime('%Y%m%d')
     if key == 'aura':
-        text, old_ver, new_ver = tl.bump_assignment(
+        # The packaging date; same-day updates differ by pkgrel.
+        stamp = today.strftime('%Y%m%d')
+        text, _, _ = tl.bump_assignment(
             text, 'pkgver', lambda value: re.sub(r'\.r\d{8}$', '', value) + '.r' + stamp)
     elif key == 'mesa-aurora':
-        # 26.3.0-devel at a7e83fc2bc2, packaged on 2026-10-23:
-        # 26.3.0_devel.20261023.a7e83fc2bc2
+        # 26.3.0-devel at bfb73507d0b, merged upstream 2026-10-23 02:20 UTC:
+        # 26.3.0_devel.202610230220.bfb73507d0b. The upstream commit time
+        # orders same-day updates; a bare date and a hash would not.
         upstream = item['upstream_version'].replace('-', '_')
-        text, old_ver, new_ver = tl.bump_assignment(
+        stamp = ''.join(ch for ch in item['new_date'] if ch.isdigit())[:12]
+        text, _, _ = tl.bump_assignment(
             text, 'pkgver', lambda _: f'{upstream}.{stamp}.{item["new"][:11]}')
     elif key == 'kernel-aurora':
         text, old_ver, new_ver = tl.bump_assignment(text, '_auroraver', lambda _: tl.pacman_version(item['version']))
@@ -60,11 +73,13 @@ def update_recipe(root, item, today):
             notes.append(f'kernel version {old_ver} -> {new_ver}: review the configuration fragments')
     else:
         raise ValueError(f'no recipe adapter for {key}')
-    text, old_rel, new_rel = tl.bump_assignment(
-        text, 'pkgrel', lambda value: '1' if old_ver != new_ver else str(int(value) + 1))
+    reset = full_version(text).rsplit('-', 1)[0] != previous.rsplit('-', 1)[0]
+    text, _, _ = tl.bump_assignment(text, 'pkgrel', lambda value: '1' if reset else str(int(value) + 1))
     pkgbuild.write_text(text)
     tl.refresh_pkgbuild_checksums(directory, before)
-    item['package_version'] = f'{new_ver}-{new_rel}'
+    item['package_version'] = full_version(text)
+    if lib.alpm_vercmp(item['package_version'], previous) <= 0:
+        raise ValueError(f'{key}: {item["package_version"]} would not upgrade {previous}')
     return notes
 
 

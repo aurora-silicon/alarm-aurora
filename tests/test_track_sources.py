@@ -27,7 +27,8 @@ class AlarmRecipeTests(unittest.TestCase):
         self.pins = json.loads((ROOT / 'sources.json').read_text())
 
     def item(self, key, **extra):
-        return {'key': key, 'old': self.pins[key]['commit'], 'new': NEW, **extra}
+        return {'key': key, 'old': self.pins[key]['commit'], 'new': NEW, 'new_date': '2026-10-23T02:20:18Z',
+                **extra}
 
     def field(self, name, field):
         for line in (self.root / 'packages' / name / 'PKGBUILD').read_text().splitlines():
@@ -61,9 +62,30 @@ class AlarmRecipeTests(unittest.TestCase):
     def test_mesa_version_encodes_upstream_release_date_and_commit(self):
         item = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0')
         module.update_recipe(self.root, item, TODAY)
-        self.assertEqual(self.field('mesa-aurora', 'pkgver'), '26.3.0_devel.20261023.' + NEW[:11])
+        self.assertEqual(self.field('mesa-aurora', 'pkgver'), '26.3.0_devel.202610230220.' + NEW[:11])
         self.assertEqual(self.field('mesa-aurora', 'pkgrel'), '1')
         self.assertEqual(self.field('mesa-aurora', '_commit'), NEW)
+        self.assertTrue(item['package_version'].startswith('1:26.3.0_devel.202610230220.'))
+
+    def test_a_later_same_day_mesa_update_still_upgrades(self):
+        first = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='f' * 40,
+                          new_date='2026-10-23T01:00:00Z')
+        module.update_recipe(self.root, first, TODAY)
+        second = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='a' * 40,
+                           new_date='2026-10-23T03:00:00Z')
+        second['old'] = 'f' * 40
+        module.update_recipe(self.root, second, TODAY)
+        self.assertEqual(module.lib.alpm_vercmp(second['package_version'], first['package_version']), 1)
+
+    def test_an_update_that_would_not_upgrade_is_refused(self):
+        first = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0',
+                          new_date='2026-10-23T03:00:00Z')
+        module.update_recipe(self.root, first, TODAY)
+        older = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='d' * 40,
+                          new_date='2026-10-23T01:00:00Z')
+        older['old'] = NEW
+        with self.assertRaisesRegex(ValueError, 'would not upgrade'):
+            module.update_recipe(self.root, older, TODAY)
 
     def test_kernel_version_change_resets_pkgrel_and_asks_for_review(self):
         current = self.field('linux-aurora', '_auroraver')
