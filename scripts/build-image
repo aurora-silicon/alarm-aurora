@@ -76,7 +76,7 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez blue
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw upower-aurora mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
-  arch-kde) packages+=(plasma-meta kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
+  arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
   arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
@@ -116,6 +116,13 @@ case $profile in
   arch-gnome) chroot "$mountroot" systemctl enable gdm; chroot "$mountroot" systemctl set-default graphical.target;;
   *) chroot "$mountroot" systemctl set-default multi-user.target;;
 esac
+if [[ $profile == arch-kde ]]; then
+  # Arch's SDDM has no theme configured and falls back to its plain built-in
+  # greeter; use Plasma's Breeze greeter, as Plasma's own setup would.
+  install -d -m 0755 "$mountroot/etc/sddm.conf.d"
+  printf '[Theme]\nCurrent=breeze\n' > "$mountroot/etc/sddm.conf.d/10-aurora-theme.conf"
+  [[ -f $mountroot/usr/share/sddm/themes/breeze/metadata.desktop ]]
+fi
 if [[ $profile == arch-kde ]]; then
   # GDM replaces plymouth-quit.service and quits the splash itself; SDDM does
   # neither. Give SDDM GDM's role so the splash lasts until the greeter on
@@ -160,7 +167,9 @@ printf 'UUID=%s / btrfs subvol=root,compress=zstd:1 0 0\nUUID=%s /home btrfs sub
 printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/default/grub"
 # Quiet by default: failures still reach the console, and systemd shows
 # status only when a unit fails or stalls. Desktop images boot to the splash.
-cmdline='quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto'
+# The console is the display: when a device tree names a serial console,
+# Plymouth would otherwise draw its prompt as text there and on the screen.
+cmdline='quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto console=tty0'
 [[ $profile == arch-minimal ]] || cmdline+=' splash'
 printf 'GRUB_CMDLINE_LINUX_DEFAULT="%s"\n' "$cmdline" >> "$mountroot/etc/default/grub"
 chroot "$mountroot" mkinitcpio -P
@@ -172,6 +181,9 @@ chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
 sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/$channel/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
+# Every image ships the basics (locale, terminal, wallpapers, network, lid
+# policy); a build that lacks one fails here instead of on a Mac.
+python3 "$root/scripts/check-basics.py" --profile "${profile#arch-}" --root "$mountroot"
 # Retire only this disposable chroot's key agent before unmounting its devices.
 python3 "$root/scripts/stop-image-key-agents.py" "$mountroot"
 for path in dev proc sys run boot/efi boot ''; do
@@ -201,5 +213,9 @@ if ! bash "$root/out/finalizer/$revision/images/finalize-image" "$image" "$profi
   python3 "$root/scripts/diagnose-image-mounts.py" /tmp
   exit 1
 fi
+# GRUB finds /boot by UUID on the startup disk only, in the files the
+# installer writes.
+python3 "$root/scripts/check-basics.py" --profile "${profile#arch-}" --esp "$root/out/$profile-installer/esp" \
+  --boot-image "$root/out/$profile-installer/boot.img" --boot-uuid "$boot_uuid"
 tar --sparse -C "$root/out/$profile-installer" -cf - . | zstd -T4 -3 -o "$root/out/$profile-filesystems.tar.zst"
 sha256sum "$root/out/$profile-filesystems.tar.zst" > "$root/out/$profile-filesystems.tar.zst.sha256"

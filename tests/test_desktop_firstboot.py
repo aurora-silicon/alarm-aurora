@@ -75,6 +75,14 @@ class DesktopFirstBootTests(unittest.TestCase):
             self.assertEqual('splash' in words, profile != 'arch-minimal', profile)
         self.assertIn('printf \'GRUB_CMDLINE_LINUX_DEFAULT="%s"\\n\' "$cmdline" >> "$mountroot/etc/default/grub"', BUILD_IMAGE)
 
+    def test_kde_ships_plasma_wallpapers_and_the_breeze_greeter(self):
+        kde = re.search(r'(?m)^  arch-kde\) packages\+=\((.*)\);;$', BUILD_IMAGE).group(1).split()
+        self.assertIn('plasma-workspace-wallpapers', kde)
+        self.assertIn("printf '[Theme]\\nCurrent=breeze\\n' > \"$mountroot/etc/sddm.conf.d/10-aurora-theme.conf\"", BUILD_IMAGE)
+
+    def test_every_profile_draws_on_the_display_console(self):
+        self.assertRegex(BUILD_IMAGE, r"(?m)^cmdline='[^']*\bconsole=tty0\b[^']*'$")
+
     def test_sddm_keeps_the_splash_until_the_greeter_like_gdm(self):
         unit = heredoc('etc/systemd/system/sddm.service.d/10-aurora-plymouth.conf')
         self.assertIn('Conflicts=plymouth-quit.service\n', unit)
