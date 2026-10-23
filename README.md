@@ -13,6 +13,8 @@ Package builds require native AArch64 Linux. CI uses an isolated signed ALARM ro
 
 Development status: native package builds, the signed testing repository and KDE, GNOME and minimal development installer payloads are published. These are development artifacts; physical installation, encrypted first boot and update/reboot qualification remain pending. Device firmware/calibration is extracted from the target Mac.
 
+First boot: KDE and GNOME images boot to a Plymouth splash (`spinner` theme, `plymouth` initramfs hook right after `systemd`, `splash` on the kernel command line). `aurora-firstboot` asks for the new disk password on that splash, replaces the temporary LUKS key and starts the greeter; the desktop's own setup then creates the owner account in `wheel`, which the first boot allows to use sudo. KDE uses Plasma Setup, packaged here from the Plasma release because Arch Linux ARM does not ship it; SDDM keeps the splash until the greeter starts, as GDM does. GNOME uses GNOME Initial Setup, which GDM runs while no user exists; AccountsService adds its administrator to `wheel`. Minimal images have no splash and keep the text wizard on tty1, which also creates the account; `aurora.firstboot=text` on the kernel command line selects that wizard on a desktop that has no owner yet.
+
 Package recipes originated from aurora-silicon/omarchy-pkgs at 533635f0715c28c5e375b1ec7324f31d43b69efc. This repository carries the independent Aurora distribution integration; it does not install the Omarchy desktop.
 
 

@@ -76,8 +76,8 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez blue
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw upower-aurora mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
-  arch-kde) packages+=(plasma-meta kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde);;
-  arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome);;
+  arch-kde) packages+=(plasma-meta kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
+  arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup plymouth);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
 # The generic signed base contains its PC kernel; the installed image uses Aurora.
@@ -100,19 +100,62 @@ chroot "$mountroot" systemctl enable systemd-resolved.service
 install -d -m 0755 "$mountroot/etc/NetworkManager/conf.d"
 printf '[main]\ndns=systemd-resolved\n' > "$mountroot/etc/NetworkManager/conf.d/20-aurora-dns.conf"
 ln -sfn /run/systemd/resolve/stub-resolv.conf "$mountroot/etc/resolv.conf"
+# Desktop first boot: aurora-firstboot asks for the disk password on the boot
+# splash, then the desktop's own setup creates the owner account (Plasma Setup
+# on KDE; GDM runs GNOME Initial Setup while no user exists). Minimal images
+# keep the text wizard on tty1.
 case $profile in
-  arch-kde) chroot "$mountroot" systemctl enable sddm; chroot "$mountroot" systemctl set-default graphical.target;;
+  arch-kde) chroot "$mountroot" systemctl enable sddm plasma-setup.service; chroot "$mountroot" systemctl set-default graphical.target;;
   arch-gnome) chroot "$mountroot" systemctl enable gdm; chroot "$mountroot" systemctl set-default graphical.target;;
   *) chroot "$mountroot" systemctl set-default multi-user.target;;
 esac
+if [[ $profile == arch-kde ]]; then
+  # GDM replaces plymouth-quit.service and quits the splash itself; SDDM does
+  # neither. Give SDDM GDM's role so the splash lasts until the greeter on
+  # every boot. The quit is time-bounded, and a failed SDDM still runs
+  # plymouth-quit.service, so the splash can never stay up.
+  install -d -m 0755 "$mountroot/etc/systemd/system/sddm.service.d"
+  cat > "$mountroot/etc/systemd/system/sddm.service.d/10-aurora-plymouth.conf" <<'EOF'
+[Unit]
+# The splash stays up until the greeter starts, as with GDM; if SDDM fails,
+# plymouth-quit.service still removes it.
+Conflicts=plymouth-quit.service
+After=plymouth-start.service
+OnFailure=plymouth-quit.service
+
+[Service]
+ExecStartPre=-/usr/bin/timeout --kill-after=2 20 /usr/bin/plymouth quit
+EOF
+fi
+if [[ $profile != arch-minimal ]]; then
+  # The splash theme and hook are set before the initramfs is generated below.
+  chroot "$mountroot" plymouth-set-default-theme spinner
+  # Read after aurora-boot's 90-aurora.conf, whose hook order it extends, so
+  # later changes to that order still reach installed desktops.
+  install -d -m 0755 "$mountroot/etc/mkinitcpio.conf.d"
+  cat > "$mountroot/etc/mkinitcpio.conf.d/95-aurora-plymouth.conf" <<'EOF'
+# Aurora desktop images: Plymouth starts right after systemd, before
+# sd-encrypt; every other hook keeps the order from 90-aurora.conf.
+[[ ${HOOKS@a} == *a* ]] || read -r -a HOOKS <<< "$HOOKS"
+_aurora_hooks=()
+for _aurora_hook in "${HOOKS[@]}"; do
+  if [[ $_aurora_hook != plymouth ]]; then _aurora_hooks+=("$_aurora_hook"); fi
+  if [[ $_aurora_hook == systemd ]]; then _aurora_hooks+=(plymouth); fi
+done
+HOOKS=("${_aurora_hooks[@]}")
+unset _aurora_hook _aurora_hooks
+EOF
+fi
 root_uuid=$(blkid -s UUID -o value "${loop}p3")
 boot_uuid=$(blkid -s UUID -o value "${loop}p2")
 efi_uuid=$(blkid -s UUID -o value "${loop}p1")
 printf 'UUID=%s / btrfs subvol=root,compress=zstd:1 0 0\nUUID=%s /home btrfs subvol=home,compress=zstd:1 0 0\nUUID=%s /boot ext4 defaults 0 2\nUUID=%s /boot/efi vfat umask=0077 0 2\n' "$root_uuid" "$root_uuid" "$boot_uuid" "$efi_uuid" > "$mountroot/etc/fstab"
 printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/default/grub"
 # Quiet by default: failures still reach the console, and systemd shows
-# status only when a unit fails or stalls.
-printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto"\n' >> "$mountroot/etc/default/grub"
+# status only when a unit fails or stalls. Desktop images boot to the splash.
+cmdline='quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto'
+[[ $profile == arch-minimal ]] || cmdline+=' splash'
+printf 'GRUB_CMDLINE_LINUX_DEFAULT="%s"\n' "$cmdline" >> "$mountroot/etc/default/grub"
 chroot "$mountroot" mkinitcpio -P
 chroot "$mountroot" grub-install --target=arm64-efi --efi-directory=/boot/efi --removable --no-nvram
 chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
