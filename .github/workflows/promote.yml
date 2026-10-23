@@ -13,6 +13,7 @@ jobs:
       pages: write
       id-token: write
       attestations: read
+      actions: write
     uses: ./.github/workflows/deploy-snapshot.yml
     with:
       channel: stable

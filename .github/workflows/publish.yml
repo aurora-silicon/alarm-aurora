@@ -346,8 +346,8 @@ jobs:
       contents: write
       pages: write
       id-token: write
-      actions: read
       attestations: read
+      actions: write
     uses: ./.github/workflows/deploy-snapshot.yml
     with:
       channel: testing
