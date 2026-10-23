@@ -1,6 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 set -euo pipefail
-[[ -f /var/lib/aurora/firstboot/pending ]] || exit 0
 pacman-key --init
 pacman-key --populate archlinuxarm asahi-alarm aurora
+install -d -m 0755 /var/lib/aurora
+touch /var/lib/aurora/pacman-keyring-ready

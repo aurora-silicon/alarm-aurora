@@ -1,12 +1,12 @@
 pkgname=aurora-boot
 pkgver=20261018
-pkgrel=2
+pkgrel=3
 pkgdesc='Aurora ALARM boot integration'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
 source=('90-aurora.conf' 'initialize-keyring' 'aurora-alarm-keyring.service')
-sha256sums=('fa513d04f6cb547ff46df7dc9df57436deb996065d8575249409eca7b08ec8e9' '2ed896e0cd04995df62c9e756aa680f0c5e3f3a9c5fc11a3087087fa7ea4b523' '29ddeb9485bb5a7df9d4442d6b95dee54be5d9e4a95fb6a925202c9914b8649f')
+sha256sums=('fa513d04f6cb547ff46df7dc9df57436deb996065d8575249409eca7b08ec8e9' 'fec1107e24cda3e1197d9a803792b79e18ccdd839b5cf78cf862e7ee46a27e5b' 'f358a3db63a0a7d293607e56d519d747158d6ff8bc9704d12c8340745fe0f9e1')
 package() {
   depends=('mkinitcpio' 'grub' 'asahi-scripts' 'aura' 'uboot-aurora' 'aurora-firmware' 'aurora-firstboot' 'aurora-neo-platform-config' 'aurora-keyring' 'asahi-alarm-keyring')
   install -Dm644 90-aurora.conf "$pkgdir/etc/mkinitcpio.conf.d/90-aurora.conf"
@@ -17,7 +17,8 @@ enable aurora-alarm-keyring.service
 EOF
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/aurora-firstboot.service.d/keyring.conf" <<'EOF'
 [Unit]
-Requires=aurora-alarm-keyring.service
+# A keyring failure must not block owner setup; the keyring retries next boot.
+Wants=aurora-alarm-keyring.service
 After=aurora-alarm-keyring.service
 EOF
 }
