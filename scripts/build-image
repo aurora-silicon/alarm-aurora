@@ -111,8 +111,9 @@ case $profile in
 esac
 if [[ $profile == arch-kde ]]; then
   # GDM replaces plymouth-quit.service and quits the splash itself; SDDM does
-  # neither, so plymouth-quit.service would remove the splash before first-boot
-  # setup could ask for the disk password on it. This gives SDDM GDM's role.
+  # neither. Give SDDM GDM's role so the splash lasts until the greeter on
+  # every boot. The quit is time-bounded, and a failed SDDM still runs
+  # plymouth-quit.service, so the splash can never stay up.
   install -d -m 0755 "$mountroot/etc/systemd/system/sddm.service.d"
   cat > "$mountroot/etc/systemd/system/sddm.service.d/10-aurora-plymouth.conf" <<'EOF'
 [Unit]

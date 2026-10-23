@@ -79,8 +79,13 @@ class DesktopFirstBootTests(unittest.TestCase):
         unit = heredoc('etc/systemd/system/sddm.service.d/10-aurora-plymouth.conf')
         self.assertIn('Conflicts=plymouth-quit.service\n', unit)
         self.assertIn('OnFailure=plymouth-quit.service\n', unit)
-        self.assertRegex(unit, r'(?m)^ExecStartPre=-/usr/bin/timeout .* /usr/bin/plymouth quit$')
+        self.assertIn('\nExecStartPre=-/usr/bin/timeout --kill-after=2 20 /usr/bin/plymouth quit\n', unit)
         self.assertIn('if [[ $profile == arch-kde ]]; then\n  # GDM replaces plymouth-quit.service', BUILD_IMAGE)
+
+    def test_desktops_boot_to_the_greeter_and_minimal_to_the_console(self):
+        for profile, target in [('arch-kde', 'graphical'), ('arch-gnome', 'graphical'), ('*', 'multi-user')]:
+            self.assertRegex(BUILD_IMAGE, r'(?m)^  ' + re.escape(profile) + r'\).*systemctl set-default '
+                             + target + r'\.target;;$')
 
 
 class PlasmaSetupRecipeTests(unittest.TestCase):
