@@ -9,6 +9,11 @@ on:
       release-tag:
         description: Immutable signed Aurora ALARM snapshot
         required: true
+      channel:
+        description: Update channel the installed system follows (testing keeps today's feed URL)
+        type: choice
+        options: [testing, stable]
+        default: testing
 permissions:
   contents: read
 defaults:
@@ -18,20 +23,30 @@ jobs:
   image:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
       - name: Build and seal the distribution image
         env:
           PROFILE: ${{ inputs.profile }}
           RELEASE_TAG: ${{ inputs.release-tag }}
+          CHANNEL: ${{ inputs.channel || 'testing' }}
         run: |
           set -euo pipefail
           docker run --rm --privileged --ipc=host -v /dev:/dev -v /run/udev:/run/udev:ro -v "$PWD:/src" -w /src \
             registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
               dnf install -y python3 gnupg2 tar gzip util-linux coreutils btrfs-progs e2fsprogs dosfstools zstd systemd-udev bsdtar
-              bash scripts/build-image "$1" "$2"
-            ' image "$PROFILE" "$RELEASE_TAG" 2>&1 | tee image-build.log
-      - uses: actions/upload-artifact@v4
+              bash scripts/build-image "$1" "$2" "$3"
+            ' image "$PROFILE" "$RELEASE_TAG" "$CHANNEL" 2>&1 | tee image-build.log
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: out/*-filesystems.tar.zst
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: ${{ inputs.profile }}-candidate

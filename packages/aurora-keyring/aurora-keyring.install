@@ -1,0 +1,14 @@
+# Import added or revoked Aurora signing keys into the local pacman keyring
+# whenever this package changes, so a new key is trusted before the old one
+# stops signing.
+post_upgrade() {
+  if usr/bin/pacman-key -l >/dev/null 2>&1; then
+    usr/bin/pacman-key --populate aurora
+  fi
+}
+
+post_install() {
+  if [ -x usr/bin/pacman-key ]; then
+    post_upgrade
+  fi
+}

@@ -1,0 +1,20 @@
+name: Promote the testing snapshot to stable
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: Snapshot to promote; empty promotes what testing serves now
+        default: ''
+permissions: {}
+jobs:
+  promote:
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+      attestations: read
+      actions: write
+    uses: ./.github/workflows/deploy-snapshot.yml
+    with:
+      channel: stable
+      release-tag: ${{ inputs.release-tag }}
