@@ -1,14 +1,14 @@
 pkgbase=mesa-aurora
 pkgname=('mesa-aurora' 'vulkan-aurora')
 epoch=1
-pkgver=26.3.0_devel.20261023.c4e30953f4a
+pkgver=26.3.0_devel.202610231353.76155824118
 pkgrel=1
 pkgdesc='Aurora Asahi Gallium, Zink and Honeykrisp'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/mesa'
 license=('MIT')
-_commit=c4e30953f4ae962c68b0c08354eb1432911cbc0d
+_commit=76155824118a5880a8ac717ab007e8d9da289b57
 # Matched to the DRM UAPI in aurora-silicon/linux integration/aurora.
 # The drivers link neither LLVM nor SPIRV-Tools. Arch Linux ARM moves both
 # (llvm-libs changes soname every major, SPIRV-Tools has no versioned soname),
