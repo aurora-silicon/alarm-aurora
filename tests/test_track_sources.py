@@ -14,7 +14,7 @@ spec = importlib.util.spec_from_file_location('track_sources', ROOT / 'scripts/t
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 NEW = 'c' * 40
-TODAY = datetime.date(2026, 10, 23)
+TODAY = datetime.date(2099, 10, 23)
 
 
 class AlarmRecipeTests(unittest.TestCase):
@@ -27,7 +27,9 @@ class AlarmRecipeTests(unittest.TestCase):
         self.pins = json.loads((ROOT / 'sources.json').read_text())
 
     def item(self, key, **extra):
-        return {'key': key, 'old': self.pins[key]['commit'], 'new': NEW, 'new_date': '2026-10-23T02:20:18Z',
+        # Far-future dates keep these tests independent of the pins the
+        # tracker may already have moved in this checkout.
+        return {'key': key, 'old': self.pins[key]['commit'], 'new': NEW, 'new_date': '2099-10-23T02:20:18Z',
                 **extra}
 
     def field(self, name, field):
@@ -41,20 +43,20 @@ class AlarmRecipeTests(unittest.TestCase):
         module.update_recipe(self.root, item, TODAY)
         directory = self.root / 'packages/aura'
         self.assertEqual(self.field('aura', '_commit'), NEW)
-        self.assertEqual(self.field('aura', 'pkgver'), '0.1.0.r20261023')
+        self.assertEqual(self.field('aura', 'pkgver'), '0.1.0.r20991023')
         self.assertEqual(self.field('aura', 'pkgrel'), '1')
         record = json.loads((directory / 'build-qualification.json').read_text())
         self.assertEqual(record['source_commit'], NEW)
         self.assertFalse(record['hardware_tested'])
         digest = hashlib.sha256((directory / 'build-qualification.json').read_bytes()).hexdigest()
         self.assertIn(digest, (directory / 'PKGBUILD').read_text())
-        self.assertEqual(item['package_version'], '0.1.0.r20261023-1')
+        self.assertEqual(item['package_version'], '0.1.0.r20991023-1')
 
     def test_same_day_aura_update_increments_pkgrel(self):
         pkgbuild = self.root / 'packages/aura/PKGBUILD'
         text = pkgbuild.read_text()
         current = self.field('aura', 'pkgver')
-        pkgbuild.write_text(text.replace(f'pkgver={current}', 'pkgver=0.1.0.r20261023'))
+        pkgbuild.write_text(text.replace(f'pkgver={current}', 'pkgver=0.1.0.r20991023'))
         before = int(self.field('aura', 'pkgrel'))
         module.update_recipe(self.root, self.item('aura'), TODAY)
         self.assertEqual(int(self.field('aura', 'pkgrel')), before + 1)
@@ -62,27 +64,27 @@ class AlarmRecipeTests(unittest.TestCase):
     def test_mesa_version_encodes_upstream_release_date_and_commit(self):
         item = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0')
         module.update_recipe(self.root, item, TODAY)
-        self.assertEqual(self.field('mesa-aurora', 'pkgver'), '26.3.0_devel.202610230220.' + NEW[:11])
+        self.assertEqual(self.field('mesa-aurora', 'pkgver'), '26.3.0_devel.209910230220.' + NEW[:11])
         self.assertEqual(self.field('mesa-aurora', 'pkgrel'), '1')
         self.assertEqual(self.field('mesa-aurora', '_commit'), NEW)
-        self.assertTrue(item['package_version'].startswith('1:26.3.0_devel.202610230220.'))
+        self.assertTrue(item['package_version'].startswith('1:26.3.0_devel.209910230220.'))
 
     def test_a_later_same_day_mesa_update_still_upgrades(self):
         first = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='f' * 40,
-                          new_date='2026-10-23T01:00:00Z')
+                          new_date='2099-10-23T01:00:00Z')
         module.update_recipe(self.root, first, TODAY)
         second = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='a' * 40,
-                           new_date='2026-10-23T03:00:00Z')
+                           new_date='2099-10-23T03:00:00Z')
         second['old'] = 'f' * 40
         module.update_recipe(self.root, second, TODAY)
         self.assertEqual(module.lib.alpm_vercmp(second['package_version'], first['package_version']), 1)
 
     def test_an_update_that_would_not_upgrade_is_refused(self):
         first = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0',
-                          new_date='2026-10-23T03:00:00Z')
+                          new_date='2099-10-23T03:00:00Z')
         module.update_recipe(self.root, first, TODAY)
         older = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='d' * 40,
-                          new_date='2026-10-23T01:00:00Z')
+                          new_date='2099-10-23T01:00:00Z')
         older['old'] = NEW
         with self.assertRaisesRegex(ValueError, 'would not upgrade'):
             module.update_recipe(self.root, older, TODAY)
