@@ -76,7 +76,7 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez blue
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw upower-aurora mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
-  arch-kde) packages+=(plasma-meta kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
+  arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
   arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
@@ -116,6 +116,13 @@ case $profile in
   arch-gnome) chroot "$mountroot" systemctl enable gdm; chroot "$mountroot" systemctl set-default graphical.target;;
   *) chroot "$mountroot" systemctl set-default multi-user.target;;
 esac
+if [[ $profile == arch-kde ]]; then
+  # Arch's SDDM has no theme configured and falls back to its plain built-in
+  # greeter; use Plasma's Breeze greeter, as Plasma's own setup would.
+  install -d -m 0755 "$mountroot/etc/sddm.conf.d"
+  printf '[Theme]\nCurrent=breeze\n' > "$mountroot/etc/sddm.conf.d/10-aurora-theme.conf"
+  [[ -f $mountroot/usr/share/sddm/themes/breeze/metadata.desktop ]]
+fi
 if [[ $profile == arch-kde ]]; then
   # GDM replaces plymouth-quit.service and quits the splash itself; SDDM does
   # neither. Give SDDM GDM's role so the splash lasts until the greeter on
