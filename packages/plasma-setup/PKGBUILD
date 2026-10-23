@@ -1,0 +1,60 @@
+# Plasma Setup is part of the Plasma release; Arch Linux ARM does not package
+# it. KDE Plasma images use it to create the owner account at first boot.
+
+pkgname=plasma-setup
+pkgver=6.8.1
+_dirver=$(echo $pkgver | cut -d. -f1-3)
+pkgrel=1
+pkgdesc='First-run setup wizard for KDE Plasma that creates the initial user account'
+arch=(aarch64)
+url='https://invent.kde.org/plasma/plasma-setup'
+license=(BSD-2-Clause
+         CC0-1.0
+         GPL-2.0-or-later
+         GPL-3.0-or-later
+         LGPL-2.0-or-later
+         LGPL-2.1-or-later
+         'LGPL-2.1-only OR LGPL-3.0-only OR LicenseRef-KDE-Accepted-LGPL')
+depends=(glibc
+         kauth
+         kconfig
+         kcoreaddons
+         ki18n
+         kirigami
+         kirigami-addons
+         kitemmodels
+         kpackage
+         kwindowsystem
+         libgcc
+         libkscreen
+         libstdc++
+         plasma-desktop # kcm_keyboard and kicker QML modules
+         plasma-nm # network QML module
+         plasma-workspace # libkworkspace and the time zone selector
+         polkit
+         qt6-base
+         qt6-declarative
+         qt6-location # time zone map
+         qt6-svg
+         shadow # useradd, usermod, chpasswd
+         systemd)
+makedepends=(extra-cmake-modules)
+backup=(etc/xdg/plasmasetuprc)
+# The release signature is from Bhushan Shah's KDE release key
+# 0AAC775BB6437A8D9AF7A3ACFE0784117FBCE11D (signing subkey
+# B3CB366552540BE06EE9AD9711968C44928CAEFC); the digest pins those bytes.
+source=(https://download.kde.org/stable/plasma/$_dirver/$pkgname-$pkgver.tar.xz)
+sha256sums=('58087cecf651dfa4cbb43f96dfa0866cdf36f23fc25c88ab94574a577f90d28c')
+
+build() {
+  cmake -B build -S $pkgname-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DKDE_INSTALL_LIBEXECDIR=lib \
+    -DBUILD_TESTING=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 $pkgname-$pkgver/LICENSES/LicenseRef-KDE-Accepted-LGPL.txt -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
