@@ -160,7 +160,9 @@ printf 'UUID=%s / btrfs subvol=root,compress=zstd:1 0 0\nUUID=%s /home btrfs sub
 printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/default/grub"
 # Quiet by default: failures still reach the console, and systemd shows
 # status only when a unit fails or stalls. Desktop images boot to the splash.
-cmdline='quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto'
+# The console is the display: when a device tree names a serial console,
+# Plymouth would otherwise draw its prompt as text there and on the screen.
+cmdline='quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto console=tty0'
 [[ $profile == arch-minimal ]] || cmdline+=' splash'
 printf 'GRUB_CMDLINE_LINUX_DEFAULT="%s"\n' "$cmdline" >> "$mountroot/etc/default/grub"
 chroot "$mountroot" mkinitcpio -P
@@ -172,6 +174,9 @@ chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
 sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/$channel/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
+# Every image ships the basics (locale, terminal, wallpapers, network, lid
+# policy); a build that lacks one fails here instead of on a Mac.
+python3 "$root/scripts/check-basics" --profile "${profile#arch-}" --root "$mountroot"
 # Retire only this disposable chroot's key agent before unmounting its devices.
 python3 "$root/scripts/stop-image-key-agents.py" "$mountroot"
 for path in dev proc sys run boot/efi boot ''; do
@@ -201,5 +206,9 @@ if ! bash "$root/out/finalizer/$revision/images/finalize-image" "$image" "$profi
   python3 "$root/scripts/diagnose-image-mounts.py" /tmp
   exit 1
 fi
+# GRUB finds /boot by UUID on the startup disk only, in the files the
+# installer writes.
+python3 "$root/scripts/check-basics" --profile "${profile#arch-}" --esp "$root/out/$profile-installer/esp" \
+  --boot-image "$root/out/$profile-installer/boot.img" --boot-uuid "$boot_uuid"
 tar --sparse -C "$root/out/$profile-installer" -cf - . | zstd -T4 -3 -o "$root/out/$profile-filesystems.tar.zst"
 sha256sum "$root/out/$profile-filesystems.tar.zst" > "$root/out/$profile-filesystems.tar.zst.sha256"
