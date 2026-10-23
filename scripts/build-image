@@ -4,7 +4,9 @@ trap 'status=$?; echo "Aurora image failed ($status) at line $LINENO: $BASH_COMM
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 profile=${1:?arch-kde, arch-gnome or arch-minimal required}
 tag=${2:?immutable signed Aurora testing snapshot required}
-[[ $profile =~ ^arch-(kde|gnome|minimal)$ && $tag =~ ^testing-[A-Za-z0-9._-]+$ ]]
+# The update channel the installed system follows afterwards.
+channel=${3:-testing}
+[[ $profile =~ ^arch-(kde|gnome|minimal)$ && $tag =~ ^testing-[A-Za-z0-9._-]+$ && $channel =~ ^(testing|stable)$ ]]
 [[ $(id -u) == 0 && $(uname -m) == aarch64 ]]
 python3 "$root/scripts/fetch-base.py"
 output=$root/out/$profile
@@ -114,7 +116,7 @@ chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
 mkdir -p "$mountroot/boot/efi/m1n1"
 chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
 # Initial assembly is pinned; subsequent installed-system updates use the signed rolling feed.
-sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/testing/aarch64@" "$mountroot/etc/pacman.conf"
+sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/$channel/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
 # Retire only this disposable chroot's key agent before unmounting its devices.
@@ -130,11 +132,15 @@ done
 losetup -d "$loop";loop=''
 # Fetch the same immutable common source used by the firstboot package.
 python3 - "$root" <<'PY'
-import hashlib,json,sys,urllib.request,tarfile
+import json,sys,tarfile
 from pathlib import Path
-root=Path(sys.argv[1]);p=json.loads((root/'sources.json').read_text())['aurora-firstboot']
-archive=root/'out/finalizer.tar.gz';data=urllib.request.urlopen(p['source_url']).read()
-assert hashlib.sha256(data).hexdigest()==p['sha256'];archive.write_bytes(data)
+root=Path(sys.argv[1]);sys.path.insert(0,str(root/'scripts'))
+import updatelib
+p=json.loads((root/'sources.json').read_text())['aurora-firstboot']
+archive=root/'out/finalizer.tar.gz'
+# Verified mirror first, then the pinned URL, retrying rate limits.
+updatelib.download([f"https://github.com/aurora-silicon/alarm-aurora/releases/download/source-cache/aurora-firstboot-{p['commit']}.tar.gz",
+                    p['source_url']], archive, sha256=p['sha256'])
 with tarfile.open(archive) as tar:tar.extractall(root/'out/finalizer',filter='data')
 PY
 revision=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["aurora-firstboot"]["archive_root"])' "$root/sources.json")

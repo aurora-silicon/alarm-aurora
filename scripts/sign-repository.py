@@ -23,6 +23,8 @@ def main():
     parser.add_argument('--packages', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--credentials-stdin', action='store_true')
+    parser.add_argument('--dry-run-public-key', type=Path,
+                        help='sign with a throwaway key whose public half is given here (dry runs only)')
     args = parser.parse_args()
     if args.output.exists():
         parser.error('output exists; use a new snapshot directory')
@@ -33,7 +35,15 @@ def main():
         'key': os.environ['ALARM_SIGNING_KEY'],
         'passphrase': os.environ['ALARM_SIGNING_PASSPHRASE'],
     }
+    public_key = ROOT / 'keys/aurora-alarm.asc'
     fingerprint = (ROOT / 'keys/fingerprint.txt').read_text().strip()
+    if args.dry_run_public_key:
+        # A dry run proves the pipeline without the production key; deployment
+        # verifies against keys/fingerprint.txt and rejects its output.
+        public_key = args.dry_run_public_key
+        fingerprint = subprocess.check_output(
+            ['gpg', '--batch', '--with-colons', '--import-options', 'show-only', '--import', str(public_key)],
+            text=True).split('fpr:::::::::', 1)[1].split(':', 1)[0]
     args.output.mkdir(parents=True)
     manifest, names = [], set()
     with tempfile.TemporaryDirectory(prefix='aurora-alarm-sign-') as temporary:
@@ -74,10 +84,10 @@ def main():
             shutil.copyfile(target, alias)
             shutil.copyfile(str(target) + '.sig', str(alias) + '.sig')
         run('gpgconf', '--homedir', str(home), '--kill', 'gpg-agent')
-    shutil.copyfile(ROOT / 'keys/aurora-alarm.asc', args.output / 'aurora-alarm.asc')
+    shutil.copyfile(public_key, args.output / 'aurora-alarm.asc')
     (args.output / 'manifest.json').write_text(json.dumps({
         'schema': 1, 'architecture': 'aarch64', 'channel': 'testing',
-        'signing_key': fingerprint, 'packages': manifest,
+        'signing_key': fingerprint, 'dry_run': bool(args.dry_run_public_key), 'packages': manifest,
     }, indent=2) + '\n')
     print(f'Prepared and verified {len(manifest)} signed ALARM packages and pacman databases')
 

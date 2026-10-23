@@ -149,3 +149,78 @@ class PublicationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CarriedSnapshotTests(unittest.TestCase):
+    """collect_plan carries unchanged recipes from a signed snapshot."""
+
+    def setUp(self):
+        import shutil
+        if not shutil.which('gpg'):
+            self.skipTest('gpg is required')
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / 'repo'
+        self.root.mkdir()
+        for path in module.SHARED:
+            file = self.root / path
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text('unchanged build input\n')
+        recipe = self.root / 'packages/mesa/PKGBUILD'
+        recipe.parent.mkdir(parents=True)
+        recipe.write_text('pkgver=1\n')
+        (self.root / 'sources.json').write_text('{}')
+        self.home = Path(self.temp.name) / 'gnupg'
+        self.home.mkdir(mode=0o700)
+        gpg = ['gpg', '--homedir', str(self.home), '--batch', '--pinentry-mode', 'loopback', '--passphrase', '']
+        subprocess.run(gpg + ['--quick-gen-key', 'Fixture <fixture@example.org>', 'ed25519', 'sign', '1d'],
+                       check=True, capture_output=True)
+        (self.root / 'keys').mkdir(exist_ok=True)
+        (self.root / 'keys/aurora-alarm.asc').write_bytes(
+            subprocess.check_output(gpg + ['--armor', '--export']))
+        fingerprint = [line.split(':')[9] for line in subprocess.check_output(
+            gpg + ['--with-colons', '--list-keys'], text=True).splitlines() if line.startswith('fpr:')][0]
+        (self.root / 'keys/fingerprint.txt').write_text(fingerprint + '\n')
+        subprocess.run(['git', '-C', str(self.root), 'init', '-q'], check=True)
+        subprocess.run(['git', '-C', str(self.root), 'add', '.'], check=True)
+        subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=t', '-c', 'user.email=t@example.org',
+                        'commit', '-qm', 'fixture'], check=True)
+        self.head = subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip()
+        self.base = Path(self.temp.name) / 'base'
+        self.base.mkdir()
+        package = self.base / 'mesa-1-1-aarch64.pkg.tar.zst'
+        package.write_bytes(b'signed package bytes')
+        subprocess.run(gpg + ['--detach-sign', '--output', str(package) + '.sig', str(package)], check=True)
+        (self.base / 'manifest.json').write_text(json.dumps({'packages': [
+            {'filename': package.name, 'bytes': package.stat().st_size,
+             'sha256': hashlib.sha256(package.read_bytes()).hexdigest()}]}))
+        self.plan = {'schema': 1, 'action': 'publish', 'missing': [], 'head': self.head, 'base_release': 'testing-1',
+                     'recipes': {'alarm-mesa': {'base': 'testing-1', 'run': 7, 'artifact': 70, 'head_sha': self.head,
+                                                'packages': [package.name]}}}
+
+    def collect(self):
+        with chdir(self.temp.name):
+            module.collect_plan(self.root, self.plan, 'aurora-silicon/alarm-aurora', Path(self.temp.name) / 'out',
+                                self.base)
+
+    def test_carried_recipe_is_verified_and_recorded(self):
+        self.collect()
+        self.assertEqual((Path(self.temp.name) / 'out/mesa-1-1-aarch64.pkg.tar.zst').read_bytes(),
+                         b'signed package bytes')
+        record = json.loads((Path(self.temp.name) / 'publication-inputs.json').read_text())
+        self.assertEqual(record['artifacts'][0]['reused_from'], 'testing-1')
+        self.assertEqual(record['artifacts'][0]['head_sha'], self.head)
+
+    def test_tampered_snapshot_package_is_rejected(self):
+        (self.base / 'mesa-1-1-aarch64.pkg.tar.zst').write_bytes(b'tampered package!!!!')
+        with self.assertRaises(ValueError):
+            self.collect()
+
+    def test_changed_recipe_cannot_be_carried(self):
+        (self.root / 'packages/mesa/PKGBUILD').write_text('pkgver=2\n')
+        subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=t', '-c', 'user.email=t@example.org',
+                        'commit', '-qam', 'bump'], check=True)
+        self.plan['head'] = subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD'],
+                                                    text=True).strip()
+        with self.assertRaisesRegex(ValueError, 'no longer matches'):
+            self.collect()

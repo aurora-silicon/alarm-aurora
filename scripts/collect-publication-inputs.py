@@ -84,13 +84,144 @@ def gh_json(*args):
     return json.loads(subprocess.check_output(['gh', 'api', *args]))
 
 
+def newest_per_name(artifacts):
+    """A re-run job uploads a new artifact under the same name; only the newest
+    one belongs to the attempt that succeeded."""
+    newest = {}
+    for artifact in artifacts:
+        current = newest.get(artifact['name'])
+        if current is None or (artifact.get('created_at', ''), artifact['id']) > (current.get('created_at', ''), current['id']):
+            newest[artifact['name']] = artifact
+    return list(newest.values())
+
+
+def attests(root, commit):
+    """Whether the build workflow at `commit` records provenance attestations."""
+    workflow = subprocess.run(['git', '-C', str(root), 'show', f'{commit}:.github/workflows/packages.yml'],
+                              capture_output=True, text=True)
+    return 'actions/attest-build-provenance' in workflow.stdout
+
+
+def verify_attestation(path, repository, commit):
+    subprocess.run(['gh', 'attestation', 'verify', str(path), '--repo', repository,
+                    '--signer-workflow', f'{repository}/.github/workflows/packages.yml',
+                    '--source-digest', commit, '--deny-self-hosted-runners'],
+                   check=True, stdout=subprocess.DEVNULL)
+
+
+def verify_base_package(path, manifest, gnupg_home):
+    record = manifest.get(path.name)
+    if (record is None or path.is_symlink() or path.stat().st_size != record['bytes']
+            or hashlib.sha256(path.read_bytes()).hexdigest() != record['sha256']):
+        raise ValueError(f'Snapshot package does not match its manifest: {path.name}')
+    subprocess.run(['gpg', '--homedir', str(gnupg_home), '--batch', '--verify', str(path) + '.sig', str(path)],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def snapshot_keyring(root, home):
+    home.mkdir(mode=0o700)
+    subprocess.run(['gpg', '--homedir', str(home), '--batch', '--import', str(root / 'keys/aurora-alarm.asc')],
+                   check=True, capture_output=True)
+    listing = subprocess.check_output(['gpg', '--homedir', str(home), '--batch', '--with-colons', '--list-keys'],
+                                      text=True)
+    fingerprints = [line.split(':')[9] for line in listing.splitlines() if line.startswith('fpr:')]
+    if (root / 'keys/fingerprint.txt').read_text().strip() not in fingerprints:
+        raise ValueError('The committed key does not match keys/fingerprint.txt')
+    return home
+
+
+def collect_plan(root, plan, repository, output, base_dir=None, require_attestation=True):
+    """Collect exactly the artifacts resolve-build-runs.py chose."""
+    if plan.get('schema') != 1 or plan.get('action') != 'publish' or plan.get('missing'):
+        raise ValueError('The build plan is not publishable')
+    if plan['head'] != git(root, 'rev-parse', 'HEAD'):
+        raise ValueError('The build plan was resolved for another commit')
+    expected = {'alarm-' + path.parent.name for path in (root / 'packages').glob('*/PKGBUILD')}
+    if set(plan['recipes']) != expected:
+        raise ValueError('The build plan does not cover the current recipes')
+    output.mkdir()
+    downloads = Path('publication-downloads')
+    downloads.mkdir(exist_ok=True)
+    receipt, builds = [], {}
+    keyring = None
+    manifest = {}
+    for name, item in sorted(plan['recipes'].items()):
+        if item.get('base'):
+            if base_dir is None:
+                raise ValueError('A carried recipe needs the downloaded base snapshot')
+            keyring = keyring or snapshot_keyring(root, Path('publication-keyring').resolve())
+            manifest = manifest or {row['filename']: row for row in
+                                    json.loads((base_dir / 'manifest.json').read_text())['packages']}
+            metadata = {'conclusion': 'success', 'head_repository': {'full_name': repository},
+                        'path': '.github/workflows/packages.yml', 'event': 'workflow_dispatch',
+                        'head_sha': item['head_sha'], 'head_branch': 'main'}
+            if name not in eligible_recipes(root, metadata, repository):
+                raise ValueError(f'{name}: the snapshot build no longer matches the recipe')
+            packages = []
+            for filename in item['packages']:
+                path = base_dir / filename
+                if not PACKAGE.fullmatch(filename):
+                    raise ValueError('Unexpected snapshot package name')
+                verify_base_package(path, manifest, keyring)
+                if require_attestation and attests(root, item['head_sha']):
+                    verify_attestation(path, repository, item['head_sha'])
+                shutil.copyfile(path, output / filename)
+                packages.append(filename)
+            receipt.append({'build_run': item.get('run'), 'artifact_id': item.get('artifact'), 'name': name,
+                            'head_sha': item['head_sha'], 'reused_from': item['base'], 'packages': packages})
+            continue
+        run = str(item['run'])
+        metadata = builds.get(run) or gh_json(f'repos/{repository}/actions/runs/{run}')
+        builds[run] = metadata
+        if name not in eligible_recipes(root, metadata, repository):
+            raise ValueError(f'{name}: run {run} is not a publishable build of the current recipe')
+        artifact = gh_json(f'repos/{repository}/actions/artifacts/{item["artifact"]}')
+        if (artifact.get('workflow_run', {}).get('id') != int(run) or artifact['name'] != name
+                or artifact['expired'] or artifact['digest'] != item['digest']):
+            raise ValueError(f'{name}: artifact {item["artifact"]} is not the planned output of run {run}')
+        archive = downloads / f'{artifact["id"]}.zip'
+        with archive.open('wb') as stream:
+            subprocess.run(['gh', 'api', f'repos/{repository}/actions/artifacts/{artifact["id"]}/zip'],
+                           stdout=stream, check=True)
+        staging = downloads / f'{artifact["id"]}'
+        staging.mkdir(exist_ok=True)
+        packages = collect_archive(archive, artifact, staging)
+        if not packages:
+            raise ValueError(f'{name}: the artifact holds no package archive')
+        for filename in packages:
+            if require_attestation and attests(root, metadata['head_sha']):
+                verify_attestation(staging / filename, repository, metadata['head_sha'])
+            shutil.copyfile(staging / filename, output / filename)
+        archive.unlink()
+        receipt.append({'build_run': int(run), 'artifact_id': artifact['id'], 'name': name,
+                        'head_sha': metadata['head_sha'], 'digest': artifact['digest'], 'packages': packages})
+    names = [path.name for path in output.iterdir()]
+    if len(names) != len({name for entry in receipt for name in entry['packages']}):
+        raise ValueError('Two recipes produced the same package file')
+    build_records = [{key: metadata[key] for key in ('id', 'head_sha', 'path', 'event', 'conclusion')}
+                     for metadata in builds.values()]
+    Path('build.json').write_text(json.dumps({'schema': 2, 'builds': build_records}, indent=2) + '\n')
+    Path('publication-inputs.json').write_text(json.dumps(
+        {'schema': 2, 'publishing_commit': plan['head'], 'base_release': plan.get('base_release'),
+         'builds': build_records, 'artifacts': receipt}, indent=2) + '\n')
+    print(f'Authenticated {len(receipt)} recipe outputs ({sum(1 for r in receipt if r.get("reused_from"))} carried)')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--runs', nargs='+', required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--runs', nargs='+', help='explicit native build IDs; later runs win')
+    source.add_argument('--plan', type=Path, help='exact artifacts chosen by resolve-build-runs.py')
+    parser.add_argument('--base-dir', type=Path, help='downloaded base snapshot for carried recipes')
     parser.add_argument('--repository', required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
+    if args.plan:
+        if args.output.exists():
+            parser.error('Use a fresh output')
+        collect_plan(root, json.loads(args.plan.read_text()), args.repository, args.output, args.base_dir)
+        return
     if args.output.exists() or any(not re.fullmatch('[0-9]+', run) for run in args.runs):
         parser.error('Use a fresh output and numeric native build IDs')
     expected = {'alarm-' + path.parent.name for path in (root / 'packages').glob('*/PKGBUILD')}
@@ -102,7 +233,7 @@ def main():
         eligible = eligible_recipes(root, metadata, args.repository)
         pages = gh_json('--paginate', '--slurp', f'repos/{args.repository}/actions/runs/{run}/artifacts?per_page=100')
         grouped = {}
-        for artifact in [item for page in pages for item in page['artifacts']]:
+        for artifact in newest_per_name([item for page in pages for item in page['artifacts']]):
             if artifact['name'] in eligible:
                 if artifact['expired'] or not isinstance(artifact['id'], int):
                     raise ValueError('Required CI artifact is unavailable')

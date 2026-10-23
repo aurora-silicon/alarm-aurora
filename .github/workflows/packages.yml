@@ -19,9 +19,10 @@ jobs:
     outputs:
       packages: ${{ steps.plan.outputs.packages }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+          persist-credentials: false
       - id: plan
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
@@ -60,13 +61,19 @@ jobs:
     if: needs.metadata.outputs.packages != '[]'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       max-parallel: 3
       matrix:
         package: ${{ fromJSON(needs.metadata.outputs.packages) }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
       - name: Build package in signed ALARM root filesystem
         run: |
           set -euo pipefail
@@ -75,11 +82,23 @@ jobs:
               dnf install -y python3 gnupg2 tar gzip util-linux coreutils
               bash scripts/ci-build-package "$1"
             ' build '${{ matrix.package }}' 2>&1 | tee build.log
-      - uses: actions/upload-artifact@v4
-        if: always()
+      # Provenance for the exact package bytes; publication verifies it.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: success() && github.event_name != 'pull_request'
+        with:
+          subject-path: out/packages/*.pkg.tar.*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: success()
         with:
           name: alarm-${{ matrix.package }}
           path: |
             out/packages/*.pkg.tar.*
             build.log
           retention-days: 30
+      # A failed attempt keeps its log under a name publication never reads.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: alarm-${{ matrix.package }}-failed-attempt-${{ github.run_attempt }}
+          path: build.log
+          retention-days: 14
