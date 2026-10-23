@@ -183,7 +183,7 @@ chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
 # Every image ships the basics (locale, terminal, wallpapers, network, lid
 # policy); a build that lacks one fails here instead of on a Mac.
-python3 "$root/scripts/check-basics" --profile "${profile#arch-}" --root "$mountroot"
+python3 "$root/scripts/check-basics.py" --profile "${profile#arch-}" --root "$mountroot"
 # Retire only this disposable chroot's key agent before unmounting its devices.
 python3 "$root/scripts/stop-image-key-agents.py" "$mountroot"
 for path in dev proc sys run boot/efi boot ''; do
@@ -215,7 +215,7 @@ if ! bash "$root/out/finalizer/$revision/images/finalize-image" "$image" "$profi
 fi
 # GRUB finds /boot by UUID on the startup disk only, in the files the
 # installer writes.
-python3 "$root/scripts/check-basics" --profile "${profile#arch-}" --esp "$root/out/$profile-installer/esp" \
+python3 "$root/scripts/check-basics.py" --profile "${profile#arch-}" --esp "$root/out/$profile-installer/esp" \
   --boot-image "$root/out/$profile-installer/boot.img" --boot-uuid "$boot_uuid"
 tar --sparse -C "$root/out/$profile-installer" -cf - . | zstd -T4 -3 -o "$root/out/$profile-filesystems.tar.zst"
 sha256sum "$root/out/$profile-filesystems.tar.zst" > "$root/out/$profile-filesystems.tar.zst.sha256"
