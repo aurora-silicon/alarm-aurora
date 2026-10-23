@@ -150,6 +150,7 @@ jobs:
       attestations: read
     outputs:
       digest: ${{ steps.bundle.outputs.digest }}
+      status: ${{ steps.versions.outputs.status }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -179,21 +180,31 @@ jobs:
             python3 scripts/collect-publication-inputs.py --plan build-plan.json "${options[@]}" \
               --repository "$GITHUB_REPOSITORY" --output input-packages
           fi
-      - name: Refuse version regressions against the newest snapshot
+      - id: versions
+        name: Refuse version regressions against the newest snapshot
         env:
           GH_TOKEN: ${{ github.token }}
           ALLOW_DOWNGRADE: ${{ inputs.allow-downgrade || false }}
+          BUILD_RUN: ${{ inputs.build-run }}
         run: |
           set -euo pipefail
           previous=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
             --jq '[.[] | select(.tag_name | startswith("testing-"))] | sort_by(.created_at) | last | .tag_name // ""')
-          if [[ -z $previous ]]; then echo 'No previous snapshot.'; exit 0; fi
+          if [[ -z $previous ]]; then echo 'No previous snapshot.'; echo 'status=new' >> "$GITHUB_OUTPUT"; exit 0; fi
           gh release download "$previous" --repo "$GITHUB_REPOSITORY" --pattern aurora.db.tar.gz --dir previous-db
           flags=()
           [[ $ALLOW_DOWNGRADE != true ]] || flags=(--allow-downgrade)
           python3 scripts/check-feed-versions.py --old previous-db/aurora.db.tar.gz --new input-packages "${flags[@]}" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            --changes-output changes.txt | tee -a "$GITHUB_STEP_SUMMARY"
+          # The same package versions as the newest snapshot: nothing to publish.
+          if [[ $(cat changes.txt) == 0 && -z $BUILD_RUN ]]; then
+            echo "Every package matches $previous; no new snapshot." >> "$GITHUB_STEP_SUMMARY"
+            echo 'status=unchanged' >> "$GITHUB_OUTPUT"
+          else
+            echo 'status=changed' >> "$GITHUB_OUTPUT"
+          fi
       - id: bundle
+        if: steps.versions.outputs.status != 'unchanged'
         run: |
           set -euo pipefail
           mkdir candidate
@@ -201,6 +212,7 @@ jobs:
           tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf candidate.tar -C candidate .
           echo "digest=$(sha256sum candidate.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: steps.versions.outputs.status != 'unchanged'
         with:
           name: unsigned-candidate
           path: candidate.tar
@@ -212,7 +224,7 @@ jobs:
     # job sees only the verified candidate; the key reaches the network-isolated
     # signer on stdin, never the environment of a tool installer.
     needs: [plan, collect]
-    if: needs.plan.outputs.dry-run != 'true'
+    if: needs.plan.outputs.dry-run != 'true' && needs.collect.outputs.status != 'unchanged'
     runs-on: ubuntu-24.04-arm
     environment: testing-signing
     permissions:
@@ -256,7 +268,7 @@ jobs:
 
   sign-dry-run:
     needs: [plan, collect]
-    if: needs.plan.outputs.dry-run == 'true'
+    if: needs.plan.outputs.dry-run == 'true' && needs.collect.outputs.status != 'unchanged'
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read

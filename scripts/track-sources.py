@@ -47,7 +47,9 @@ def update_recipe(root, item, today):
     previous = full_version(pkgbuild.read_text())
     for path in sorted(p for p in directory.iterdir() if p.is_file()):
         text = path.read_text()
-        updated = tl.replace_commit(text, item['old'], item['new'])
+        # Comments may cite earlier commits; only assignments and data move.
+        updated = ''.join(line if line.lstrip().startswith('#') else tl.replace_commit(line, item['old'], item['new'])
+                          for line in text.splitlines(keepends=True))
         if updated != text:
             path.write_text(updated)
     text = pkgbuild.read_text()

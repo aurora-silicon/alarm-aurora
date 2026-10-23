@@ -71,6 +71,8 @@ def main():
     parser.add_argument('--old', required=True, help='previous database or package directory')
     parser.add_argument('--new', required=True, help='candidate database or package directory')
     parser.add_argument('--allow-downgrade', action='store_true')
+    parser.add_argument('--changes-output', type=Path,
+                        help='write the number of changed, added and removed packages here')
     args = parser.parse_args()
     old, new = versions(args.old), versions(args.new)
     downgraded, removed, added = lib.regressions(old, new, lib.alpm_vercmp)
@@ -81,6 +83,8 @@ def main():
         print(f'{name}: new at {new[name]}')
     for name in removed:
         print(f'{name}: removed (was {old[name]})')
+    if args.changes_output:
+        args.changes_output.write_text(f'{len(changed) + len(added) + len(removed)}\n')
     if downgraded:
         for name, before, after in downgraded:
             print(f'DOWNGRADE {name}: {before} -> {after}', file=sys.stderr)

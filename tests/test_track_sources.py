@@ -52,6 +52,14 @@ class AlarmRecipeTests(unittest.TestCase):
         self.assertIn(digest, (directory / 'PKGBUILD').read_text())
         self.assertEqual(item['package_version'], '0.1.0.r20991023-1')
 
+    def test_comments_keep_the_commits_they_cite(self):
+        pkgbuild = self.root / 'packages/aura/PKGBUILD'
+        old = self.pins['aura']['commit']
+        pkgbuild.write_text(f'# Earlier note about {old[:9]}\n' + pkgbuild.read_text())
+        module.update_recipe(self.root, self.item('aura'), TODAY)
+        self.assertTrue(pkgbuild.read_text().startswith(f'# Earlier note about {old[:9]}\n'))
+        self.assertEqual(self.field('aura', '_commit'), NEW)
+
     def test_same_day_aura_update_increments_pkgrel(self):
         pkgbuild = self.root / 'packages/aura/PKGBUILD'
         text = pkgbuild.read_text()
