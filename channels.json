@@ -1,0 +1,27 @@
+{
+  "channels": {
+    "testing": {
+      "actor": "DjDeveloperr",
+      "commit": "88eee9a570d250d119fd8c87b324651a8281309b",
+      "deployed_at": "2026-10-23T17:00:58Z",
+      "provenance": "verified",
+      "released_at": "2026-10-23T15:12:09Z",
+      "run_id": "39991515359",
+      "tag": "testing-20261023.5"
+    }
+  },
+  "history": [
+    {
+      "actor": "DjDeveloperr",
+      "channel": "testing",
+      "commit": "88eee9a570d250d119fd8c87b324651a8281309b",
+      "deployed_at": "2026-10-23T17:00:58Z",
+      "provenance": "verified",
+      "released_at": "2026-10-23T15:12:09Z",
+      "run_id": "39991515359",
+      "tag": "testing-20261023.5"
+    }
+  ],
+  "repository": "aurora-silicon/alarm-aurora",
+  "schema": 1
+}
