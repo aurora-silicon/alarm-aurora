@@ -1,14 +1,38 @@
-name: Deploy authenticated ALARM testing snapshot
+name: Deploy authenticated ALARM snapshot to a channel
 on:
   workflow_dispatch:
     inputs:
+      channel:
+        description: Update channel to change
+        type: choice
+        options: [testing, stable]
+        default: testing
       release-tag:
-        description: Immutable signed native package snapshot
+        description: Immutable signed snapshot (testing-*). For stable, empty promotes what testing serves
+        default: ''
+      allow-downgrade:
+        description: Allow a package version to go backwards (rollback); requires stable-promotion approval
+        type: boolean
+        default: false
+      dry-run:
+        description: Authenticate and assemble the site, but deploy and record nothing
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      channel:
+        type: string
         required: true
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+      release-tag:
+        type: string
+        default: ''
+      allow-downgrade:
+        type: boolean
+        default: false
+      dry-run:
+        type: boolean
+        default: false
+permissions: {}
 defaults:
   run:
     shell: bash
@@ -16,47 +40,105 @@ concurrency:
   group: alarm-repository-deployment
   cancel-in-progress: false
 jobs:
+  approve:
+    # Stable promotion and rollbacks wait for a required reviewer of the
+    # stable-promotion environment. Testing deploys of new snapshots do not.
+    if: inputs.channel == 'stable' || inputs.allow-downgrade
+    runs-on: ubuntu-24.04
+    environment: stable-promotion
+    permissions: {}
+    steps:
+      - env:
+          CHANNEL: ${{ inputs.channel }}
+          TAG: ${{ inputs.release-tag }}
+        run: echo "Approved $CHANNEL change to ${TAG:-the current testing snapshot}." >> "$GITHUB_STEP_SUMMARY"
+
+  assemble:
+    needs: approve
+    if: always() && (needs.approve.result == 'success' || needs.approve.result == 'skipped')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      attestations: read
+    outputs:
+      tag: ${{ steps.site.outputs.tag }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - id: site
+        name: Authenticate every channel's snapshot and assemble the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ inputs.channel }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+          ALLOW_DOWNGRADE: ${{ inputs.allow-downgrade }}
+          MIN_SOAK_HOURS: ${{ vars.STABLE_MIN_SOAK_HOURS || '0' }}
+        run: |
+          set -euo pipefail
+          flags=()
+          [[ $ALLOW_DOWNGRADE != true ]] || flags=(--allow-downgrade)
+          python3 scripts/channel-site.py assemble --channel "$CHANNEL" --tag "$RELEASE_TAG" "${flags[@]}" \
+            --min-soak-hours "$MIN_SOAK_HOURS" --site site --work "$RUNNER_TEMP/assemble" \
+            --state-out channel-state.json | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "tag=$(jq -r --arg c "$CHANNEL" '.channels[$c].tag' channel-state.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: channel-state
+          path: channel-state.json
+          retention-days: 30
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        if: ${{ !inputs.dry-run }}
+        with:
+          path: site
+
   deploy:
-    runs-on: ubuntu-24.04-arm
+    needs: assemble
+    if: always() && needs.assemble.result == 'success' && !inputs.dry-run
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v5
-      - name: Verify all signed databases, packages and provenance
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release-tag }}
-        run: |
-          [[ $RELEASE_TAG =~ ^testing-[A-Za-z0-9._-]+$ ]]
-          mkdir -p site/testing/aarch64
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir site/testing/aarch64
-          export GNUPGHOME="$RUNNER_TEMP/aurora-verification-keyring"
-          mkdir -m 0700 "$GNUPGHOME"
-          gpg --batch --import keys/aurora-alarm.asc
-          fingerprint=$(gpg --batch --with-colons --list-keys | awk -F: '$1=="fpr" {print $10; exit}')
-          [[ $fingerprint == "$(cat keys/fingerprint.txt)" ]]
-          for signature in site/testing/aarch64/*.sig; do
-            gpg --batch --verify "$signature" "${signature%.sig}"
-          done
-          test -s site/testing/aarch64/aurora.db.sig
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib,json
-          root=Path('site/testing/aarch64')
-          manifest=json.loads((root/'manifest.json').read_text())
-          for record in manifest['packages']:
-              p=root/record['filename']
-              assert p.is_file() and not p.is_symlink()
-              assert p.stat().st_size == record['bytes']
-              with p.open('rb') as stream: assert hashlib.file_digest(stream,'sha256').hexdigest()==record['sha256']
-          assert sum(p.stat().st_size for p in root.rglob('*') if p.is_file()) < 900_000_000
-          PY
-          cp keys/aurora-alarm.asc site/
-          printf '%s\n' 'Aurora ALARM signed testing repository' > site/index.html
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  record:
+    needs: [assemble, deploy]
+    if: always() && needs.deploy.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: channel-state
+      - name: Record the channel change on the channels branch
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: python3 scripts/channel-site.py record --channel "$CHANNEL" --state channel-state.json
+
+  images:
+    # Optional (AUTO_IMAGES=true): rebuild the three images from the snapshot
+    # testing now serves. Payloads and catalog adoption remain separate steps.
+    needs: [assemble, record]
+    if: always() && needs.record.result == 'success' && inputs.channel == 'testing' && vars.AUTO_IMAGES == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.assemble.outputs.tag }}
+        run: |
+          for profile in arch-minimal arch-kde arch-gnome; do
+            gh workflow run images.yml --repo "$GITHUB_REPOSITORY" --ref main -f profile="$profile" -f release-tag="$TAG"
+          done
+          echo "Dispatched images for $TAG." >> "$GITHUB_STEP_SUMMARY"
