@@ -13,5 +13,5 @@
     "fprintd-no-timeout.conf.in": "8d8df0ba2a6861b2edb2110e606906d84ca4848617621ad3cb48493a1522971d",
     "extract-mesa-calibration": "15a878dcf382a22c5d807f0f2c754fe70d39baec88f65aea183b1fe56cf69441"
   },
-  "adaptations": "Late root-filesystem loading, timer, optional per-device calibration, trusted-key-only success without a reader; no PAM or power-button policy changes."
+  "adaptations": "Late root-filesystem loading, timer, optional per-device calibration rebuilt from the Hardware volume's factory records with readiness-gated reader activation, trusted-key-only success without a reader; no PAM or power-button policy changes."
 }
