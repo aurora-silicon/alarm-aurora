@@ -11,7 +11,7 @@ pkgrel=3
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=d0f100e6040a1b099097d62adcb1bd675704ba59
+_commit=e824700f9e38a4c21d2876742340de57f38d5402
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
