@@ -58,3 +58,13 @@ The old manual inputs still work: `publish.yml -f build-run='<ids>' -f release-t
 - A tracker PR is left alone once anyone but the bot pushes to it.
 - `channels.json` on the `channels` branch is the record of what each channel serves; the deployed site
   carries a copy.
+
+The kernel prepares the pinned, corrected bindgen at
+`tools/aurora-bindgen/build/bin/bindgen` before configuration. Kbuild selects it
+automatically, including out-of-tree builds. No `BINDGEN=` make argument or
+export is required. Fedora and ALARM build and compile-test the generator from
+the kernel's checked source manifest; Nix uses the matching patched derivation
+and links its executable into that entry point. ALARM retains its exact
+compiler-lint adapter there. Every emitted layout assertion remains mandatory.
+Stock bindgen 0.73.2 loses alignment on empty C records such as
+`sched_statistics` with `SCHEDSTATS=n`; enabling statistics is not the fix.
