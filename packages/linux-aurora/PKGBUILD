@@ -6,12 +6,12 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=2
+pkgrel=3
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=311471f73e9919764bfb24acfe7eeb7c5230795a
+_commit=d0f100e6040a1b099097d62adcb1bd675704ba59
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
@@ -33,14 +33,13 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux::git+https://github.com/aurora-silicon/linux.git#commit=${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config common.config neo.config)
-sha256sums=('e54876197d94c291e15e175dffc6e889670f59e828c5762a56cf6ac1a5071c1a'
+        rust-toolchain.toml bindgen-kernel.py config common.config)
+sha256sums=('51eee22aaefc88a81a8c269ba1c131e38f8dea32f379fd35505f1c99bf9ecca4'
             'SKIP'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
             '0732060bdf4215c4e00e02afaca378044658923831a9bdae31f25a48e21527e5'
-            '78e3546c68fb2ccc9c7779ead05b19db8801aafc8f471a18b2b45e1259834eb6'
-            '6804a0b0ef200548b9ee4b7f10a345165dc6c1ba2ef9de00e2b43c48e8a58440')
+            '78e3546c68fb2ccc9c7779ead05b19db8801aafc8f471a18b2b45e1259834eb6')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -93,7 +92,7 @@ prepare() {
   rustup toolchain install 1.99.0 --profile minimal --component rust-src
   mkdir -p build/base
   cp ../config build/base/.config
-  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config ../neo.config
+  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config
   # Keep shared kexec support: apple_piodma_lock_transition() in
   # pcie-apple-piodma-diag.c acquires the kernel kexec blocker before Neo radio
   # admission retains DMA/firmware ownership. Both kexec
@@ -102,8 +101,7 @@ prepare() {
   # device trees under /lib/modules/*-ARCH.
   scripts/config --file build/base/.config --disable LOCALVERSION_AUTO
   _make O="$PWD/build/base" olddefconfig
-  python3 ../validate-config.py ../common.config build/base/.config
-  python3 ../validate-config.py ../neo.config build/base/.config
+  python3 ../validate-config.py arch/arm64/configs/asahi.config ../common.config build/base/.config
   grep -qx 'CONFIG_RUST=y' build/base/.config || {
     echo 'linux-aurora requires Rust drivers; toolchain/configuration disabled CONFIG_RUST' >&2; return 1;
   }
