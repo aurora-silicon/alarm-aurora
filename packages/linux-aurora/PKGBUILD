@@ -6,12 +6,12 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=2
+pkgrel=3
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=311471f73e9919764bfb24acfe7eeb7c5230795a
+_commit=9cbdd0734d9e186c5f5f5949a21b909d10c2571b
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
