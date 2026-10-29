@@ -38,3 +38,10 @@ multilib container for the FEX layer. Flatpak uses an OCI container imported fro
 the same signature-verified ALARM archive, since Linux refuses its unprivileged
 user namespaces inside a plain chroot. Flatpak builds include both runtime payloads;
 there is no settings-only success path.
+
+The Flatpak container also extracts the finished package and runs its actual
+helper against a fresh system Flatpak installation with no parent runtimes or
+apps installed. It enables twice, verifies both refs and pins, checks the three
+loader overrides and the shell default/user override, then removes everything
+and verifies cleanup. This exercises the image's first package installation
+without signing or publishing a snapshot.

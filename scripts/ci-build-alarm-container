@@ -17,6 +17,38 @@ cp -a "$root/packages/$package/." /tmp/package-build/
 chown -R builder:builder /tmp/package-build
 cd /tmp/package-build
 runuser -u builder -- makepkg --syncdeps --noconfirm
+if [[ $package == aurora-flatpak-gl ]]; then
+  # Exercise the actual package in a fresh system installation, separate from
+  # the builder's private SDK installation. Installer images start this way.
+  archives=(./aurora-flatpak-gl-*.pkg.tar.*)
+  [[ ${#archives[@]} == 1 && -f ${archives[0]} ]]
+  glroot=$(mktemp -d)
+  bsdtar -xf "${archives[0]}" -C "$glroot"
+  [[ ! -e /usr/share/aurora-flatpak-gl/repo ]]
+  mkdir -p /usr/share/aurora-flatpak-gl
+  ln -s "$glroot/usr/share/aurora-flatpak-gl/repo" /usr/share/aurora-flatpak-gl/repo
+  helper=$glroot/usr/lib/aurora-flatpak-gl/aurora-flatpak-gl
+  "$helper" enable
+  "$helper" enable
+  for branch in 25.08 26.08; do
+    ref=org.freedesktop.Platform.GL.aurora/aarch64/$branch
+    flatpak info --system "$ref"
+    flatpak pin --system | grep -F "$ref"
+  done
+  overrides=/var/lib/flatpak/overrides/global
+  grep -F 'VK_DRIVER_FILES=/usr/lib/aarch64-linux-gnu/GL/vulkan/icd.d/' "$overrides"
+  grep -F '__EGL_VENDOR_LIBRARY_FILENAMES=/usr/lib/aarch64-linux-gnu/GL/glvnd/egl_vendor.d/50_mesa.json' "$overrides"
+  grep -F 'LIBGL_DRIVERS_PATH=/usr/lib/aarch64-linux-gnu/GL/lib/dri' "$overrides"
+  env -u FLATPAK_GL_DRIVERS bash -c 'source "$1"; [[ $FLATPAK_GL_DRIVERS == aurora:default:host ]]' \
+    profile "$glroot/etc/profile.d/aurora-flatpak-gl.sh"
+  env FLATPAK_GL_DRIVERS=host bash -c 'source "$1"; [[ $FLATPAK_GL_DRIVERS == host ]]' \
+    profile "$glroot/etc/profile.d/aurora-flatpak-gl.sh"
+  "$helper" disable
+  ! flatpak remotes --system --columns=name | grep -qx aurora-gl
+  ! flatpak list --system --runtime --columns=ref | grep -F org.freedesktop.Platform.GL.aurora/
+  [[ ! -e $overrides ]]
+  echo 'Aurora Flatpak GL fresh install, upgrade and removal checks passed.'
+fi
 mkdir -p "$root/out/packages"
 for archive in ./*.pkg.tar.*; do
   name=${archive##*/}
