@@ -2,6 +2,7 @@ import datetime
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 import shutil
 import tempfile
@@ -40,17 +41,18 @@ class AlarmRecipeTests(unittest.TestCase):
 
     def test_aura_moves_commit_qualification_record_and_its_checksum(self):
         item = self.item('aura')
+        release = re.sub(r'\.r\d{8}$', '', self.field('aura', 'pkgver'))
         module.update_recipe(self.root, item, TODAY)
         directory = self.root / 'packages/aura'
         self.assertEqual(self.field('aura', '_commit'), NEW)
-        self.assertEqual(self.field('aura', 'pkgver'), '0.1.0.r20991023')
+        self.assertEqual(self.field('aura', 'pkgver'), release + '.r20991023')
         self.assertEqual(self.field('aura', 'pkgrel'), '1')
         record = json.loads((directory / 'build-qualification.json').read_text())
         self.assertEqual(record['source_commit'], NEW)
         self.assertFalse(record['hardware_tested'])
         digest = hashlib.sha256((directory / 'build-qualification.json').read_bytes()).hexdigest()
         self.assertIn(digest, (directory / 'PKGBUILD').read_text())
-        self.assertEqual(item['package_version'], '0.1.0.r20991023-1')
+        self.assertEqual(item['package_version'], release + '.r20991023-1')
 
     def test_comments_keep_the_commits_they_cite(self):
         pkgbuild = self.root / 'packages/aura/PKGBUILD'
