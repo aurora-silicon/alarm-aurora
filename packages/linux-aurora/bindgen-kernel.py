@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Adapt one unsupported generated lint to Rust 1.85; retain layout assertions."""
-import os
 from pathlib import Path
 import subprocess
 import sys
 
 args = sys.argv[1:]
-result = subprocess.run([os.environ["AURORA_BINDGEN_REAL"], *args], stdout=subprocess.PIPE)
+binary = Path(__file__).resolve().parents[1] / "rust-bindgen-0.73.2/target/release/bindgen"
+result = subprocess.run([str(binary), *args], stdout=subprocess.PIPE)
 if result.returncode:
     sys.stdout.buffer.write(result.stdout)
     raise SystemExit(result.returncode)

@@ -6,12 +6,12 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=2
+pkgrel=3
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=311471f73e9919764bfb24acfe7eeb7c5230795a
+_commit=26f2474183fcb287e0f7e8e180c53ed639b6a353
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
@@ -33,14 +33,13 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux::git+https://github.com/aurora-silicon/linux.git#commit=${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config common.config neo.config)
-sha256sums=('e54876197d94c291e15e175dffc6e889670f59e828c5762a56cf6ac1a5071c1a'
+        rust-toolchain.toml bindgen-kernel.py config common.config)
+sha256sums=('51eee22aaefc88a81a8c269ba1c131e38f8dea32f379fd35505f1c99bf9ecca4'
             'SKIP'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
-            '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
+            '5b3175b760923867273070f128548bd506a5a91e5c40d8974f48d99d0a9d40c9'
             '0732060bdf4215c4e00e02afaca378044658923831a9bdae31f25a48e21527e5'
-            '78e3546c68fb2ccc9c7779ead05b19db8801aafc8f471a18b2b45e1259834eb6'
-            '6804a0b0ef200548b9ee4b7f10a345165dc6c1ba2ef9de00e2b43c48e8a58440')
+            '75e85a14ea3949e1bf1803d1254c5ded18a2517c602210edf78cb97e0c4ab2c0')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -49,14 +48,12 @@ export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase
 export KBUILD_BUILD_TIMESTAMP="$(date -Ru${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH})"
 
-# Kbuild assigns BINDGEN itself, so an environment-only value is ignored.
-# Supply the wrapper and its real tool in every makepkg phase, not just prepare.
+# Kbuild discovers the prepared generator in the source tree in every phase.
 _make() {
-  AURORA_BINDGEN_REAL="$srcdir/private-bindgen/rust-bindgen-0.73.2/target/release/bindgen" \
-    RUSTFMT="$(rustup which --toolchain 1.99.0 rustfmt)" \
+  RUSTFMT="$(rustup which --toolchain 1.99.0 rustfmt)" \
     LIBCLANG_PATH="${AURORA_LIBCLANG_PATH:-/usr/lib}" \
     RUSTUP_TOOLCHAIN=1.99.0 make LLVM="${AURORA_LLVM:-1}" \
-    BINDGEN="$srcdir/bindgen-kernel.py" LOCALVERSION= "$@"
+    LOCALVERSION= "$@"
 }
 
 _check_kernelrelease() {
@@ -87,13 +84,15 @@ prepare() {
   export LLVM="${AURORA_LLVM:-1}"
   rustup toolchain install 1.99.0 --profile minimal --component rustfmt
   RUSTUP_TOOLCHAIN=1.99.0 RUSTFMT="$(rustup which --toolchain 1.99.0 rustfmt)" \
-    python3 tools/aurora-bindgen/build.py --output-dir "$srcdir/private-bindgen"
-  export AURORA_BINDGEN_REAL="$srcdir/private-bindgen/rust-bindgen-0.73.2/target/release/bindgen"
+    python3 tools/aurora-bindgen/build.py
+  # Retain the compiler-lint adapter at Kbuild's default entry point.
+  rm tools/aurora-bindgen/build/bin/bindgen
+  install -m755 ../bindgen-kernel.py tools/aurora-bindgen/build/bin/bindgen
   export RUSTUP_TOOLCHAIN=1.99.0
   rustup toolchain install 1.99.0 --profile minimal --component rust-src
   mkdir -p build/base
   cp ../config build/base/.config
-  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config ../neo.config
+  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config
   # Keep shared kexec support: apple_piodma_lock_transition() in
   # pcie-apple-piodma-diag.c acquires the kernel kexec blocker before Neo radio
   # admission retains DMA/firmware ownership. Both kexec
@@ -102,8 +101,7 @@ prepare() {
   # device trees under /lib/modules/*-ARCH.
   scripts/config --file build/base/.config --disable LOCALVERSION_AUTO
   _make O="$PWD/build/base" olddefconfig
-  python3 ../validate-config.py ../common.config build/base/.config
-  python3 ../validate-config.py ../neo.config build/base/.config
+  python3 ../validate-config.py arch/arm64/configs/asahi.config ../common.config build/base/.config
   grep -qx 'CONFIG_RUST=y' build/base/.config || {
     echo 'linux-aurora requires Rust drivers; toolchain/configuration disabled CONFIG_RUST' >&2; return 1;
   }
@@ -118,7 +116,6 @@ build() {
   cd $_srcname
   echo "Building base..."
   export LLVM="${AURORA_LLVM:-1}" RUSTUP_TOOLCHAIN=1.99.0
-  export AURORA_BINDGEN_REAL="$srcdir/private-bindgen/rust-bindgen-0.73.2/target/release/bindgen"
   _make O="$PWD/build/base" -j"${OMARCHY_BUILD_JOBS:-10}" Image modules dtbs
 }
 
