@@ -34,5 +34,7 @@ Run the source checks with `python3 -m unittest discover -s tests -p 'test_*.py'
 On macOS, the two existing UAPI compilation tests require Linux headers and fail
 on the unmodified base as well. Linux CI runs the complete suite. Native package
 builds use the signed ALARM root for AArch64 packages, and an isolated x86_64 Arch
-multilib container for the FEX layer. Flatpak builds include both runtime payloads;
+multilib container for the FEX layer. Flatpak uses an OCI container imported from
+the same signature-verified ALARM archive, since Linux refuses its unprivileged
+user namespaces inside a plain chroot. Flatpak builds include both runtime payloads;
 there is no settings-only success path.
