@@ -1,0 +1,105 @@
+# x86 payload for the aarch64 FEX host. CI builds this recipe on x86_64 Arch.
+pkgname=mesa-aurora-fex-guest
+epoch=1
+pkgver=26.3.0_devel.202610281933.108c7218bbb
+pkgrel=1
+pkgdesc='Aurora Mesa x86_64 and i686 graphics layer for the FEX guest'
+arch=('any')
+url='https://github.com/aurora-silicon/mesa'
+license=('MIT')
+_commit=108c7218bbb6cddcb91c29680ff0770d29afcecc
+_sha256=2472af9e23c604f9d568d66d6d278de367ae3181640a734044facda12097b16d
+makedepends=('meson' 'ninja' 'gcc-libs' 'gcc-multilib' 'clang' 'llvm' 'libclc'
+             'spirv-llvm-translator' 'spirv-tools' 'glslang' 'rust' 'rust-bindgen' 'cbindgen'
+             'python-mako' 'python-yaml' 'python-packaging' 'python-ply' 'python-pycparser'
+             'wayland-protocols' 'libdrm' 'lib32-libdrm' 'wayland' 'lib32-wayland'
+             'libx11' 'lib32-libx11' 'libxext' 'lib32-libxext' 'libxfixes' 'lib32-libxfixes'
+             'libxrandr' 'lib32-libxrandr' 'libxxf86vm' 'lib32-libxxf86vm'
+             'libxcb' 'lib32-libxcb' 'libxshmfence' 'lib32-libxshmfence'
+             'libglvnd' 'lib32-libglvnd' 'libdisplay-info' 'lib32-libdisplay-info'
+             'expat' 'lib32-expat' 'zlib' 'lib32-zlib' 'zstd' 'lib32-zstd'
+             'vulkan-icd-loader' 'lib32-vulkan-icd-loader' 'vulkan-headers'
+             'systemd-libs' 'lib32-systemd' 'xcb-util-keysyms' 'lib32-xcb-util-keysyms')
+source=("mesa-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/mesa/tar.gz/$_commit"
+        aurora-fex-mesa.service)
+sha256sums=('2472af9e23c604f9d568d66d6d278de367ae3181640a734044facda12097b16d' '20eef88ebcb0bf5d09afdcb28696c588e516ab69775e343f3cd75b9d57cdd907')
+# The embedded x86 layer is not linked against the host's libraries.
+options=('!strip' '!debug')
+
+build() {
+  [[ $(uname -m) == x86_64 ]] || { echo 'Build the FEX guest layer on x86_64 Arch' >&2; return 1; }
+  cd "mesa-$_commit"
+  export MESA_GIT_SHA1_OVERRIDE=$_commit
+  unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS PKG_CONFIG_PATH
+  local common=(--prefix=/usr --buildtype=release -Db_ndebug=true --wrap-mode=nodownload
+    -Dplatforms=x11,wayland -Dgallium-drivers=asahi,zink,softpipe -Dvulkan-drivers=asahi
+    -Dvulkan-layers= -Dglx=dri -Degl=enabled -Dgbm=enabled -Dgles1=disabled -Dgles2=enabled
+    -Dglvnd=enabled -Dgallium-rusticl=false -Dbuild-tests=false -Dvalgrind=disabled
+    -Dvideo-codecs= -Dmicrosoft-clc=disabled -Dlibunwind=disabled -Dlmsensors=disabled)
+  PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig:/usr/share/pkgconfig \
+    meson setup tools "${common[@]}" --libdir=lib64 -Dllvm=enabled
+  ninja -C tools -j"${OMARCHY_BUILD_JOBS:-10}" \
+    src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/asahi/clc/asahi_clc
+  printf '%s\n' '[binaries]' \
+    "mesa_clc = '$PWD/tools/src/compiler/clc/mesa_clc'" \
+    "vtn_bindgen2 = '$PWD/tools/src/compiler/spirv/vtn_bindgen2'" \
+    "asahi_clc = '$PWD/tools/src/asahi/clc/asahi_clc'" > tools.ini
+  local drivers=(-Dllvm=disabled -Dspirv-tools=disabled -Dmesa-clc=system
+    -Dprecomp-compiler=system --native-file tools.ini)
+  PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig:/usr/share/pkgconfig \
+    meson setup b64 "${common[@]}" "${drivers[@]}" --libdir=lib64
+  ninja -C b64 -j"${OMARCHY_BUILD_JOBS:-10}"
+  cat > i686.cross <<'EOF'
+[binaries]
+c = ['gcc', '-m32']
+cpp = ['g++', '-m32']
+ar = 'ar'
+strip = 'strip'
+pkg-config = 'pkg-config'
+[properties]
+pkg_config_libdir = '/usr/lib32/pkgconfig:/usr/share/pkgconfig'
+[host_machine]
+system = 'linux'
+cpu_family = 'x86'
+cpu = 'i686'
+endian = 'little'
+EOF
+  meson setup b32 "${common[@]}" "${drivers[@]}" --libdir=lib --cross-file i686.cross
+  ninja -C b32 -j"${OMARCHY_BUILD_JOBS:-10}"
+  DESTDIR="$srcdir/layer" meson install -C b64 --no-rebuild
+  DESTDIR="$srcdir/layer" meson install -C b32 --no-rebuild
+}
+
+check() {
+  local bits directory binary dependencies
+  for bits in 64 32; do
+    directory=lib64
+    [[ $bits == 64 ]] || directory=lib
+    for binary in "$srcdir/layer/usr/$directory/"libgallium-*.so \
+                  "$srcdir/layer/usr/$directory/libvulkan_asahi.so"; do
+      readelf -h "$binary" | grep -q "Class:.*ELF$bits" || return 1
+      if [[ $bits == 64 ]]; then
+        readelf -h "$binary" | grep -q 'Machine:.*X86-64' || return 1
+      else
+        readelf -h "$binary" | grep -q 'Machine:.*80386' || return 1
+      fi
+    done
+  done
+  while IFS= read -r -d '' binary; do
+    dependencies=$(readelf -d "$binary") || return 1
+    if grep -E 'NEEDED.*(libLLVM|libSPIRV-Tools|libsensors|libunwind)' <<<"$dependencies"; then
+      echo "Guest driver needs a release-specific runtime: $binary" >&2; return 1
+    fi
+  done < <(find "$srcdir/layer" -name '*.so*' -type f -print0)
+}
+
+package() {
+  depends=("mesa-aurora=$epoch:$pkgver-$pkgrel" "vulkan-aurora=$epoch:$pkgver-$pkgrel" 'util-linux')
+  local layer="$pkgdir/usr/share/guestos/aurora-fex-mesa-layer"
+  install -d "$layer" "$pkgdir/usr/share/guestos/aurora-fex-mesa"
+  cp -a "$srcdir/layer/usr" "$layer/"
+  rm -rf "$layer/usr/include" "$layer/usr/lib64/pkgconfig" "$layer/usr/lib/pkgconfig"
+  printf '%s\n' "$_commit" > "$layer/.aurora-mesa-commit"
+  install -Dm644 aurora-fex-mesa.service "$pkgdir/usr/lib/systemd/system/aurora-fex-mesa.service"
+  install -Dm644 "mesa-$_commit/docs/license.rst" "$pkgdir/usr/share/licenses/$pkgname/license.rst"
+}

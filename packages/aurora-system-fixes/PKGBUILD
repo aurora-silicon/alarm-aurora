@@ -1,0 +1,20 @@
+pkgname=aurora-system-fixes
+pkgver=1
+pkgrel=1
+pkgdesc='Aurora systemd drop-ins awaiting named upstream fixes'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('systemd')
+source=(malcontent-signal.conf malcontent-webd-update-signal.conf)
+sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '866a2b6a4d7c7408a0a3b9d33a932c548c4fedec6917d414f237f0064e7aa6f1')
+
+package() {
+  local unit
+  for unit in malcontent-timerd malcontent-timer-extension-agent malcontent-webd; do
+    install -Dm644 malcontent-signal.conf \
+      "$pkgdir/usr/lib/systemd/system/$unit.service.d/50-aurora-signal.conf"
+  done
+  install -Dm644 malcontent-webd-update-signal.conf \
+    "$pkgdir/usr/lib/systemd/system/malcontent-webd-update.service.d/50-aurora-signal.conf"
+}

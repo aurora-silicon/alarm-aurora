@@ -22,15 +22,21 @@ class AlarmRecipeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for name in module.RECIPES.values():
+        for name in list(module.RECIPES.values()) + ['mesa-aurora-fex-guest', 'aurora-flatpak-gl']:
             shutil.copytree(ROOT / 'packages' / name, self.root / 'packages' / name)
         self.pins = json.loads((ROOT / 'sources.json').read_text())
+        (self.root / 'sources.json').write_text(json.dumps(self.pins))
 
     def item(self, key, **extra):
         # Far-future dates keep these tests independent of the pins the
         # tracker may already have moved in this checkout.
-        return {'key': key, 'old': self.pins[key]['commit'], 'new': NEW, 'new_date': '2099-10-23T02:20:18Z',
-                **extra}
+        item = {'key': key, 'old': self.pins[key]['commit'], 'new': NEW,
+                'new_date': '2099-10-23T02:20:18Z', **extra}
+        if key == 'mesa-aurora':
+            pins = json.loads((self.root / 'sources.json').read_text())
+            pins[key].update(commit=item['new'], sha256='d' * 64)
+            (self.root / 'sources.json').write_text(json.dumps(pins))
+        return item
 
     def field(self, name, field):
         for line in (self.root / 'packages' / name / 'PKGBUILD').read_text().splitlines():
@@ -76,6 +82,15 @@ class AlarmRecipeTests(unittest.TestCase):
         self.assertEqual(self.field('mesa-aurora', 'pkgrel'), '1')
         self.assertEqual(self.field('mesa-aurora', '_commit'), NEW)
         self.assertTrue(item['package_version'].startswith('1:26.3.0_devel.209910230220.'))
+        for name in ('mesa-aurora-fex-guest', 'aurora-flatpak-gl'):
+            self.assertEqual(self.field(name, '_commit'), NEW)
+            self.assertEqual(self.field(name, '_sha256'), 'd' * 64)
+            self.assertEqual(self.field(name, 'pkgver'), self.field('mesa-aurora', 'pkgver'))
+            self.assertEqual(self.field(name, 'pkgrel'), self.field('mesa-aurora', 'pkgrel'))
+        pins = json.loads((self.root / 'sources.json').read_text())
+        self.assertEqual(pins['mesa-aurora-fex-guest'], pins['mesa-aurora'])
+        self.assertEqual(module.ci_inputs(['mesa-aurora']), {'packages.yml': {
+            'packages': 'aurora-flatpak-gl mesa-aurora mesa-aurora-fex-guest'}})
 
     def test_a_later_same_day_mesa_update_still_upgrades(self):
         first = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='f' * 40,

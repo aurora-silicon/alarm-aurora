@@ -1,0 +1,19 @@
+#!/bin/bash
+# Runs inside a disposable x86_64 Arch container, never on the runner host.
+set -euo pipefail
+[[ $(uname -m) == x86_64 ]]
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
+pacman -Syu --noconfirm --needed base-devel gcc-multilib git sudo python
+useradd -m builder
+printf 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman\n' > /etc/sudoers.d/aurora-builder
+mkdir -p /tmp/package-build
+cp -a "$root/packages/mesa-aurora-fex-guest/." /tmp/package-build/
+chown -R builder:builder /tmp/package-build
+cd /tmp/package-build
+runuser -u builder -- makepkg --syncdeps --noconfirm
+mkdir -p "$root/out/packages"
+for archive in ./*.pkg.tar.*; do
+  name=${archive##*/}
+  cp "$archive" "$root/out/packages/${name//:/_}"
+done

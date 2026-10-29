@@ -1,0 +1,93 @@
+#!/bin/bash
+# aurora-flatpak-gl enable|disable|status
+#
+# enable:  install org.freedesktop.Platform.GL.aurora for every branch in the
+#          packaged OSTree repository (system installation, pinned so
+#          "flatpak uninstall --unused" keeps it), and set the system-wide
+#          Flatpak override that points the Vulkan loader, glvnd and the DRI
+#          loader at the merged GL driver files.
+# disable: undo all of that. Override keys an administrator has changed are
+#          left alone.
+#
+# The override paths are the GL extension point's merged directories, not a
+# single extension's. GL.aurora has a higher priority than GL.default, so it
+# owns those file names whenever it is installed for the app's runtime; for a
+# runtime branch it was not built for, the same paths fall back to GL.default.
+set -u
+repo=/usr/share/aurora-flatpak-gl/repo
+remote=aurora-gl
+id=org.freedesktop.Platform.GL.aurora
+gl=/usr/lib/aarch64-linux-gnu/GL
+overrides=/var/lib/flatpak/overrides/global
+env_vk="VK_DRIVER_FILES=$gl/vulkan/icd.d/asahi_icd.aarch64.json:$gl/vulkan/icd.d/lvp_icd.aarch64.json"
+env_egl="__EGL_VENDOR_LIBRARY_FILENAMES=$gl/glvnd/egl_vendor.d/50_mesa.json"
+env_dri="LIBGL_DRIVERS_PATH=$gl/lib/dri"
+
+repo_refs() {
+  local d=$repo/refs/heads/runtime/$id/aarch64
+  [ -d "$d" ] && ls -1 "$d" | sort | sed "s|^|runtime/$id/aarch64/|"
+}
+
+installed_refs() {
+  flatpak list --system --runtime --columns=ref 2>/dev/null | grep "^$id/" | sed 's|^|runtime/|'
+}
+
+enable() {
+  [ -d "$repo/objects" ] || { echo "aurora-flatpak-gl: no repository at $repo" >&2; return 1; }
+  if flatpak remotes --system --columns=name | grep -qx "$remote"; then
+    flatpak remote-modify --system --url="file://$repo" "$remote"
+  else
+    flatpak remote-add --system --no-gpg-verify --no-enumerate --no-use-for-deps \
+      --title="Aurora Mesa (local)" "$remote" "file://$repo"
+  fi
+  local rc=0 ref
+  for ref in $(repo_refs); do
+    flatpak install --system --noninteractive -y --or-update "$remote" "$ref" || rc=1
+    flatpak pin --system "$ref" >/dev/null 2>&1 || true
+  done
+  local line key
+  for line in "$env_vk" "$env_egl" "$env_dri"; do
+    key=${line%%=*}
+    # An administrator's explicit loader choice wins over packaged policy.
+    if [ -f "$overrides" ] && grep -q "^$key=" "$overrides"; then
+      continue
+    fi
+    flatpak override --system --env="$line" || rc=1
+  done
+  return $rc
+}
+
+disable() {
+  local ref
+  if [ -f "$overrides" ]; then
+    local line
+    for line in "$env_vk" "$env_egl" "$env_dri"; do
+      grep -vxF "$line" "$overrides" > "$overrides.tmp" || true
+      cat "$overrides.tmp" > "$overrides"
+      rm -f "$overrides.tmp"
+    done
+    # Drop the file if nothing but empty groups is left in it.
+    grep -qvE '^(\[.*\]|[[:space:]]*)$' "$overrides" || rm -f "$overrides"
+  fi
+  for ref in $(installed_refs); do
+    flatpak pin --system --remove "$ref" >/dev/null 2>&1 || true
+    flatpak uninstall --system --noninteractive -y "$ref" || true
+  done
+  if flatpak remotes --system --columns=name | grep -qx "$remote"; then
+    flatpak remote-delete --system --force "$remote" || true
+  fi
+}
+
+status() {
+  echo "repository branches:"; repo_refs | sed 's/^/  /'
+  echo "installed:"; installed_refs | sed 's/^/  /'
+  echo "system override ($overrides):"; [ -f "$overrides" ] && sed 's/^/  /' "$overrides"
+  echo "FLATPAK_GL_DRIVERS=${FLATPAK_GL_DRIVERS-}"
+}
+
+case ${1-} in
+  enable) enable ;;
+  disable) disable ;;
+  status) status ;;
+  *) echo "usage: $0 enable|disable|status" >&2; exit 2 ;;
+esac

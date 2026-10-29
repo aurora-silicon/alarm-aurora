@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import zipfile
 
-SHARED = ('.github/workflows/packages.yml', 'scripts/ci-build-package',
+SHARED = ('.github/workflows/packages.yml', 'scripts/ci-build-package', 'scripts/ci-build-fex-guest',
           'scripts/fetch-base.py', 'images/base.json', 'keys/archlinuxarm-build-system.asc')
 PACKAGE = re.compile(r'[A-Za-z0-9_.+:~-]+\.pkg\.tar\.(xz|zst|gz)')
 
