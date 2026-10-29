@@ -9,7 +9,7 @@ url='https://github.com/aurora-silicon/mesa'
 license=('MIT')
 _commit=108c7218bbb6cddcb91c29680ff0770d29afcecc
 _sha256=2472af9e23c604f9d568d66d6d278de367ae3181640a734044facda12097b16d
-makedepends=('meson' 'ninja' 'gcc-libs' 'gcc-multilib' 'clang' 'llvm' 'libclc'
+makedepends=('meson' 'ninja' 'gcc-libs' 'gcc' 'lib32-gcc-libs' 'lib32-glibc' 'clang' 'llvm' 'libclc'
              'spirv-llvm-translator' 'spirv-tools' 'glslang' 'rust' 'rust-bindgen' 'cbindgen'
              'python-mako' 'python-yaml' 'python-packaging' 'python-ply' 'python-pycparser'
              'wayland-protocols' 'libdrm' 'lib32-libdrm' 'wayland' 'lib32-wayland'

@@ -4,7 +4,7 @@ set -euo pipefail
 [[ $(uname -m) == x86_64 ]]
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /etc/pacman.conf
-pacman -Syu --noconfirm --needed base-devel gcc-multilib git sudo python
+pacman -Syu --noconfirm --needed base-devel gcc lib32-gcc-libs lib32-glibc git sudo python
 useradd -m builder
 printf 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman\n' > /etc/sudoers.d/aurora-builder
 mkdir -p /tmp/package-build
