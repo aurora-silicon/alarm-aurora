@@ -3,9 +3,9 @@
 # Contributor: Andrea Scarpino <andrea@archlinux.org>
 
 pkgname=kinfocenter
-pkgver=6.8.0
+pkgver=6.8.2
 _dirver=$(echo $pkgver | cut -d. -f1-3)
-pkgrel=2
+pkgrel=1
 pkgdesc='A utility that provides information about a computer system'
 arch=(aarch64)
 url='https://kde.org/plasma-desktop/'
@@ -53,7 +53,7 @@ optdepends=('fwupd: firmware security module'
 groups=(plasma)
 source=(https://download.kde.org/stable/plasma/$_dirver/$pkgname-$pkgver.tar.xz
         0001-handle-unknown-installed-memory.patch)
-sha256sums=('56ca33428a14c7963e75be1c39025e62b70253b0e0fdc500072a38df9411a761'
+sha256sums=('2782ff66388124529a5dc4ecff28b4c69f2dec4c7658a35c205932cd64e06716'
             'e77c81336d8cb3f1a74b876c261bf4fc902315b4864b2c9146adb176754c6367')
 prepare() {
   patch -d $pkgname-$pkgver -p1 < 0001-handle-unknown-installed-memory.patch
