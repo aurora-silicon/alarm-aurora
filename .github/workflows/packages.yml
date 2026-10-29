@@ -100,12 +100,17 @@ jobs:
           name: alarm-${{ matrix.package }}
           path: |
             out/packages/*.pkg.tar.*
+            out/container/tmp/package-build/src/linux-*/build/base/.config
             build.log
+          include-hidden-files: true
           retention-days: 30
       # A failed attempt keeps its log under a name publication never reads.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: alarm-${{ matrix.package }}-failed-attempt-${{ github.run_attempt }}
-          path: build.log
+          path: |
+            build.log
+            out/container/tmp/package-build/src/linux-*/build/base/.config
+          include-hidden-files: true
           retention-days: 14
