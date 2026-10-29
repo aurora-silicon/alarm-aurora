@@ -32,7 +32,7 @@ class AlarmRecipeTests(unittest.TestCase):
         # tracker may already have moved in this checkout.
         item = {'key': key, 'old': self.pins[key]['commit'], 'new': NEW,
                 'new_date': '2099-10-23T02:20:18Z', **extra}
-        if key == 'mesa-aurora':
+        if key in ('mesa-aurora', 'kernel-aurora'):
             pins = json.loads((self.root / 'sources.json').read_text())
             pins[key].update(commit=item['new'], sha256='d' * 64)
             (self.root / 'sources.json').write_text(json.dumps(pins))

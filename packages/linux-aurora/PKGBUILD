@@ -12,13 +12,14 @@ pkgrel=3
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
 _commit=d266c703c13f099068284d622d397292241a0224
+_sha256=67f799fa1bc13ed37bb2135be5000262df9157173785c90e928de3d0f080935f
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
 _aura_version=0.1.0.r20261014
 
 pkgbase=linux-aurora
-_srcname=linux
+_srcname=linux-${_commit}
 _kernelname=${pkgbase#linux}
 _desc="AArch64 Apple Silicon (Aurora kernel)"
 pkgver="${_auroraver}.aurora${_aurorarel}"
@@ -32,10 +33,10 @@ makedepends=(
   tar xz xmlto python git patch
 )
 options=('!strip')
-source=(validate-config.py "linux::git+https://github.com/aurora-silicon/linux.git#commit=${_commit}"
+source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
         rust-toolchain.toml bindgen-kernel.py common.config)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            'SKIP'
+            '67f799fa1bc13ed37bb2135be5000262df9157173785c90e928de3d0f080935f'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
             '705ba34d520c47b71f1287fdd7315bd339a3ce99ab4906fdb78783abf82ed2e5')
@@ -136,6 +137,7 @@ _package_kernel() {
   # systemd expects to find the kernel here to allow hibernation
   # https://github.com/systemd/systemd/commit/edda44605f06a41fb86b7ab8128dcf99161d2344
   install -Dm644 "$O"/arch/arm64/boot/Image "$modulesdir/vmlinuz"
+  install -m644 "$O/.config" "$modulesdir/config"
 
   # Used by mkinitcpio to name the kernel
   echo "$1" | install -Dm644 /dev/stdin "$modulesdir/pkgbase"

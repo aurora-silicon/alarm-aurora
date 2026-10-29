@@ -6,7 +6,7 @@ arch=('aarch64')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('GPL-2.0-or-later')
 depends=('alsa-lib' 'fftw' 'libsamplerate' 'ncurses' 'python')
-makedepends=('xmlto' 'python-docutils' 'systemd')
+makedepends=('xmlto' 'docbook-xml' 'docbook-xsl' 'python-docutils' 'systemd')
 provides=("alsa-utils=$pkgver")
 conflicts=('alsa-utils')
 _commit=9feb22ba45b48729729c8d194aaf1bc082a6842a

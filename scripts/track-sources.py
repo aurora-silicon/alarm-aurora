@@ -97,6 +97,9 @@ def update_recipe(root, item, today):
         text, _, _ = tl.bump_assignment(
             text, 'pkgver', lambda _: f'{upstream}.{stamp}.{item["new"][:11]}')
     elif key == 'kernel-aurora':
+        pin = json.loads((root / 'sources.json').read_text())[key]
+        old_sha = re.search(r'^_sha256=(.*)$', text, re.M)[1]
+        text = text.replace(old_sha, pin['sha256'])
         text, old_ver, new_ver = tl.bump_assignment(text, '_auroraver', lambda _: tl.pacman_version(item['version']))
         if old_ver != new_ver:
             notes.append(f'kernel version {old_ver} -> {new_ver}: review the configuration fragments')
