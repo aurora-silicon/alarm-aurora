@@ -1,0 +1,11 @@
+post_upgrade() {
+  if [ -d /run/systemd/system ]; then
+    systemctl try-restart aurora-fex-mesa.service || true
+  fi
+}
+
+pre_remove() {
+  if [ -d /run/systemd/system ]; then
+    systemctl --no-reload disable --now aurora-fex-mesa.service || true
+  fi
+}

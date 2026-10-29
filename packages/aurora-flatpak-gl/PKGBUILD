@@ -20,6 +20,8 @@ build() {
   export AURORA_MESA_COMMIT=$_commit AURORA_MESA_SHA256=$_sha256
   # Build in makepkg's isolated home. Never use a host Flatpak installation.
   export XDG_DATA_HOME="$srcdir/flatpak-data" XDG_CACHE_HOME="$srcdir/flatpak-cache"
+  export XDG_RUNTIME_DIR="$srcdir/flatpak-runtime"
+  install -d -m700 "$XDG_RUNTIME_DIR"
   dbus-run-session -- bash -euo pipefail -c '
     flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
     for branch in 25.08 26.08; do
