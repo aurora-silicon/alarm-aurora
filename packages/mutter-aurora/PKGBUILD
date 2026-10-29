@@ -1,0 +1,128 @@
+# Arch's mutter 51.1-1 recipe (Jan Alexander Steffens, Fabian Bornschein) with
+# one Aurora patch: a VRR-capable output defaults to variable refresh rate.
+# The same patch is in fedora-aurora's mutter package.
+pkgname=mutter-aurora
+_tag=51.1
+pkgver=51.1.aurora1
+pkgrel=1
+pkgdesc="Window manager and compositor for GNOME, defaulting VRR-capable displays to variable refresh rate"
+url="https://gitlab.gnome.org/GNOME/mutter"
+arch=(aarch64)
+license=(GPL-2.0-or-later)
+provides=("mutter=$_tag" libmutter-51.so)
+conflicts=(mutter)
+replaces=(mutter)
+depends=(
+  at-spi2-core
+  cairo
+  colord
+  dconf
+  egl-wayland
+  fontconfig
+  fribidi
+  gdk-pixbuf2
+  glib2
+  glibc
+  glycin
+  gnome-desktop-4
+  gnome-settings-daemon
+  graphene
+  gsettings-desktop-schemas
+  gtk4
+  harfbuzz
+  iio-sensor-proxy
+  lcms2
+  libcanberra
+  libcolord
+  libdisplay-info
+  libdrm
+  libei
+  libgcc
+  libgirepository
+  libglvnd
+  libgudev
+  libinput
+  libpipewire
+  libsysprof-capture
+  libwacom
+  libx11
+  libxau
+  libxcb
+  libxcomposite
+  libxcursor
+  libxdamage
+  libxext
+  libxfixes
+  libxi
+  libxinerama
+  libxkbcommon
+  libxrandr
+  mesa
+  pango
+  pipewire
+  pixman
+  python
+  python-argcomplete
+  python-dbus
+  python-gobject
+  startup-notification
+  systemd-libs
+  wayland
+  xorg-xwayland
+)
+makedepends=(
+  bash-completion
+  git
+  glib2-devel
+  gobject-introspection
+  meson
+  python-docutils
+  sysprof
+  wayland-protocols
+)
+source=(
+  # Mutter tags use SSH signatures which makepkg doesn't understand
+  "git+$url.git#tag=$_tag"
+  "git+https://gitlab.gnome.org/GNOME/gvdb.git#commit=b54bc5da25127ef416858a3ad92e57159ff565b3"
+  0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch
+)
+b2sums=('0064caf6a85d9cb42d9544ad2dab31ef158a957d20d5a99aabe27f40986f128714f97a5cbe970c1aba1cb9c86f0b94f2f279a22072bbfefb9c0c7e715d7a411f'
+        'f989bc2ceb52aad3c6a23c439df3bbc672bc11d561a247d19971d30cc85ed5d42295de40f8e55b13404ed32aa44f12307c9f5b470f2e288d1c9c8329255c43bf'
+        '4502d8a6b390148adb70bbf9d75c95f2516c47e262a1434525cd670f25f1455edd31048ff00bc847daf6230a4135615db2f34b173c0bb6a14d59bc25fb8d205b')
+
+prepare() {
+  cd mutter
+  git apply -v "../0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch"
+}
+
+build() {
+  local meson_options=(
+    -D docs=false
+    -D installed_tests=false
+    -D tests=disabled
+  )
+
+  CFLAGS="${CFLAGS/-O2/-O3} -fno-semantic-interposition"
+  LDFLAGS+=" -Wl,-Bsymbolic-functions"
+
+  # Inject gvdb
+  export MESON_PACKAGE_CACHE_DIR="$srcdir"
+
+  arch-meson mutter build "${meson_options[@]}"
+  meson compile -C build
+}
+
+package() {
+  optdepends=('bash-completion: Bash completions for gdctl')
+
+  meson install -C build --no-rebuild --destdir "$pkgdir"
+
+  # The development kit stays in ALARM's mutter-devkit, which this package
+  # satisfies through its mutter provide.
+  rm -r "$pkgdir"/usr/lib/mutter-devkit
+  rm "$pkgdir"/usr/share/applications/org.gnome.Mutter.Mdk.desktop
+  rm "$pkgdir"/usr/share/icons/hicolor/scalable/apps/org.gnome.Mutter.Mdk.Devel.svg
+  rm "$pkgdir"/usr/share/icons/hicolor/scalable/apps/org.gnome.Mutter.Mdk.svg
+  rm "$pkgdir"/usr/share/icons/hicolor/symbolic/apps/org.gnome.Mutter.Mdk-symbolic.svg
+  find "$pkgdir"/usr/share -depth -type d -empty -delete
+}
