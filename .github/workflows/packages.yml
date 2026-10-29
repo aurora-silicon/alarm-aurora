@@ -43,6 +43,7 @@ jobs:
                   changed={key for key in previous.keys()|current.keys() if previous.get(key)!=current.get(key)}
                   source_packages={name:name for name in names}
                   source_packages['kernel-aurora']='linux-aurora'
+                  source_packages['alsa-utils']='alsa-utils-aurora'
                   if changed <= set(source_packages):
                       paths.remove('sources.json')
                       paths.extend('packages/'+source_packages[name]+'/PKGBUILD' for name in changed)

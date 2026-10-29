@@ -82,6 +82,25 @@ class PublicationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.eligible({**self.metadata, 'head_sha': foreign})
 
+    def test_alias_recipes_cannot_reuse_an_artifact_after_its_source_pin_moves(self):
+        for name in ('alsa-utils-aurora', 'aurora-flatpak-gl'):
+            recipe = self.root / 'packages' / name / 'PKGBUILD'
+            recipe.parent.mkdir()
+            recipe.write_text('pkgver=1\n')
+        pins = json.loads((self.root / 'sources.json').read_text())
+        pins.update({'alsa-utils': {'commit': 'old-alsa'}, 'mesa-aurora': {'commit': 'old-mesa'}})
+        (self.root / 'sources.json').write_text(json.dumps(pins))
+        self.commit()
+        self.metadata['head_sha'] = self.git('rev-parse', 'HEAD')
+        self.assertIn('alarm-alsa-utils-aurora', self.eligible())
+        self.assertIn('alarm-aurora-flatpak-gl', self.eligible())
+        pins['alsa-utils']['commit'] = 'new-alsa'
+        pins['mesa-aurora']['commit'] = 'new-mesa'
+        (self.root / 'sources.json').write_text(json.dumps(pins))
+        self.commit()
+        self.assertNotIn('alarm-alsa-utils-aurora', self.eligible())
+        self.assertNotIn('alarm-aurora-flatpak-gl', self.eligible())
+
     def artifact(self, name, content):
         archive = self.root / name
         with zipfile.ZipFile(archive, 'w') as z:

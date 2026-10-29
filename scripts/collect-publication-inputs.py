@@ -38,7 +38,8 @@ def eligible_recipes(root, metadata, repository):
     result = set()
     for recipe in (root / 'packages').glob('*/PKGBUILD'):
         name = recipe.parent.name
-        key = 'kernel-aurora' if name == 'linux-aurora' else name
+        key = {'linux-aurora': 'kernel-aurora', 'alsa-utils-aurora': 'alsa-utils',
+               'aurora-flatpak-gl': 'mesa-aurora'}.get(name, name)
         if subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{commit}:packages/{name}'],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
             continue
