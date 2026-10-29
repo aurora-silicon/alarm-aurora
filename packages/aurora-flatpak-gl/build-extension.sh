@@ -4,7 +4,8 @@
 # Builds org.freedesktop.Platform.GL.aurora//BRANCH for aarch64 from the Mesa
 # commit pinned for mesa-aurora in sources.json and exports it to the local
 # OSTree repository REPO. Needs flatpak and flatpak-builder, and the aarch64
-# org.freedesktop.Sdk//BRANCH plus org.freedesktop.Sdk.Extension.llvm22//BRANCH
+# org.freedesktop.Platform//BRANCH, org.freedesktop.Sdk//BRANCH and
+# org.freedesktop.Sdk.Extension.llvm22//BRANCH
 # installed for the user. On an x86_64 host, qemu-user binfmt runs the build.
 #
 # The extension is exported with ExtensionOf priority 10, above GL.default.

@@ -14,7 +14,7 @@ _commit=108c7218bbb6cddcb91c29680ff0770d29afcecc
 _sha256=2472af9e23c604f9d568d66d6d278de367ae3181640a734044facda12097b16d
 source=(aurora-flatpak-gl 60-aurora-flatpak-gl.conf aurora-flatpak-gl.sh
         build-extension.sh org.freedesktop.Platform.GL.aurora.yml.in validate-repo.sh)
-sha256sums=('52c6ffed0efa0890d6d23f8cc0030a5228b0ea86e5a540ce4131d31a54f4db05' '32cf9c71aef5f13664369f299a2872835302410fd1a03ddca2a13a87879357b3' 'e193fb70d360d81729615a18e9eb08dd715839f78767d82fde218727b1ca49f2' '37fe19832836e55992c234aa7f0e9831d089e799cf85bb661950220eae1e691c' 'b88c55dc31d08a55e5a94a8122457c037b8ee1fc901163851fcff517f552ed29' '1747a17d12a8b2645841ff800b9157201cfb021812a1b626932282e7c1a33a3d')
+sha256sums=('52c6ffed0efa0890d6d23f8cc0030a5228b0ea86e5a540ce4131d31a54f4db05' '32cf9c71aef5f13664369f299a2872835302410fd1a03ddca2a13a87879357b3' 'e193fb70d360d81729615a18e9eb08dd715839f78767d82fde218727b1ca49f2' 'e4ce40e5c2aef32be4c3108b4c28d209fca650fa6cc1933912e53027b8dadad3' 'b88c55dc31d08a55e5a94a8122457c037b8ee1fc901163851fcff517f552ed29' '1747a17d12a8b2645841ff800b9157201cfb021812a1b626932282e7c1a33a3d')
 
 build() {
   export AURORA_MESA_COMMIT=$_commit AURORA_MESA_SHA256=$_sha256
@@ -25,7 +25,8 @@ build() {
   dbus-run-session -- bash -euo pipefail -c '
     flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
     for branch in 25.08 26.08; do
-      flatpak install --user --noninteractive -y flathub \
+      flatpak install --user --noninteractive --no-related -y flathub \
+        "org.freedesktop.Platform/aarch64/$branch" \
         "org.freedesktop.Sdk/aarch64/$branch" \
         "org.freedesktop.Sdk.Extension.llvm22/aarch64/$branch"
       bash ./build-extension.sh "$branch" "$PWD/repo" "$PWD/work-$branch"

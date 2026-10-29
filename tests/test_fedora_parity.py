@@ -15,6 +15,16 @@ GL = ROOT / 'packages/aurora-flatpak-gl'
 
 
 class ParityTests(unittest.TestCase):
+    def test_archive_recipes_match_their_source_record(self):
+        sources = json.loads((ROOT / 'sources.json').read_text())
+        for key, recipe in (('kernel-aurora', 'linux-aurora'),
+                            ('aurora-audio', 'aurora-audio'),
+                            ('alsa-utils', 'alsa-utils-aurora')):
+            text = (ROOT / 'packages' / recipe / 'PKGBUILD').read_text()
+            with self.subTest(package=recipe):
+                self.assertEqual(re.search(r'^_commit=(.*)$', text, re.M)[1], sources[key]['commit'])
+                self.assertIn(sources[key]['sha256'], text)
+
     def test_mesa_consumers_pin_the_host_version_commit_and_archive(self):
         sources = json.loads((ROOT / 'sources.json').read_text())
         self.assertEqual(sources['mesa-aurora'], sources['mesa-aurora-fex-guest'])
