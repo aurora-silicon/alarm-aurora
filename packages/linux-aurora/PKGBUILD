@@ -16,7 +16,7 @@ _sha256=67f799fa1bc13ed37bb2135be5000262df9157173785c90e928de3d0f080935f
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
-_aura_version=0.1.0.r20261014
+_aura_version=0.1.0.r20261029
 
 pkgbase=linux-aurora
 _srcname=linux-${_commit}
