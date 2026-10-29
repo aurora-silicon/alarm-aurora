@@ -6,7 +6,7 @@ arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/alsa-ucm-conf-asahi'
 license=('BSD-3-Clause')
-_commit=777d7048c444bf20b11830380cfd846cd2744ee0
+_commit=a270b2e2d705ed521b07d008aac45283c75fb986
 makedepends=('git')
 depends=('alsa-ucm-conf')
 provides=("alsa-ucm-conf-asahi=$pkgver" "alsa-ucm-conf-asahi-aurora=$pkgver")
