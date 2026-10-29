@@ -9,7 +9,7 @@ python3 scripts/fetch-base.py
 bash scripts/build-package aura
 ```
 
-Package builds require native AArch64 Linux. CI uses an isolated signed ALARM root filesystem; it never installs packages or boot files on the runner host. Binary packages are written to `out/packages/`.
+Hardware package builds require native AArch64 Linux; the FEX guest layer requires x86_64 Arch with multilib. CI uses an isolated signed ALARM root filesystem; it never installs packages or boot files on the runner host. Binary packages are written to `out/packages/`.
 
 Development status: native package builds, the signed testing repository and KDE, GNOME and minimal development installer payloads are published. These are development artifacts; physical installation, encrypted first boot and update/reboot qualification remain pending. Device firmware/calibration is extracted from the target Mac.
 

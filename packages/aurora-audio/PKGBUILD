@@ -11,6 +11,7 @@ makedepends=('make')
 provides=("asahi-audio=$pkgver" "asahi-audio-aurora=$pkgver")
 conflicts=('asahi-audio' 'asahi-audio-aurora')
 replaces=('asahi-audio-aurora')
+backup=('etc/mkinitcpio.conf.d/90-aurora-audio.conf')
 source=("aurora-audio-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/asahi-audio/tar.gz/$_commit"
         90-aurora-audio.conf aurora-audio.hook)
 sha256sums=('a4997e87b298cc5ff1cfff117be1b7a9dcb6f683ea21acce15c439c08fefec07' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953')

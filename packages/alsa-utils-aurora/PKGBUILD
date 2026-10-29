@@ -5,7 +5,7 @@ pkgdesc='ALSA utilities that leave controls locked by another process alone'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('GPL-2.0-or-later')
-depends=('alsa-lib' 'fftw' 'libsamplerate' 'ncurses' 'python')
+depends=('alsa-lib>=1.2.16' 'fftw' 'libsamplerate' 'ncurses' 'python')
 makedepends=('xmlto' 'docbook-xml' 'docbook-xsl' 'python-docutils' 'systemd')
 provides=("alsa-utils=$pkgver")
 conflicts=('alsa-utils')

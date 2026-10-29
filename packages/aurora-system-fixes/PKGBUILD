@@ -6,10 +6,11 @@ arch=('any')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('MIT')
 depends=('systemd')
-source=(malcontent-signal.conf malcontent-webd-update-signal.conf)
-sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '866a2b6a4d7c7408a0a3b9d33a932c548c4fedec6917d414f237f0064e7aa6f1')
+source=(malcontent-signal.conf malcontent-webd-update-signal.conf LICENSE)
+sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '866a2b6a4d7c7408a0a3b9d33a932c548c4fedec6917d414f237f0064e7aa6f1' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
 
 package() {
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   local unit
   for unit in malcontent-timerd malcontent-timer-extension-agent malcontent-webd; do
     install -Dm644 malcontent-signal.conf \
