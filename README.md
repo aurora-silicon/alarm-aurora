@@ -1,4 +1,4 @@
-# Aurora ALARM
+# Aurora Alarm
 
 Arch Linux ARM packages and images for Aurora on Apple Silicon. The native [Aurora installer](https://github.com/aurora-silicon/aurora-installer) offers KDE Plasma, GNOME and minimal profiles, alongside Fedora and NixOS.
 

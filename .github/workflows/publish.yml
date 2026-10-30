@@ -294,7 +294,7 @@ jobs:
           export GNUPGHOME="$RUNNER_TEMP/dry-run-gnupg"
           mkdir -m 0700 "$GNUPGHOME"
           gpg --batch --pinentry-mode loopback --passphrase dry-run \
-            --quick-gen-key 'Aurora ALARM dry run <dry-run@aurorasilicon.invalid>' ed25519 sign 1d
+            --quick-gen-key 'Aurora Alarm dry run <dry-run@aurorasilicon.invalid>' ed25519 sign 1d
           gpg --batch --armor --export > dry-run.asc
           gpg --batch --pinentry-mode loopback --passphrase dry-run --armor --export-secret-keys |
             jq -Rs '{key: ., passphrase: "dry-run"}' |
@@ -347,8 +347,8 @@ jobs:
           RELEASE_TAG: ${{ needs.plan.outputs.release-tag }}
         run: |
           gh release create "$RELEASE_TAG" repository/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --prerelease --title "Aurora ALARM $RELEASE_TAG" \
-            --notes 'Signed native ALARM development package snapshot. Package and database signatures are verified before upload, and every asset carries a GitHub build provenance attestation (SHA256SUMS). Physical installation qualification is recorded separately.'
+            --prerelease --title "Aurora Alarm $RELEASE_TAG" \
+            --notes 'Signed native Aurora Alarm development package snapshot. Package and database signatures are verified before upload, and every asset carries a GitHub build provenance attestation (SHA256SUMS). Physical installation qualification is recorded separately.'
           echo "Published [$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)." >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
