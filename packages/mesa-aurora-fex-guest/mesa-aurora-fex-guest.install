@@ -1,9 +1,18 @@
 # pre_upgrade is read from the incoming package, so the first fixed upgrade
 # also unmounts the read-only directory before pacman extracts its payload.
 pre_upgrade() {
-  if [ -d /run/systemd/system ] && systemctl -q is-active aurora-fex-mesa.service; then
-    systemctl stop aurora-fex-mesa.service || return 1
-    touch /run/aurora-fex-mesa.upgrade
+  if [ -d /run/systemd/system ]; then
+    if systemctl -q is-active aurora-fex-mesa.service; then
+      systemctl stop aurora-fex-mesa.service || return 1
+      if mountpoint -q /usr/share/guestos/aurora-fex-mesa; then
+        echo 'FEX overlay remains mounted after stopping its service' >&2
+        return 1
+      fi
+      touch /run/aurora-fex-mesa.upgrade
+    elif mountpoint -q /usr/share/guestos/aurora-fex-mesa; then
+      echo 'FEX overlay is mounted without an active service; unmount it before upgrading' >&2
+      return 1
+    fi
   fi
 }
 

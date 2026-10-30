@@ -36,6 +36,20 @@ grep -x 1-2 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
 [[ ! -e /run/aurora-fex-mesa.upgrade ]]
 pacman -Qkk mesa-aurora-fex-guest
 findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-after.txt"
+# Model a failed cleanup: an inactive unit still has its read-only mount.
+mkdir -p /run/systemd/system/aurora-fex-mesa.service.d
+printf '[Service]\nExecStop=\nExecStop=/usr/bin/true\n' > /run/systemd/system/aurora-fex-mesa.service.d/stale-test.conf
+systemctl daemon-reload
+systemctl stop aurora-fex-mesa.service
+mountpoint -q /usr/share/guestos/aurora-fex-mesa
+if pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-3.pkg.tar.gz"; then
+  echo 'Expected the stale overlay to abort the transaction' >&2; exit 1
+fi
+[[ $(pacman -Q mesa-aurora-fex-guest) == 'mesa-aurora-fex-guest 1-2' ]]
+rm /run/systemd/system/aurora-fex-mesa.service.d/stale-test.conf
+systemctl daemon-reload
+umount /usr/share/guestos/aurora-fex-mesa
+systemctl start aurora-fex-mesa.service
 systemctl stop aurora-fex-mesa.service
 pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-3.pkg.tar.gz"
 ! systemctl is-active aurora-fex-mesa.service

@@ -9,4 +9,4 @@ Target = mesa-aurora-fex-guest
 Description = Unmounting the Aurora FEX Mesa overlay for upgrade
 When = PreTransaction
 AbortOnFail
-Exec = /usr/bin/bash -c 'if test -d /run/systemd/system && systemctl -q is-active aurora-fex-mesa.service; then systemctl stop aurora-fex-mesa.service && touch /run/aurora-fex-mesa.upgrade; fi'
+Exec = /usr/bin/bash -c 'if test -d /run/systemd/system; then if systemctl -q is-active aurora-fex-mesa.service; then systemctl stop aurora-fex-mesa.service || exit 1; mountpoint -q /usr/share/guestos/aurora-fex-mesa && exit 1; touch /run/aurora-fex-mesa.upgrade; elif mountpoint -q /usr/share/guestos/aurora-fex-mesa; then echo "FEX overlay is mounted without an active service; unmount it before upgrading" >&2; exit 1; fi; fi'
