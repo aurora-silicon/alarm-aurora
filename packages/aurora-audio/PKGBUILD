@@ -1,12 +1,12 @@
 pkgname=aurora-audio
 pkgver=4.1.aurora2
-pkgrel=3
+pkgrel=4
 pkgdesc='Aurora Apple Silicon PipeWire/WirePlumber DSP profiles including J700'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/asahi-audio'
 license=('MIT')
-_commit=f513878c9c5144d2ab582b314081227a208777e3
+_commit=d957fabbacbe7dd67b39f052b2ff21edea7ee038
 makedepends=('make')
 provides=("asahi-audio=$pkgver" "asahi-audio-aurora=$pkgver")
 conflicts=('asahi-audio' 'asahi-audio-aurora')
@@ -14,10 +14,10 @@ replaces=('asahi-audio-aurora')
 backup=('etc/mkinitcpio.conf.d/90-aurora-audio.conf')
 source=("aurora-audio-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/asahi-audio/tar.gz/$_commit"
         90-aurora-audio.conf aurora-audio.hook)
-sha256sums=('a4997e87b298cc5ff1cfff117be1b7a9dcb6f683ea21acce15c439c08fefec07' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953')
+sha256sums=('41487970377d5ebb9dd652b1d6311ce8002ca95bb02381eb5e620dd01ddd15b0' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953')
 package() {
   # The profile files can be packaged without installing the target audio stack.
-  depends=('alsa-ucm-conf-aurora' 'pipewire-audio' 'wireplumber' 'bankstown' 'triforce-lv2'
+  depends=('alsa-ucm-conf-aurora' 'pipewire-audio' 'wireplumber>=0.5.16' 'bankstown' 'triforce-lv2'
            'lsp-plugins-lv2' 'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora')
   make -C "asahi-audio-$_commit" install DESTDIR="$pkgdir" PREFIX=/usr
   install -Dm644 "asahi-audio-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
