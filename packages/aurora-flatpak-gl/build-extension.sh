@@ -41,7 +41,8 @@ for l in lines:
         out.append('priority=10')
 open(path, 'w').write('\n'.join(out) + '\n')
 PY
-flatpak build-export --arch=aarch64 \
+echo "$commit" > "$work/build/files/.aurora-mesa-commit"
+flatpak build-export --runtime --files=files --arch=aarch64 \
   --subject="Aurora Mesa $commit for $branch" "$repo" "$work/build" "$branch"
 flatpak build-update-repo "$repo"
 # The PKGBUILD checks these against its Mesa commit.
