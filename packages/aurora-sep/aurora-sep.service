@@ -3,13 +3,12 @@ Description=Aurora SEP services
 After=local-fs.target aurora-peripherals.service
 RequiresMountsFor=/var/lib
 ConditionPathExists=/dev/disk/by-partlabel/iBootSystemContainer
-Wants=aurora-sep-ready.service
+Wants=aurora-sep-ready.service aurora-touchid-setup.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecCondition=/bin/sh -c 'modinfo -F filename apple_sep 2>/dev/null | grep -Eq "[.]ko([.](gz|xz|zst))?$"'
-ExecStartPre=/usr/libexec/aurora/prepare-sep-calibration
 ExecStart=/usr/local/sbin/aurora-sep-load
 StateDirectory=aurora-sep
 StateDirectoryMode=0700
