@@ -127,6 +127,7 @@ jobs:
           name: alarm-${{ matrix.package }}-failed-attempt-${{ github.run_attempt }}
           path: |
             build.log
+            out/graphics-upgrade/
             out/container/tmp/package-build/src/linux-*/build/base/.config
           include-hidden-files: true
           retention-days: 14
