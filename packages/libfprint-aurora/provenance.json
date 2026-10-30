@@ -1,12 +1,12 @@
 {
   "repository": "https://github.com/aurora-silicon/aurora-sep-userspace",
-  "commit": "2c4a40c69e035d1a4712e5822c89459cfec627d4",
+  "commit": "61a76b575b8cf1726575e7b748ef375298e78f6d",
   "files": {
     "0002-aurora-report-unusable-captures-as-retries.patch": "6a594471084ce5d6e65e3edaccc7f10a62dd3bb1cfc2bcdfa6b3f2357906620a",
-    "0003-hide-lid-covered-readers-while-the-lid-is-closed.patch": "598ef73a4fa13e9860542aeeb5084d53dc0df32e99c1170311dd2c1b5364f4b9",
+    "0003-hide-lid-covered-readers-while-the-lid-is-closed.patch": "58b3ec841207942bd48819a8e91a8cc7992e5ffae34285b7e9d3617c2750043f",
     "apple-sep.h": "00cb09430461e0b0772619bc2054c8f9794484fbc3d807268955c0fb2de45c10",
     "fprintd-lid-switch.conf": "dd53832d8da285112742d1f8a4726236e724293c6f96af0f1309c01c45b065a4",
-    "libfprint-1.94.100-apple-sep.patch": "55aef4a2019568a13aea48064ed83858a7ce4902636f8e85e46877ce9d8ef172",
-    "libfprint.spec": "36350097ae5e01f0b932cdea0a4932458985e7da7050aceb9b4a61b95eb0c31e"
-  }
+    "libfprint-1.94.100-apple-sep.patch": "55aef4a2019568a13aea48064ed83858a7ce4902636f8e85e46877ce9d8ef172"
+  },
+  "adaptations": "Patches and apple-sep.h are unmodified from the commit above. fprintd-lid-switch.conf is kept from 2c4a40c6: upstream merged it into fprintd-aurora-touchid.conf, whose /dev/sep-bio line Arch already gets from aurora-sep's fprintd-aurora.conf. The libfprint-selinux module is Fedora-only; Arch Linux ARM ships no SELinux policy."
 }
