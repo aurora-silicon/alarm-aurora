@@ -2,7 +2,7 @@
 pkgname=mesa-aurora-fex-guest
 epoch=1
 pkgver=26.3.0_devel.202610300304.cf4e08105df
-pkgrel=2
+pkgrel=3
 pkgdesc='Aurora Mesa x86_64 and i686 graphics layer for the FEX guest'
 arch=('any')
 url='https://github.com/aurora-silicon/mesa'

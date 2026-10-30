@@ -63,6 +63,33 @@ jobs:
           for file in packages/*/PKGBUILD scripts/*; do
             [[ $file == *.py ]] || bash -n "$file"
           done
+  fex-overlay:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Exercise pacman upgrade with a mounted overlay
+        run: |
+          set -euo pipefail
+          python3 scripts/fetch-base.py
+          docker import cache/base/ArchLinuxARM-aarch64.tar.gz aurora-alarm-overlay
+          mkdir -p "$RUNNER_TEMP/proof"
+          docker run -d --name fex-overlay --privileged --cgroupns=host \
+            -v /sys/fs/cgroup:/sys/fs/cgroup:rw --tmpfs /run --tmpfs /tmp \
+            -v "$PWD:/src:ro" -v "$RUNNER_TEMP/proof:/proof" aurora-alarm-overlay /sbin/init
+          trap 'docker logs fex-overlay > "$RUNNER_TEMP/proof/systemd.log" 2>&1; docker rm -f fex-overlay' EXIT
+          for attempt in {1..30}; do
+            if docker exec fex-overlay systemctl is-active multi-user.target; then break; fi
+            sleep 1
+          done
+          docker exec fex-overlay bash /src/scripts/test-fex-overlay-upgrade
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: fex-overlay-upgrade-proof
+          path: ${{ runner.temp }}/proof/
   build:
     needs: metadata
     if: needs.metadata.outputs.packages != '[]'
