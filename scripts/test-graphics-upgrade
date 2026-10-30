@@ -9,6 +9,9 @@ mkdir -p "$proof/stock"
 pacman -S --noconfirm --needed mesa opencl-mesa vulkan-asahi clinfo pkgconf
 # Preserve signed stock archives and exact installed bytes before replacement.
 pacman -Sw --noconfirm --cachedir "$proof/stock" mesa opencl-mesa vulkan-asahi
+# Pacman epoch colons are valid on Linux but rejected by artifact upload.
+# Preserve original signed archive names inside one portable evidence file.
+tar -cf "$proof/stock-packages.tar" -C "$proof" stock
 pacman -Q | sort > "$proof/before.txt"
 files=(/usr/lib/libvulkan_asahi.so /usr/lib/libRusticlOpenCL.so.1.0.0
        /usr/include/gbm.h /usr/lib/pkgconfig/gbm.pc /etc/OpenCL/vendors/rusticl.icd)
