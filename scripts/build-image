@@ -78,7 +78,7 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez blue
   aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
   arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
-  arch-gnome) packages+=(gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
+  arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
 # A fresh Arch root generates no locale, so sessions ran in the C locale and
