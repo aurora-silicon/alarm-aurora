@@ -1,6 +1,6 @@
 pkgname=aurora-flatpak-gl
 epoch=1
-pkgver=26.3.0_devel.202610281933.108c7218bbb
+pkgver=26.3.0_devel.202610291706.14b6b0c4531
 pkgrel=1
 pkgdesc='Aurora Mesa Flatpak GL extension for Freedesktop 25.08 and 26.08'
 arch=('aarch64')
@@ -11,8 +11,8 @@ makedepends=('flatpak-builder' 'dbus' 'python')
 options=('!strip' '!debug')
 install=aurora-flatpak-gl.install
 backup=('etc/profile.d/aurora-flatpak-gl.sh')
-_commit=108c7218bbb6cddcb91c29680ff0770d29afcecc
-_sha256=2472af9e23c604f9d568d66d6d278de367ae3181640a734044facda12097b16d
+_commit=14b6b0c453146a09d08f377e9a6c9905d64e442a
+_sha256=0e310f8da7e495664778b83e1d9c9c438ca57ff91ebc3d2c6440370d85b0b2a3
 source=(aurora-flatpak-gl 60-aurora-flatpak-gl.conf aurora-flatpak-gl.sh
         build-extension.sh org.freedesktop.Platform.GL.aurora.yml.in validate-repo.sh LICENSE)
 sha256sums=('52c6ffed0efa0890d6d23f8cc0030a5228b0ea86e5a540ce4131d31a54f4db05' '32cf9c71aef5f13664369f299a2872835302410fd1a03ddca2a13a87879357b3' 'e193fb70d360d81729615a18e9eb08dd715839f78767d82fde218727b1ca49f2' 'e4ce40e5c2aef32be4c3108b4c28d209fca650fa6cc1933912e53027b8dadad3' 'b88c55dc31d08a55e5a94a8122457c037b8ee1fc901163851fcff517f552ed29' '1747a17d12a8b2645841ff800b9157201cfb021812a1b626932282e7c1a33a3d' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
