@@ -34,12 +34,13 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
-        rust-toolchain.toml bindgen-kernel.py common.config)
+        rust-toolchain.toml bindgen-kernel.py config common.config)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '57b7a2454d6cf23680b468ff9c5450ee26abd4b8474b4a7ea6203d66f4718145'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'd5af8a3096abe6f16b0fb59b4bccd5d3a5f64f4d011d43add0313d21f125b06d')
+            'e2de59b8bf3ae6b98d922ca47ed94e54495d9ed71d2c04294ff24bc2043367be'
+            'ca1d12792107302076cfc3ed102d2dd2574626505c18066f39ef731909ace873')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -91,7 +92,9 @@ prepare() {
   export RUSTUP_TOOLCHAIN=1.99.0
   rustup toolchain install 1.99.0 --profile minimal --component rust-src
   mkdir -p build/base
-  _make O="$PWD/build/base" defconfig
+  # The full distribution configuration (resolved against this pin) is the
+  # base; the kernel's asahi.config and the shared common.config apply on top.
+  cp ../config build/base/.config
   scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config
   # Keep shared kexec support: apple_piodma_lock_transition() in
   # pcie-apple-piodma-diag.c acquires the kernel kexec blocker before Neo radio
@@ -105,6 +108,14 @@ prepare() {
   grep -qx 'CONFIG_RUST=y' build/base/.config || {
     echo 'linux-aurora requires Rust drivers; toolchain/configuration disabled CONFIG_RUST' >&2; return 1;
   }
+  # Desktop images need LUKS root unlock, Bluetooth, a firewall, removable
+  # exFAT media and generic HID input.
+  local option
+  for option in DM_CRYPT DM_INTEGRITY BT NF_TABLES EXFAT_FS HID_GENERIC; do
+    grep -Eqx "CONFIG_${option}=[ym]" build/base/.config || {
+      echo "linux-aurora requires CONFIG_${option} (y or m)" >&2; return 1;
+    }
+  done
   _make O="$PWD/build/base" prepare
   _make -s O="$PWD/build/base" kernelrelease > build/base/version
 
