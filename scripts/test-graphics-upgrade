@@ -39,7 +39,7 @@ clinfo --list | tee "$proof/clinfo.txt"
 grep -i rusticl "$proof/clinfo.txt"
 # Build dependencies must not hide missing runtime dependencies. Every loaded
 # library's owning package must be in lavapipe's declared dependency closure.
-pactree -ulq vulkan-lavapipe-aurora | sort -u > "$proof/lavapipe-dependency-closure.txt"
+pactree --unique vulkan-lavapipe-aurora | awk '{print $1}' | sort -u > "$proof/lavapipe-dependency-closure.txt"
 ldd /usr/lib/libvulkan_lvp.so > "$proof/lavapipe-ldd.txt"
 ! grep -F 'not found' "$proof/lavapipe-ldd.txt"
 while IFS= read -r library; do
