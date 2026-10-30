@@ -8,12 +8,13 @@ exec > >(tee "$proof/fex-overlay.log") 2>&1
 work=$(mktemp -d)
 make_fixture() {
   local version=$1 root=$work/root-$1
-  mkdir -p "$root/usr/share/guestos/aurora-fex-mesa-layer/usr" "$root/usr/share/guestos/aurora-fex-mesa" "$root/usr/lib/systemd/system"
+  mkdir -p "$root/usr/share/libalpm/hooks" "$root/usr/share/guestos/aurora-fex-mesa-layer/usr" "$root/usr/share/guestos/aurora-fex-mesa" "$root/usr/lib/systemd/system"
   echo "$version" > "$root/usr/share/guestos/aurora-fex-mesa-layer/usr/aurora-layer"
   cp /src/packages/mesa-aurora-fex-guest/aurora-fex-mesa.service "$root/usr/lib/systemd/system/"
-  printf 'pkgname = aurora-fex-overlay-test\npkgver = %s\npkgdesc = disposable overlay lifecycle fixture\narch = any\nsize = 1024\n' "$version" > "$root/.PKGINFO"
+  printf 'pkgname = mesa-aurora-fex-guest\npkgver = %s\npkgdesc = disposable overlay lifecycle fixture\narch = any\nsize = 1024\n' "$version" > "$root/.PKGINFO"
   if [[ $version != 1-1 ]]; then
     cp /src/packages/mesa-aurora-fex-guest/mesa-aurora-fex-guest.install "$root/.INSTALL"
+    cp /src/packages/mesa-aurora-fex-guest/60-aurora-fex-mesa-upgrade.hook "$root/usr/share/libalpm/hooks/"
   fi
   local members=(.PKGINFO usr)
   [[ $version == 1-1 ]] || members+=(.INSTALL)
@@ -33,7 +34,7 @@ systemctl is-active aurora-fex-mesa.service
 grep -x 1-2 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
 ! touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
 [[ ! -e /run/aurora-fex-mesa.upgrade ]]
-pacman -Qkk aurora-fex-overlay-test
+pacman -Qkk mesa-aurora-fex-guest
 findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-after.txt"
 systemctl stop aurora-fex-mesa.service
 pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-3.pkg.tar.gz"
