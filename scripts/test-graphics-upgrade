@@ -6,7 +6,7 @@ packages=${1:?directory containing freshly built packages}
 commit=$(python3 -c 'import json; print(json.load(open("/src/sources.json"))["mesa-aurora"]["commit"])')
 proof=/src/out/graphics-upgrade
 mkdir -p "$proof/stock"
-pacman -S --noconfirm --needed mesa opencl-mesa vulkan-asahi vulkan-swrast clinfo pkgconf vulkan-tools
+pacman -S --noconfirm --needed mesa opencl-mesa vulkan-asahi vulkan-swrast clinfo pkgconf vulkan-tools pacman-contrib
 # Preserve signed stock archives and exact installed bytes before replacement.
 pacman -Sw --noconfirm --cachedir "$proof/stock" mesa opencl-mesa vulkan-asahi vulkan-swrast
 # Pacman epoch colons are valid on Linux but rejected by artifact upload.
@@ -37,6 +37,17 @@ ldd /usr/lib/libRusticlOpenCL.so.1.0.0 > "$proof/rusticl-ldd.txt"
 # Enumerating without a GPU still loads the real ICD and Rusticl platform.
 clinfo --list | tee "$proof/clinfo.txt"
 grep -i rusticl "$proof/clinfo.txt"
+# Build dependencies must not hide missing runtime dependencies. Every loaded
+# library's owning package must be in lavapipe's declared dependency closure.
+pactree -ulq vulkan-lavapipe-aurora | sort -u > "$proof/lavapipe-dependency-closure.txt"
+ldd /usr/lib/libvulkan_lvp.so > "$proof/lavapipe-ldd.txt"
+! grep -F 'not found' "$proof/lavapipe-ldd.txt"
+while IFS= read -r library; do
+  owner=$(pacman -Qoq "$(readlink -f "$library")")
+  grep -Fx "$owner" "$proof/lavapipe-dependency-closure.txt" || {
+    echo "Undeclared lavapipe runtime package: $owner ($library)" >&2; exit 1;
+  }
+done < <(awk '/=> \// {print $3} /^[[:space:]]*\// {print $1}' "$proof/lavapipe-ldd.txt")
 XDG_RUNTIME_DIR=/tmp VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.aarch64.json \
   vulkaninfo --summary > "$proof/lavapipe.txt"
 grep -i llvmpipe "$proof/lavapipe.txt"
