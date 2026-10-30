@@ -7,7 +7,7 @@ groups=('aurora-platform-apple-silicon')
 license=('GPL-2.0-only')
 url='https://github.com/aurora-silicon/linux'
 source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'prepare-sep-calibration' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' )
-sha256sums=('98d88d028d4a1e703cc9a3bb20d3248d9cd33899288b51bd17fa6af4d71e56df'
+sha256sums=('e6dc8c92d0f21026606f18161a23b332ed41a1009d709035ecfdc960b97bccee'
             '1bb0f37f5057c64ba5f6ca024b05c314abefc3b756f95e858c5c2c1213ca7d89'
             'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
             '44bece3c714baa87f4b02d146494317f5cdc2b1fbc667e0ba5279079cf2ed050'
