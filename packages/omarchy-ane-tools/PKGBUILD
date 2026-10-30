@@ -1,0 +1,36 @@
+pkgname=omarchy-ane-tools
+pkgver=0.5.7
+pkgrel=1
+pkgdesc='Apple Neural Engine userspace tools for the in-kernel ANE driver'
+arch=('aarch64')
+url='https://github.com/joshuaswarren/omarchy-ane'
+license=('GPL-2.0-only OR MIT')
+_commit=68e92712bbffa08f5002dcc542434fe1393f0578
+# libdrm: drm.h for libane, which omarchy-ane-run links statically.
+makedepends=('gcc' 'make' 'binutils' 'libdrm' 'python')
+depends=('glibc' 'python')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/joshuaswarren/omarchy-ane/tar.gz/$_commit")
+sha256sums=('09fee8d386728939d4752acb21a3ff99192809bf608f8d1bca6cd426b460aea6')
+build() {
+  cd "omarchy-ane-$_commit"
+  make -C libane libane
+  make -C tools ane-run
+}
+check() {
+  # Host-only, no device or network. tools/test_ane_smoke.py is left out: it
+  # times fake ANE calls against a 2 s limit and fails on slow (emulated) builders.
+  cd "omarchy-ane-$_commit"
+  python tools/test_ane_firmware_fetch.py
+}
+package() {
+  cd "omarchy-ane-$_commit"
+  install -Dm755 tools/ane-run "$pkgdir/usr/bin/omarchy-ane-run"
+  install -Dm755 -t "$pkgdir/usr/bin" packaging/omarchy-ane-smoke packaging/omarchy-ane-firmware-fetch
+  # omarchy-ane-smoke looks for its programs here.
+  local gen
+  for gen in h13 h14; do
+    install -Dm644 "fixtures/$gen-anec/add/program-0.anec" \
+      "$pkgdir/usr/share/omarchy-ane/fixtures/$gen-anec/add/program-0.anec"
+  done
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
