@@ -12,6 +12,7 @@ filesystems the installer writes):
              no partition number in the core, no lookup without a hint
   network    NetworkManager is enabled; desktops ship its settings UI
   lid        logind still suspends on lid close; sleep is not masked
+  ssh        no sshd unit is enabled; remote login is the owner's choice
 
 --system names a NixOS system closure; its software and /etc are read
 from there instead of /usr and /etc.
@@ -204,6 +205,21 @@ def check_lid(root):
     return None
 
 
+SSH_UNITS = ('sshd.service', 'sshd.socket', 'ssh.service', 'ssh.socket')
+
+
+def check_ssh(root):
+    units = root.path(f'{root.etc}/systemd/system')
+    if not units.is_dir():
+        return None
+    for wants in sorted(units.glob('*.wants')) + sorted(units.glob('*.requires')):
+        for unit in SSH_UNITS:
+            path = wants / unit
+            if path.is_symlink() or path.exists():
+                return f'{unit} is enabled ({wants.name})'
+    return None
+
+
 def boot_reader(args):
     if args.boot_dir:
         base = Path(args.boot_dir)
@@ -285,6 +301,7 @@ def main():
             checks.append(('wallpaper', check_wallpaper(root, args.profile)))
         checks.append(('network', check_network(root, args.profile)))
         checks.append(('lid', check_lid(root)))
+        checks.append(('ssh', check_ssh(root)))
     if args.esp:
         checks.append(('boot', check_boot(args)))
     failures = [(name, problem) for name, problem in checks if problem]
