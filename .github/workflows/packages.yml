@@ -31,7 +31,9 @@ jobs:
           names=sorted(p.parent.name for p in Path('packages').glob('*/PKGBUILD'))
           event=json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
           before=event.get('before','')
-          if os.environ['GITHUB_EVENT_NAME']=='pull_request' or not before.strip('0'):
+          if (os.environ['GITHUB_EVENT_NAME']=='pull_request'
+              or os.environ.get('GITHUB_REF','').startswith('refs/heads/ci/')
+              or not before.strip('0')):
               before=subprocess.check_output(['git','merge-base','HEAD','origin/main'],text=True).strip()
           requested=event.get('inputs',{}).get('packages','').split()
           if requested:
