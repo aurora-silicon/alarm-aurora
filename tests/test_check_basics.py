@@ -126,6 +126,22 @@ class CheckBasicsTests(unittest.TestCase):
         self.assert_fails('minimal', lambda root: link(root / 'etc/systemd/system/suspend.target', '/dev/null'),
                           'suspend.target is masked')
 
+    def test_enabled_sshd_fails(self):
+        for wants, unit in (('multi-user.target.wants', 'sshd.service'), ('sockets.target.wants', 'sshd.socket')):
+            with self.subTest(unit=unit):
+                self.assert_fails('kde', lambda root: link(root / f'etc/systemd/system/{wants}/{unit}',
+                                                           f'/usr/lib/systemd/system/{unit}'), f'{unit} is enabled')
+                self.temporary.cleanup()
+                self.temporary = tempfile.TemporaryDirectory()
+                self.base = Path(self.temporary.name)
+
+    def test_installed_but_disabled_sshd_passes(self):
+        root = self.desktop_root('minimal')
+        write(root / 'usr/lib/systemd/system/sshd.service', '[Service]\nExecStart=/usr/bin/sshd -D\n')
+        result = self.check('--profile', 'minimal', '--root', str(root))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('ssh: ok', result.stdout)
+
     def test_core_with_an_early_uuid_search_fails(self):
         self.assert_fails('minimal', lambda root: write(self.base / 'esp/EFI/BOOT/BOOTAA64.EFI',
                                                          f'MZ\0/EFI/BOOT\0search.fs_uuid {BOOT} root\0'.encode()),
