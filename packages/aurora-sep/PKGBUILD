@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=14
+pkgrel=15
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -10,26 +10,26 @@ source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XA
 sha256sums=('e6dc8c92d0f21026606f18161a23b332ed41a1009d709035ecfdc960b97bccee'
             'ef6e9067fe20b05c64bebe8445d1ea18b2f9800721522c3e84be21a2c47bb4eb'
             'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
-            'ac552d9d8b6fcd7b3846c4fa93ef7128506290356cfc22e8185565bdfdfe33c2'
+            'cc3e772737d22d40a006b03ee3439d7d48963d0704eefbc47f64d6528a5994a7'
             '4422988e5e7f2417791957d066c501741e929705724083da76cdf1cb70d7a2fc'
             '52020e636e62b60f0c3e6251c3b67b8a8c409bff0486bc3463f356fd3073384b'
-            '41709621dcd03582b721e8603c4fa75a84ec0940c605e8018ecc7329e713601f'
+            '74810b98eab3ace7c59ae332635339e66bb5783690d657b9d82af145e3cbd0d5'
             '7a20a5bf69b6fc7e60e70c4c20f5eb63ffdc41820d7d8213ec9085f527b4e6d0'
             '8d8df0ba2a6861b2edb2110e606906d84ca4848617621ad3cb48493a1522971d'
             '32a0304df31ab9fbad0ec4e8bda4c9a5fb4842dd777fde8d1387b4051b41f45c'
             '15a878dcf382a22c5d807f0f2c754fe70d39baec88f65aea183b1fe56cf69441'
             '87de46450fe3322b74b50db64861cf42eeb725a0460a04f2a034c62e21f8f72f'
             '122147a26a700532efebeb8bd70536909352b7b3a0f7c61d64fba38c1ff5e097'
-            'a07ea64ab1ae82761ee07c22af502e3701a37781f00bd2c2ad92864ecc5cf61c'
+            '1a10476157907f7a68cc2a432ab3801e602a8f1431e9c1a92e4741f7dbb8b4f7'
             '5936eb76db666496a8700dade7ac6bcb3785b517958dcea10685690f1822c86f'
             'ffab97b20bfd5f0eb1ab641179a131843349cf16890fff0cf2d893f0b5681b37'
             '0695bd9ce4c207241db13c3ea07819a032d8213417021378f5015ab9317cde12'
-            '6b3d8125db14d0ef280e0c39da2d6c0ca9f0ef740454c5f09f86d3f90b5b0c56'
+            '09d7c132c7df296545ae933ed414bf6263ce353d4f2d1fd9b09c6d28f9466901'
             '71305d392a68f623d351e0addf5a821fb0900b9a0fba7169c1ed62fd6bebe9ca'
             '371a0f8d874692a74581f884d7cc3db9e9e52fedaa7f099c0930a7c3a4080408')
 
 package() {
-  depends=('coreutils' 'fprintd' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'systemd' 'libfprint-aurora')
+  depends=('coreutils' 'fprintd-aurora>=1.94.5' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'systemd' 'libfprint-aurora>=1.94.100-3')
   optdepends=('glib2-devel: fingerprint at the GNOME login screen (aurora-sep-greeter-fingerprint.service)')
   # Holds a packaged linux-aurora to one with the module-based SEP driver and
   # leaves a kernel from outside pacman alone; the units skip a kernel without

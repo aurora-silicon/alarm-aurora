@@ -1,0 +1,33 @@
+pkgname=fprintd-aurora
+pkgver=1.94.5
+pkgrel=1
+pkgdesc='D-Bus fingerprint service with Aurora enrolment and durable-delete handling'
+arch=('aarch64')
+license=('GPL-2.0-or-later' 'GFDL-1.1-or-later')
+url='https://github.com/aurora-silicon/aurora-sep-userspace'
+provides=("fprintd=$pkgver")
+conflicts=('fprintd')
+depends=('libfprint' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
+makedepends=('meson' 'ninja' 'gettext' 'gtk-doc' 'glib2-devel' 'systemd' 'python' 'perl')
+source=('https://gitlab.freedesktop.org/libfprint/fprintd/-/archive/v1.94.5/fprintd-v1.94.5.tar.gz'
+        '0001-preserve-print-on-device-delete-failure.patch' 'test_account_gate.py')
+sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c' 'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a' '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83')
+
+prepare() {
+  cd "fprintd-v$pkgver"
+  patch -Np1 -i "$srcdir/0001-preserve-print-on-device-delete-failure.patch"
+}
+
+build() {
+  arch-meson "fprintd-v$pkgver" build -Dgtk_doc=true -Dpam=true -Dpam_modules_dir=/usr/lib/security
+  meson compile -C build
+}
+
+check() {
+  python "$srcdir/test_account_gate.py" "$srcdir/fprintd-v$pkgver/src/device.c"
+}
+
+package() {
+  depends=('libfprint-aurora>=1.94.100-3' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
+  meson install -C build --destdir "$pkgdir"
+}
