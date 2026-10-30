@@ -1,6 +1,6 @@
 pkgname=aurora-audio
 pkgver=4.1.aurora2
-pkgrel=4
+pkgrel=7
 pkgdesc='Aurora Apple Silicon PipeWire/WirePlumber DSP profiles including J700'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
