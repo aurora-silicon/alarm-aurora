@@ -3,6 +3,7 @@
 set -euo pipefail
 [[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
 packages=${1:?directory containing freshly built packages}
+commit=$(python3 -c 'import json; print(json.load(open("/src/sources.json"))["mesa-aurora"]["commit"])')
 proof=/src/out/graphics-upgrade
 mkdir -p "$proof/stock"
 pacman -S --noconfirm --needed mesa opencl-mesa vulkan-asahi clinfo pkgconf
@@ -26,7 +27,7 @@ pacman -T 'opencl-driver' 'opencl-mesa' 'opencl-rusticl-mesa' 'libgbm.so' 'mesa'
 test -f /usr/lib/libgbm.so
 test -f /usr/include/gbm.h
 pkg-config --exists gbm egl
-strings /usr/lib/libvulkan_asahi.so | grep -F '(git-cf4e08105d), Borealis'
+strings /usr/lib/libvulkan_asahi.so | grep -F "(git-${commit:0:10}), Borealis"
 ldd /usr/lib/libRusticlOpenCL.so.1.0.0 > "$proof/rusticl-ldd.txt"
 ! grep -F 'not found' "$proof/rusticl-ldd.txt"
 # Enumerating without a GPU still loads the real ICD and Rusticl platform.
