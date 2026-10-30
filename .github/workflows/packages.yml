@@ -43,10 +43,11 @@ jobs:
                   changed={key for key in previous.keys()|current.keys() if previous.get(key)!=current.get(key)}
                   source_packages={name:name for name in names}
                   source_packages['kernel-aurora']='linux-aurora'
+                  source_packages['alsa-utils']='alsa-utils-aurora'
                   if changed <= set(source_packages):
                       paths.remove('sources.json')
                       paths.extend('packages/'+source_packages[name]+'/PKGBUILD' for name in changed)
-              core={'scripts/ci-build-package','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','.github/workflows/packages.yml','sources.json'}
+              core={'scripts/ci-build-package','scripts/ci-build-alarm-container','scripts/ci-build-fex-guest','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','.github/workflows/packages.yml','sources.json'}
               if not core.intersection(paths):
                   names=sorted({p.split('/')[1] for p in paths if p.startswith('packages/') and p.split('/')[1] in names})
           print('packages='+json.dumps(names))
@@ -59,8 +60,8 @@ jobs:
   build:
     needs: metadata
     if: needs.metadata.outputs.packages != '[]'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 180
+    runs-on: ${{ matrix.package == 'mesa-aurora-fex-guest' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 360
     permissions:
       contents: read
       id-token: write
@@ -75,6 +76,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build package in signed ALARM root filesystem
+        if: matrix.package != 'mesa-aurora-fex-guest' && matrix.package != 'aurora-flatpak-gl'
         run: |
           set -euo pipefail
           docker run --rm --privileged -v "$PWD:/src" -w /src \
@@ -82,6 +84,21 @@ jobs:
               dnf install -y python3 gnupg2 tar gzip util-linux coreutils
               bash scripts/ci-build-package "$1"
             ' build '${{ matrix.package }}' 2>&1 | tee build.log
+      - name: Build Flatpak GL in signed ALARM OCI root
+        if: matrix.package == 'aurora-flatpak-gl'
+        run: |
+          set -euo pipefail
+          python3 scripts/fetch-base.py
+          docker import cache/base/ArchLinuxARM-aarch64.tar.gz aurora-alarm-build
+          docker run --rm --privileged --security-opt apparmor=unconfined \
+            -v "$PWD:/src" -w /src aurora-alarm-build \
+            /bin/bash scripts/ci-build-alarm-container aurora-flatpak-gl 2>&1 | tee build.log
+      - name: Build x86 FEX guest layer in Arch multilib container
+        if: matrix.package == 'mesa-aurora-fex-guest'
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/src" -w /src archlinux:base-devel \
+            bash scripts/ci-build-fex-guest 2>&1 | tee build.log
       # Provenance for the exact package bytes; publication verifies it.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: success() && github.event_name != 'pull_request'
@@ -93,12 +110,17 @@ jobs:
           name: alarm-${{ matrix.package }}
           path: |
             out/packages/*.pkg.tar.*
+            out/container/tmp/package-build/src/linux-*/build/base/.config
             build.log
+          include-hidden-files: true
           retention-days: 30
       # A failed attempt keeps its log under a name publication never reads.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: alarm-${{ matrix.package }}-failed-attempt-${{ github.run_attempt }}
-          path: build.log
+          path: |
+            build.log
+            out/container/tmp/package-build/src/linux-*/build/base/.config
+          include-hidden-files: true
           retention-days: 14

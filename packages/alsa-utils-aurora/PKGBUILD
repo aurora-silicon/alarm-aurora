@@ -1,0 +1,38 @@
+pkgname=alsa-utils-aurora
+pkgver=1.2.16
+pkgrel=1
+pkgdesc='ALSA utilities that leave controls locked by another process alone'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('GPL-2.0-or-later')
+depends=('alsa-lib>=1.2.16' 'fftw' 'libsamplerate' 'ncurses' 'python')
+makedepends=('xmlto' 'docbook-xml' 'docbook-xsl' 'python-docutils' 'systemd')
+provides=("alsa-utils=$pkgver")
+conflicts=('alsa-utils')
+_commit=9feb22ba45b48729729c8d194aaf1bc082a6842a
+source=("https://www.alsa-project.org/files/pub/utils/alsa-utils-$pkgver.tar.bz2"
+        alsactl-skip-locked-controls.patch)
+sha256sums=('092399d5e8749a1d5e188e393157521cec4b75693b60ebb79bbce728cff2232c'
+            'fb62fc89f29785d205cbf2221edf8d92a1708d56c0c3d5c1c73d4fa9c7c9a166')
+
+prepare() {
+  cd "alsa-utils-$pkgver"
+  patch -Np1 < ../alsactl-skip-locked-controls.patch
+}
+
+build() {
+  cd "alsa-utils-$pkgver"
+  ./configure --prefix=/usr --sbindir=/usr/bin --disable-alsaconf \
+    --with-udev-rules-dir=/usr/lib/udev/rules.d \
+    --with-systemdsystemunitdir=/usr/lib/systemd/system
+  make -j"${OMARCHY_BUILD_JOBS:-10}"
+}
+
+check() {
+  make -C "alsa-utils-$pkgver" check
+}
+
+package() {
+  make -C "alsa-utils-$pkgver" DESTDIR="$pkgdir" install
+  install -Dm644 "alsa-utils-$pkgver/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

@@ -74,7 +74,8 @@ p.write_text(s)
 PY
 packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez bluez-utils wireless-regdb linux-firmware
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
-  avd-fw upower-aurora mesa-aurora vulkan-aurora aurora-audio alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
+  avd-fw upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes
+  aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa)
 case $profile in
   arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
   arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
@@ -93,12 +94,21 @@ if chroot "$mountroot" pacman -Q linux-aarch64 >/dev/null 2>&1; then
 fi
 [[ ! -e $mountroot/etc/mkinitcpio.d/linux-aarch64.preset ]]
 chroot "$mountroot" pacman -Q linux-aurora avd-fw upower-aurora
+chroot "$mountroot" pacman -Q alsa-utils-aurora aurora-system-fixes aurora-flatpak-gl mesa-aurora-fex-guest
+# Fail the image if any graphics package has escaped the host Mesa version.
+mesa_version=$(chroot "$mountroot" pacman -Q mesa-aurora | awk '{print $2}')
+for package in vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl; do
+  [[ $(chroot "$mountroot" pacman -Q "$package" | awk '{print $2}') == "$mesa_version" ]]
+done
+for branch in 25.08 26.08; do
+  chroot "$mountroot" flatpak info --system "org.freedesktop.Platform.GL.aurora/aarch64/$branch"
+done
 ! chroot "$mountroot" pacman -Q upower >/dev/null 2>&1
 chroot "$mountroot" userdel -r alarm
 chroot "$mountroot" usermod -L root
 rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"
 printf 'uninitialized\n' > "$mountroot/etc/machine-id"
-chroot "$mountroot" systemctl enable NetworkManager.service bluetooth.service aurora-peripherals.service aurora-alarm-keyring.service
+chroot "$mountroot" systemctl enable NetworkManager.service bluetooth.service aurora-peripherals.service aurora-alarm-keyring.service aurora-fex-mesa.service
 # asahi-scripts' generic first-boot rewrites fstab to its @/@home layout and
 # randomizes the ESP ID. Aurora seals both filesystem layout and EFI identity.
 chroot "$mountroot" systemctl mask first-boot.service

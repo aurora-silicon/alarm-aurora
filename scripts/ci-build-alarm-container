@@ -1,0 +1,56 @@
+#!/bin/bash
+# Run inside the signed ALARM OCI image, where Flatpak can create namespaces.
+# CLONE_NEWUSER is refused from a chroot whose root differs from its mount namespace.
+set -euo pipefail
+[[ $(uname -m) == aarch64 && $(id -u) == 0 ]]
+[[ -e /.dockerenv || -e /run/.containerenv ]]
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+package=${1:?package name required}
+[[ $package =~ ^[a-z0-9][a-z0-9-]*$ && -f $root/packages/$package/PKGBUILD ]]
+pacman-key --init
+pacman-key --populate archlinuxarm
+pacman -Syu --noconfirm --needed base-devel git sudo python
+id builder >/dev/null 2>&1 || useradd -m builder
+printf 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman\n' > /etc/sudoers.d/aurora-builder
+mkdir -p /tmp/package-build
+cp -a "$root/packages/$package/." /tmp/package-build/
+chown -R builder:builder /tmp/package-build
+cd /tmp/package-build
+runuser -u builder -- makepkg --syncdeps --noconfirm
+if [[ $package == aurora-flatpak-gl ]]; then
+  # Exercise the actual package in a fresh system installation, separate from
+  # the builder's private SDK installation. Installer images start this way.
+  archives=(./aurora-flatpak-gl-*.pkg.tar.*)
+  [[ ${#archives[@]} == 1 && -f ${archives[0]} ]]
+  glroot=$(mktemp -d)
+  bsdtar -xf "${archives[0]}" -C "$glroot"
+  [[ ! -e /usr/share/aurora-flatpak-gl/repo ]]
+  mkdir -p /usr/share/aurora-flatpak-gl
+  ln -s "$glroot/usr/share/aurora-flatpak-gl/repo" /usr/share/aurora-flatpak-gl/repo
+  helper=$glroot/usr/lib/aurora-flatpak-gl/aurora-flatpak-gl
+  "$helper" enable
+  "$helper" enable
+  for branch in 25.08 26.08; do
+    ref=org.freedesktop.Platform.GL.aurora/aarch64/$branch
+    flatpak info --system "$ref"
+    flatpak pin --system | grep -F "$ref"
+  done
+  overrides=/var/lib/flatpak/overrides/global
+  grep -F 'VK_DRIVER_FILES=/usr/lib/aarch64-linux-gnu/GL/vulkan/icd.d/' "$overrides"
+  grep -F '__EGL_VENDOR_LIBRARY_FILENAMES=/usr/lib/aarch64-linux-gnu/GL/glvnd/egl_vendor.d/50_mesa.json' "$overrides"
+  grep -F 'LIBGL_DRIVERS_PATH=/usr/lib/aarch64-linux-gnu/GL/lib/dri' "$overrides"
+  env -u FLATPAK_GL_DRIVERS bash -c 'source "$1"; [[ $FLATPAK_GL_DRIVERS == aurora:default:host ]]' \
+    profile "$glroot/etc/profile.d/aurora-flatpak-gl.sh"
+  env FLATPAK_GL_DRIVERS=host bash -c 'source "$1"; [[ $FLATPAK_GL_DRIVERS == host ]]' \
+    profile "$glroot/etc/profile.d/aurora-flatpak-gl.sh"
+  "$helper" disable
+  ! flatpak remotes --system --columns=name | grep -qx aurora-gl
+  ! flatpak list --system --runtime --columns=ref | grep -F org.freedesktop.Platform.GL.aurora/
+  [[ ! -e $overrides ]]
+  echo 'Aurora Flatpak GL fresh install, upgrade and removal checks passed.'
+fi
+mkdir -p "$root/out/packages"
+for archive in ./*.pkg.tar.*; do
+  name=${archive##*/}
+  cp "$archive" "$root/out/packages/${name//:/_}"
+done

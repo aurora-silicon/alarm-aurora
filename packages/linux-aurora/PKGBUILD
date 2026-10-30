@@ -6,19 +6,20 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=2
+pkgrel=4
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=311471f73e9919764bfb24acfe7eeb7c5230795a
+_commit=695d9745c2118afb03d998602abe36e0464a15d0
+_sha256=57b7a2454d6cf23680b468ff9c5450ee26abd4b8474b4a7ea6203d66f4718145
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
-_aura_version=0.1.0.r20261014
+_aura_version=0.1.0.r20261029
 
 pkgbase=linux-aurora
-_srcname=linux
+_srcname=linux-${_commit}
 _kernelname=${pkgbase#linux}
 _desc="AArch64 Apple Silicon (Aurora kernel)"
 pkgver="${_auroraver}.aurora${_aurorarel}"
@@ -32,15 +33,13 @@ makedepends=(
   tar xz xmlto python git patch
 )
 options=('!strip')
-source=(validate-config.py "linux::git+https://github.com/aurora-silicon/linux.git#commit=${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config common.config neo.config)
-sha256sums=('e54876197d94c291e15e175dffc6e889670f59e828c5762a56cf6ac1a5071c1a'
-            'SKIP'
+source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
+        rust-toolchain.toml bindgen-kernel.py common.config)
+sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
+            '57b7a2454d6cf23680b468ff9c5450ee26abd4b8474b4a7ea6203d66f4718145'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '0732060bdf4215c4e00e02afaca378044658923831a9bdae31f25a48e21527e5'
-            '78e3546c68fb2ccc9c7779ead05b19db8801aafc8f471a18b2b45e1259834eb6'
-            '6804a0b0ef200548b9ee4b7f10a345165dc6c1ba2ef9de00e2b43c48e8a58440')
+            'ca1d12792107302076cfc3ed102d2dd2574626505c18066f39ef731909ace873')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -92,18 +91,17 @@ prepare() {
   export RUSTUP_TOOLCHAIN=1.99.0
   rustup toolchain install 1.99.0 --profile minimal --component rust-src
   mkdir -p build/base
-  cp ../config build/base/.config
-  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config ../neo.config
+  _make O="$PWD/build/base" defconfig
+  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config
   # Keep shared kexec support: apple_piodma_lock_transition() in
   # pcie-apple-piodma-diag.c acquires the kernel kexec blocker before Neo radio
   # admission retains DMA/firmware ownership. Both kexec
   # load APIs and execution reject while that blocker is held.
   # Keep config's -ARCH suffix: omarchy-mac-boot and update-m1n1 discover
   # device trees under /lib/modules/*-ARCH.
-  scripts/config --file build/base/.config --disable LOCALVERSION_AUTO
+  scripts/config --file build/base/.config --set-str LOCALVERSION '-ARCH' --disable LOCALVERSION_AUTO
   _make O="$PWD/build/base" olddefconfig
-  python3 ../validate-config.py ../common.config build/base/.config
-  python3 ../validate-config.py ../neo.config build/base/.config
+  python3 ../validate-config.py arch/arm64/configs/asahi.config ../common.config build/base/.config
   grep -qx 'CONFIG_RUST=y' build/base/.config || {
     echo 'linux-aurora requires Rust drivers; toolchain/configuration disabled CONFIG_RUST' >&2; return 1;
   }
@@ -139,6 +137,7 @@ _package_kernel() {
   # systemd expects to find the kernel here to allow hibernation
   # https://github.com/systemd/systemd/commit/edda44605f06a41fb86b7ab8128dcf99161d2344
   install -Dm644 "$O"/arch/arm64/boot/Image "$modulesdir/vmlinuz"
+  install -m644 "$O/.config" "$modulesdir/config"
 
   # Used by mkinitcpio to name the kernel
   echo "$1" | install -Dm644 /dev/stdin "$modulesdir/pkgbase"

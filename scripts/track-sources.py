@@ -7,6 +7,7 @@ token. See docs/updates.md.
 """
 from pathlib import Path
 import re
+import json
 import subprocess
 import sys
 
@@ -20,7 +21,33 @@ RECIPES = {'kernel-aurora': 'linux-aurora', 'aura': 'aura', 'mesa-aurora': 'mesa
 KINDS = {'kernel-aurora': 'kernel', 'mesa-aurora': 'mesa'}
 CI_WORKFLOWS = ['packages.yml']
 # The only files a tracker proposal may change.
-PATCH_PATHS = [r'sources\.json', r'packages/(linux-aurora|aura|mesa-aurora)/[^/]+']
+PATCH_PATHS = [r'sources\.json', r'packages/(linux-aurora|aura|mesa-aurora|mesa-aurora-fex-guest|aurora-flatpak-gl)/[^/]+']
+
+
+def sync_mesa_consumers(root, pin=None):
+    """The host, x86 guest and Flatpak drivers are one source/version unit."""
+    host = (root / 'packages/mesa-aurora/PKGBUILD').read_text()
+    fields = {key: re.search(rf'^{key}=(.*)$', host, re.M)[1]
+              for key in ('epoch', 'pkgver', 'pkgrel', '_commit')}
+    if pin is None:
+        pin = json.loads((root / 'sources.json').read_text())['mesa-aurora']
+    if pin['commit'] != fields['_commit']:
+        raise ValueError('Mesa source pin must move before its recipes')
+    for name in ('mesa-aurora-fex-guest', 'aurora-flatpak-gl'):
+        pkgbuild = root / 'packages' / name / 'PKGBUILD'
+        text = pkgbuild.read_text()
+        old_sha = re.search(r'^_sha256=(.*)$', text, re.M)[1]
+        for key, value in {**fields, '_sha256': pin['sha256']}.items():
+            text, count = re.subn(rf'^{key}=.*$', f'{key}={value}', text, flags=re.M)
+            if count != 1:
+                raise ValueError(f'{name}: expected one {key} assignment')
+        # FEX consumes the archive directly; Flatpak substitutes it in its manifest.
+        text = text.replace(old_sha, pin['sha256'])
+        pkgbuild.write_text(text)
+    path = root / 'sources.json'
+    sources = json.loads(path.read_text())
+    sources['mesa-aurora-fex-guest'] = dict(pin)
+    path.write_text(json.dumps(sources, indent=2) + '\n')
 
 
 def local_sources(directory):
@@ -70,6 +97,9 @@ def update_recipe(root, item, today):
         text, _, _ = tl.bump_assignment(
             text, 'pkgver', lambda _: f'{upstream}.{stamp}.{item["new"][:11]}')
     elif key == 'kernel-aurora':
+        pin = json.loads((root / 'sources.json').read_text())[key]
+        old_sha = re.search(r'^_sha256=(.*)$', text, re.M)[1]
+        text = text.replace(old_sha, pin['sha256'])
         text, old_ver, new_ver = tl.bump_assignment(text, '_auroraver', lambda _: tl.pacman_version(item['version']))
         if old_ver != new_ver:
             notes.append(f'kernel version {old_ver} -> {new_ver}: review the configuration fragments')
@@ -82,6 +112,8 @@ def update_recipe(root, item, today):
     item['package_version'] = full_version(text)
     if lib.alpm_vercmp(item['package_version'], previous) <= 0:
         raise ValueError(f'{key}: {item["package_version"]} would not upgrade {previous}')
+    if key == 'mesa-aurora':
+        sync_mesa_consumers(root)
     return notes
 
 
@@ -93,6 +125,8 @@ def run_checks(root):
 
 
 def ci_inputs(packages):
+    if 'mesa-aurora' in packages:
+        packages = sorted(set(packages) | {'mesa-aurora-fex-guest', 'aurora-flatpak-gl'})
     return {'packages.yml': {'packages': ' '.join(packages)}}
 
 

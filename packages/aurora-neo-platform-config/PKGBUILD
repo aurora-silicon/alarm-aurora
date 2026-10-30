@@ -1,14 +1,14 @@
 pkgname=aurora-neo-platform-config
 pkgver=0.1.0
-pkgrel=1
-pkgdesc='Driver-scoped Aurora Neo NetworkManager configuration'
+pkgrel=2
+pkgdesc='Driver-scoped Aurora Neo NetworkManager and trackpad configuration'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/aurora-neo-platform-config'
-_commit=834fe2dda273540b184b57ed16985b9d7effd244
+_commit=8f18039e37ccdec03049d04844d59de2909f680c
 makedepends=('make')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-neo-platform-config/tar.gz/$_commit")
-sha256sums=('5fe9c9d14e8942466b514c676102634135afdc2bf76011332576ae05cd02597c')
+sha256sums=('5496dc8d28688b30ec4d5e3007a4c911a751663c1d7c2a937bb6ae397d3d4314')
 check() { cd "$pkgname-$_commit"; sh tests/run.sh; }
 package() {
   cd "$pkgname-$_commit"
