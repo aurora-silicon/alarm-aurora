@@ -1,7 +1,7 @@
 pkgname=aurora-boot
 pkgver=20261018
-pkgrel=4
-pkgdesc='Aurora ALARM boot integration'
+pkgrel=5
+pkgdesc='Aurora Alarm boot integration'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'

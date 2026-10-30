@@ -1,7 +1,7 @@
 pkgname=aurora-keyring
 pkgver=20261018
-pkgrel=2
-pkgdesc='Public signing trust for Aurora ALARM packages'
+pkgrel=3
+pkgdesc='Public signing trust for Aurora Alarm packages'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'

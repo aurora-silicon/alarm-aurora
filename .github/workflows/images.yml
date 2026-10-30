@@ -1,4 +1,4 @@
-name: Native Aurora ALARM images
+name: Native Aurora Alarm images
 on:
   workflow_dispatch:
     inputs:
@@ -7,7 +7,7 @@ on:
         options: [arch-minimal, arch-kde, arch-gnome]
         default: arch-minimal
       release-tag:
-        description: Immutable signed Aurora ALARM snapshot
+        description: Immutable signed Aurora Alarm snapshot
         required: true
       channel:
         description: Update channel the installed system follows (testing keeps today's feed URL)

@@ -171,7 +171,7 @@ def assemble(args):
     new_state = lib.record_channel(state, args.channel, entry)
     public = {'repository': repository, 'channels': new_state['channels'], 'updated_at': now}
     (site / 'channels.json').write_text(json.dumps(public, indent=2, sort_keys=True) + '\n')
-    lines = ['<!doctype html><title>Aurora ALARM</title><h1>Aurora ALARM package feeds</h1><ul>']
+    lines = ['<!doctype html><title>Aurora Alarm</title><h1>Aurora Alarm package feeds</h1><ul>']
     for channel in CHANNELS:
         if target[channel]:
             lines.append(f'<li>{channel}: <code>Server = https://aurorasilicon.org/alarm-aurora/{channel}/$arch</code>'
