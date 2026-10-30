@@ -100,7 +100,8 @@ package_vulkan-aurora() {
 }
 
 # ALARM extra ships opencl-mesa, formerly opencl-rusticl-mesa.
-# Also replace Arch's opencl-rusticl name when present.
+# Retain ALARM's bounded Clover migration and Arch's opencl-rusticl alias.
+# Do not provide the Clover-specific package name: this ships Rusticl.
 # Keep the actual runtime and linker interface together, separate from GL.
 package_opencl-rusticl-aurora() {
   pkgdesc='Aurora Mesa Rusticl OpenCL driver'
@@ -108,8 +109,8 @@ package_opencl-rusticl-aurora() {
            'clang' 'spirv-tools' 'spirv-llvm-translator' 'gcc-libs' 'libdrm'
            'libglvnd' 'libx11' 'libxcb' 'libxshmfence' 'wayland' 'zlib' 'zstd')
   provides=("opencl-rusticl=$epoch:$pkgver" "opencl-mesa=$epoch:$pkgver" "opencl-rusticl-mesa=$epoch:$pkgver" 'opencl-driver')
-  conflicts=('opencl-rusticl' 'opencl-mesa' 'opencl-rusticl-mesa')
-  replaces=('opencl-rusticl' 'opencl-mesa' 'opencl-rusticl-mesa')
+  conflicts=('opencl-rusticl' 'opencl-mesa' 'opencl-rusticl-mesa' 'opencl-clover-mesa')
+  replaces=('opencl-rusticl' 'opencl-mesa' 'opencl-rusticl-mesa' 'opencl-clover-mesa<=1:25.0.5-1')
   install -Dm755 "$srcdir/tools/src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0" \
     "$pkgdir/usr/lib/libRusticlOpenCL.so.1.0.0"
   ln -s libRusticlOpenCL.so.1.0.0 "$pkgdir/usr/lib/libRusticlOpenCL.so.1"
