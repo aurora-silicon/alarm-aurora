@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=4
+pkgrel=5
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -39,7 +39,7 @@ sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '57b7a2454d6cf23680b468ff9c5450ee26abd4b8474b4a7ea6203d66f4718145'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'ca1d12792107302076cfc3ed102d2dd2574626505c18066f39ef731909ace873')
+            'd5af8a3096abe6f16b0fb59b4bccd5d3a5f64f4d011d43add0313d21f125b06d')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
