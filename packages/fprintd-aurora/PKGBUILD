@@ -7,6 +7,7 @@ license=('GPL-2.0-or-later' 'GFDL-1.1-or-later')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 provides=("fprintd=$pkgver")
 conflicts=('fprintd')
+replaces=('fprintd')
 depends=('libfprint' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
 makedepends=('meson' 'ninja' 'gettext' 'gtk-doc' 'glib2-devel' 'systemd' 'python' 'perl')
 source=('https://gitlab.freedesktop.org/libfprint/fprintd/-/archive/v1.94.5/fprintd-v1.94.5.tar.gz'
