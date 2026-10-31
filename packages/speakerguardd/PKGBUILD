@@ -1,41 +1,31 @@
 pkgname=speakerguardd
-pkgver=0.1.12
+pkgver=0.1.13rc1
 pkgrel=1
-pkgdesc='Apple speaker feed-forward protection with J700 profile'
+pkgdesc='Unified Apple speaker protection release candidate'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd'
 license=('MIT')
-_commit=34aeed9085ad0f66cb8f266f997e11dd781470a6
-makedepends=('git' 'rust' 'cargo' 'python' 'alsa-lib' 'pkgconf')
-depends=('glibc' 'gcc-libs' 'alsa-lib')
+_commit=191de3c9b24ab00d98f545ac546a09cc83af00b6
+makedepends=('git' 'rust' 'cargo' 'python' 'alsa-lib' 'pkgconf' 'gcc' 'make' 'ladspa')
+depends=('glibc' 'gcc-libs' 'alsa-lib' 'python')
 source=("speakerguardd::git+$url.git#commit=$_commit" use-feedback-guard 50-j700-guard.conf)
 sha256sums=('SKIP' 'bd2da656ad1dff69a0d64bb3a33d5eb4681b3573dcbfe098f405d8979bb436b5' '5bcc720660327927702f730719cd12fec8f0cf0e21991f158d08f4a733d71a81')
 prepare() {
-  python3 - <<'PYUNIT'
-from pathlib import Path
-p = Path('speakerguardd/speakerguardd.service')
-s = p.read_text()
-# The unit keeps its own start limit (five attempts in 60 s); only the J700
-# model is named.
-for old, new in [
-    ('ExecStart=/usr/bin/speakerguardd -c /usr/share/speakerguardd --wait-for-card 30\n',
-     'ExecStart=/usr/bin/speakerguardd -c /usr/share/speakerguardd -C AppleJ700 --wait-for-card 30\n'),
-]:
-    if s.count(old) != 1:
-        raise SystemExit('Pinned speaker unit changed: ' + old.splitlines()[0])
-    s = s.replace(old, new, 1)
-p.write_text(s)
-PYUNIT
+  # Keep upstream automatic profile selection and unqualified admission.
+  grep -qx 'ExecStart=/usr/bin/speakerguardd' speakerguardd/speakerguardd.service
 }
 build() {
   cd speakerguardd
   # The binary names its source in -V and the journal.
-  SPEAKERGUARDD_COMMIT=${_commit::12} cargo build --locked --release ${CARGO_TARGET:+--target "$CARGO_TARGET"}
+  SPEAKERGUARDD_COMMIT=${_commit::12} cargo build --locked --release -j8 ${CARGO_TARGET:+--target "$CARGO_TARGET"}
+  make -j8 filter
 }
 check() {
   cd speakerguardd
-  cargo test --locked
+  cargo test --locked --release -j8
+  python3 tools/test-preserve-recordings.py
+  make -j8 filter-test
 }
 package() {
   local binary=speakerguardd/target/release/speakerguardd
@@ -45,6 +35,8 @@ package() {
   cp -a speakerguardd/conf "$pkgdir/usr/share/speakerguardd"
   install -Dm644 speakerguardd/speakerguardd.service "$pkgdir/usr/lib/systemd/system/speakerguardd.service"
   install -Dm644 speakerguardd/95-speakerguardd.rules "$pkgdir/usr/lib/udev/rules.d/95-speakerguardd.rules"
+  install -Dm755 speakerguardd/tools/preserve-recordings "$pkgdir/usr/lib/speakerguardd/preserve-recordings"
+  install -Dm755 speakerguardd/filter/speakerguard-xlim.so "$pkgdir/usr/lib/ladspa/speakerguard-xlim.so"
   install -Dm755 use-feedback-guard "$pkgdir/usr/lib/speakerguardd/use-feedback-guard"
   install -Dm644 50-j700-guard.conf "$pkgdir/usr/lib/systemd/system/speakersafetyd.service.d/50-j700-guard.conf"
   install -Dm644 speakerguardd/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
