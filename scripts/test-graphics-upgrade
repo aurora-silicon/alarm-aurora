@@ -6,7 +6,7 @@ packages=${1:?directory containing freshly built packages}
 commit=$(python3 -c 'import json; print(json.load(open("/src/sources.json"))["mesa-aurora"]["commit"])')
 proof=/src/out/graphics-upgrade
 mkdir -p "$proof/stock"
-pacman -S --noconfirm --needed mesa opencl-mesa vulkan-asahi vulkan-swrast clinfo pkgconf vulkan-tools pacman-contrib
+pacman -S --noconfirm --needed mesa opencl-mesa vulkan-asahi vulkan-swrast clinfo pkgconf vulkan-tools pyalpm
 # Preserve signed stock archives and exact installed bytes before replacement.
 pacman -Sw --noconfirm --cachedir "$proof/stock" mesa opencl-mesa vulkan-asahi vulkan-swrast
 # Pacman epoch colons are valid on Linux but rejected by artifact upload.
@@ -39,7 +39,30 @@ clinfo --list | tee "$proof/clinfo.txt"
 grep -i rusticl "$proof/clinfo.txt"
 # Build dependencies must not hide missing runtime dependencies. Every loaded
 # library's owning package must be in lavapipe's declared dependency closure.
-pactree --unique vulkan-lavapipe-aurora | awk '{print $1}' | sort -u > "$proof/lavapipe-dependency-closure.txt"
+python3 - "$proof/lavapipe-dependency-closure.txt" <<'PYCLOSURE'
+from pathlib import Path
+import sys
+import pyalpm
+
+handle = pyalpm.Handle('/', '/var/lib/pacman')
+database = handle.get_localdb()
+packages = database.pkgcache
+root = database.get_pkg('vulkan-lavapipe-aurora')
+assert root is not None
+pending, closure = [root], set()
+while pending:
+    package = pending.pop()
+    if package.name in closure:
+        continue
+    closure.add(package.name)
+    for requirement in package.depends:
+        # Resolve versioned sonames and virtual provides using the same
+        # dependency semantics as the package manager, rather than CLI text.
+        provider = pyalpm.find_satisfier(packages, requirement)
+        assert provider is not None, (package.name, requirement)
+        pending.append(provider)
+Path(sys.argv[1]).write_text(''.join(name + '\n' for name in sorted(closure)))
+PYCLOSURE
 ldd /usr/lib/libvulkan_lvp.so > "$proof/lavapipe-ldd.txt"
 ! grep -F 'not found' "$proof/lavapipe-ldd.txt"
 while IFS= read -r library; do
