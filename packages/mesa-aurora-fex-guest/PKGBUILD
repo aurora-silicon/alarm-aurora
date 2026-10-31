@@ -2,7 +2,7 @@
 pkgname=mesa-aurora-fex-guest
 epoch=1
 pkgver=26.3.0_devel.202610300304.cf4e08105df
-pkgrel=2
+pkgrel=3
 pkgdesc='Aurora Mesa x86_64 and i686 graphics layer for the FEX guest'
 arch=('any')
 url='https://github.com/aurora-silicon/mesa'
@@ -21,8 +21,10 @@ makedepends=('meson' 'ninja' 'gcc-libs' 'gcc' 'lib32-gcc-libs' 'lib32-glibc' 'cl
              'vulkan-icd-loader' 'lib32-vulkan-icd-loader' 'vulkan-headers'
              'systemd-libs' 'lib32-systemd' 'xcb-util-keysyms' 'lib32-xcb-util-keysyms')
 source=("mesa-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/mesa/tar.gz/$_commit"
-        aurora-fex-mesa.service)
-sha256sums=('b898c15a604a8d7d01467a2fc5b3ad70814d0eb6294228ac9128b946f0a76ddd' '20eef88ebcb0bf5d09afdcb28696c588e516ab69775e343f3cd75b9d57cdd907')
+        aurora-fex-mesa.service
+        60-aurora-fex-mesa-upgrade.hook)
+sha256sums=('b898c15a604a8d7d01467a2fc5b3ad70814d0eb6294228ac9128b946f0a76ddd' '20eef88ebcb0bf5d09afdcb28696c588e516ab69775e343f3cd75b9d57cdd907'
+            'acd1e005a05bd8e229300a846863b6fcb3c29f389d66d9c8b903cb5d70913503')
 # The embedded x86 layer is not linked against the host's libraries.
 options=('!strip' '!debug')
 install=mesa-aurora-fex-guest.install
@@ -101,6 +103,7 @@ package() {
   cp -a "$srcdir/layer/usr" "$layer/"
   rm -rf "$layer/usr/include" "$layer/usr/lib64/pkgconfig" "$layer/usr/lib/pkgconfig"
   printf '%s\n' "$_commit" > "$layer/.aurora-mesa-commit"
+  install -Dm644 60-aurora-fex-mesa-upgrade.hook "$pkgdir/usr/share/libalpm/hooks/60-aurora-fex-mesa-upgrade.hook"
   install -Dm644 aurora-fex-mesa.service "$pkgdir/usr/lib/systemd/system/aurora-fex-mesa.service"
   install -Dm644 "mesa-$_commit/docs/license.rst" "$pkgdir/usr/share/licenses/$pkgname/license.rst"
 }

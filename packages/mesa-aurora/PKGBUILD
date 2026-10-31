@@ -1,8 +1,8 @@
 pkgbase=mesa-aurora
-pkgname=('mesa-aurora' 'vulkan-aurora' 'opencl-rusticl-aurora')
+pkgname=('mesa-aurora' 'vulkan-aurora' 'opencl-rusticl-aurora' 'vulkan-lavapipe-aurora')
 epoch=1
 pkgver=26.3.0_devel.202610300304.cf4e08105df
-pkgrel=2
+pkgrel=3
 pkgdesc='Aurora Asahi Gallium, Zink and Honeykrisp'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -10,7 +10,8 @@ url='https://github.com/aurora-silicon/mesa'
 license=('MIT')
 _commit=cf4e08105dfa526b8874318b6a52b3ce948f6297
 # Matched to the DRM UAPI in aurora-silicon/linux integration/aurora.
-# The drivers link neither LLVM nor SPIRV-Tools. Arch Linux ARM moves both
+# Native GL/Honeykrisp link neither LLVM nor SPIRV-Tools; software drivers
+# retain those runtimes in their separate packages. Arch Linux ARM moves both
 # (llvm-libs changes soname every major, SPIRV-Tools has no versioned soname),
 # and a Mesa linked to the old ones leaves the Neo without a GPU until this
 # package is rebuilt. Asahi needs LLVM only to precompile its CL shaders, so a
@@ -38,10 +39,11 @@ _meson() {
 build() {
   export MESA_GIT_SHA1_OVERRIDE=$_commit
   # Rusticl needs LLVM at runtime; native GL/Vulkan use the second tree.
-  _meson mesa tools "${_options[@]}" -Dllvm=enabled -Dgallium-rusticl=true -Dbuild-tests=false
+  _meson mesa tools "${_options[@]/#-Dvulkan-drivers=asahi/-Dvulkan-drivers=asahi,swrast}" -Dllvm=enabled -Dgallium-rusticl=true -Dbuild-tests=false
   ninja -C tools -j "${OMARCHY_BUILD_JOBS:-10}" \
     src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/asahi/clc/asahi_clc \
-    src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0
+    src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0 \
+    src/gallium/targets/lavapipe/libvulkan_lvp.so src/gallium/targets/lavapipe/lvp_icd.aarch64.json
   printf '%s\n' '[binaries]' \
     "mesa_clc = '$srcdir/tools/src/compiler/clc/mesa_clc'" \
     "vtn_bindgen2 = '$srcdir/tools/src/compiler/spirv/vtn_bindgen2'" \
@@ -61,6 +63,10 @@ check() {
     grep -F "(git-${_commit:0:10}), Borealis" || return 1
   readelf -h "$srcdir/tools/src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0" | \
     grep -q 'Machine:.*AArch64' || return 1
+  readelf -h "$srcdir/tools/src/gallium/targets/lavapipe/libvulkan_lvp.so" | \
+    grep -q 'Machine:.*AArch64' || return 1
+  grep -F '"library_path": "/usr/lib/libvulkan_lvp.so"' \
+    "$srcdir/tools/src/gallium/targets/lavapipe/lvp_icd.aarch64.json" || return 1
   # Nothing in the native GL/Vulkan stage may follow the system's LLVM or SPIRV-Tools.
   [[ -d $srcdir/mesa-stage ]] || return 1
   local binary dependencies
@@ -117,5 +123,21 @@ package_opencl-rusticl-aurora() {
   ln -s libRusticlOpenCL.so.1 "$pkgdir/usr/lib/libRusticlOpenCL.so"
   install -Dm644 "$srcdir/tools/src/gallium/targets/rusticl/rusticl.icd" \
     "$pkgdir/etc/OpenCL/vendors/rusticl.icd"
+  install -Dm644 "$srcdir/mesa/docs/license.rst" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+# Software Vulkan retains LLVM separately from native GL/Honeykrisp.
+package_vulkan-lavapipe-aurora() {
+  pkgdesc='Aurora Mesa lavapipe software Vulkan driver'
+  depends=('expat' 'glibc' 'gcc-libs' 'llvm-libs' 'spirv-tools' 'libdisplay-info'
+           'libdrm' 'libx11' 'libxcb' 'libxshmfence' 'systemd-libs' 'wayland'
+           'xcb-util-keysyms' 'zlib' 'zstd' 'vulkan-icd-loader' 'vulkan-mesa-implicit-layers')
+  provides=("vulkan-swrast=$epoch:$pkgver" 'vulkan-driver' 'libvulkan_lvp.so')
+  conflicts=('vulkan-swrast')
+  replaces=('vulkan-swrast')
+  install -Dm755 "$srcdir/tools/src/gallium/targets/lavapipe/libvulkan_lvp.so" \
+    "$pkgdir/usr/lib/libvulkan_lvp.so"
+  install -Dm644 "$srcdir/tools/src/gallium/targets/lavapipe/lvp_icd.aarch64.json" \
+    "$pkgdir/usr/share/vulkan/icd.d/lvp_icd.aarch64.json"
   install -Dm644 "$srcdir/mesa/docs/license.rst" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

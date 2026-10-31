@@ -1,0 +1,60 @@
+#!/bin/bash
+# Disposable systemd CI container. Real libalpm extraction onto a ro overlay.
+set -euo pipefail
+[[ -e /.dockerenv && -d /run/systemd/system ]]
+proof=/proof
+mkdir -p "$proof" /usr/share/guestos/fex-mesa/usr
+exec > >(tee "$proof/fex-overlay.log") 2>&1
+work=$(mktemp -d)
+make_fixture() {
+  local version=$1 root=$work/root-$1
+  mkdir -p "$root/usr/share/libalpm/hooks" "$root/usr/share/guestos/aurora-fex-mesa-layer/usr" "$root/usr/share/guestos/aurora-fex-mesa" "$root/usr/lib/systemd/system"
+  echo "$version" > "$root/usr/share/guestos/aurora-fex-mesa-layer/usr/aurora-layer"
+  cp /src/packages/mesa-aurora-fex-guest/aurora-fex-mesa.service "$root/usr/lib/systemd/system/"
+  printf 'pkgname = mesa-aurora-fex-guest\npkgver = %s\npkgdesc = disposable overlay lifecycle fixture\narch = any\nsize = 1024\n' "$version" > "$root/.PKGINFO"
+  if [[ $version != 1-1 ]]; then
+    cp /src/packages/mesa-aurora-fex-guest/mesa-aurora-fex-guest.install "$root/.INSTALL"
+    cp /src/packages/mesa-aurora-fex-guest/60-aurora-fex-mesa-upgrade.hook "$root/usr/share/libalpm/hooks/"
+  fi
+  local members=(.PKGINFO usr)
+  [[ $version == 1-1 ]] || members+=(.INSTALL)
+  (cd "$root" && bsdtar -czf "$work/fixture-$version.pkg.tar.gz" "${members[@]}")
+}
+for version in 1-1 1-2 1-3; do make_fixture "$version"; done
+cp /etc/pacman.conf "$work/pacman.conf"
+sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$work/pacman.conf"
+pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-1.pkg.tar.gz"
+systemctl daemon-reload
+systemctl start aurora-fex-mesa.service
+systemctl is-active aurora-fex-mesa.service
+! touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
+findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-before.txt"
+pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-2.pkg.tar.gz"
+systemctl is-active aurora-fex-mesa.service
+grep -x 1-2 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
+! touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
+[[ ! -e /run/aurora-fex-mesa.upgrade ]]
+pacman -Qkk mesa-aurora-fex-guest
+findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-after.txt"
+# Model a failed cleanup: an inactive unit still has its read-only mount.
+mkdir -p /run/systemd/system/aurora-fex-mesa.service.d
+printf '[Service]\nExecStop=\nExecStop=/usr/bin/true\n' > /run/systemd/system/aurora-fex-mesa.service.d/stale-test.conf
+systemctl daemon-reload
+systemctl stop aurora-fex-mesa.service
+mountpoint -q /usr/share/guestos/aurora-fex-mesa
+if pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-3.pkg.tar.gz"; then
+  echo 'Expected the stale overlay to abort the transaction' >&2; exit 1
+fi
+[[ $(pacman -Q mesa-aurora-fex-guest) == 'mesa-aurora-fex-guest 1-2' ]]
+rm /run/systemd/system/aurora-fex-mesa.service.d/stale-test.conf
+systemctl daemon-reload
+umount /usr/share/guestos/aurora-fex-mesa
+systemctl start aurora-fex-mesa.service
+systemctl stop aurora-fex-mesa.service
+pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-3.pkg.tar.gz"
+! systemctl is-active aurora-fex-mesa.service
+! mountpoint -q /usr/share/guestos/aurora-fex-mesa
+pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-1.pkg.tar.gz"
+systemctl start aurora-fex-mesa.service
+grep -x 1-1 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
+echo FEX-OVERLAY-UPGRADE-ROLLBACK-PASS

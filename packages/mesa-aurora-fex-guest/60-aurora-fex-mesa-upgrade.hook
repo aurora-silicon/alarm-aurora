@@ -1,0 +1,12 @@
+# Once installed, refuse subsequent transactions if FEX still holds the mount.
+# The incoming .INSTALL also handles the first upgrade to this release.
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = mesa-aurora-fex-guest
+
+[Action]
+Description = Unmounting the Aurora FEX Mesa overlay for upgrade
+When = PreTransaction
+AbortOnFail
+Exec = /usr/bin/bash -c 'if test -d /run/systemd/system; then if systemctl -q is-active aurora-fex-mesa.service; then systemctl stop aurora-fex-mesa.service || exit 1; mountpoint -q /usr/share/guestos/aurora-fex-mesa && exit 1; touch /run/aurora-fex-mesa.upgrade; elif mountpoint -q /usr/share/guestos/aurora-fex-mesa; then echo "FEX overlay is mounted without an active service; unmount it before upgrading" >&2; exit 1; fi; fi'
