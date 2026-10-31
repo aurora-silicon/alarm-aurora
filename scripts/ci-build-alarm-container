@@ -14,7 +14,7 @@ id builder >/dev/null 2>&1 || useradd -m builder
 printf 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman\n' > /etc/sudoers.d/aurora-builder
 mkdir -p /tmp/package-build
 case $package in
-  aurora-models|aurora-capture-ns|whisper-cpp-aurora) cp -aL "$root/packages/$package/." /tmp/package-build/ ;;
+  aurora-models|aurora-capture-ns|whisper-cpp-aurora|mil-hwx-compiler) cp -aL "$root/packages/$package/." /tmp/package-build/ ;;
   *) cp -a "$root/packages/$package/." /tmp/package-build/ ;;
 esac
 chown -R builder:builder /tmp/package-build

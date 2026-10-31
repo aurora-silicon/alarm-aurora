@@ -7,7 +7,7 @@ name=${1:?package required}
 build=$root/out/build/$name
 mkdir -p "$build" "$root/out/packages"
 case $name in
-  aurora-models|aurora-capture-ns|whisper-cpp-aurora) cp -aL "$root/packages/$name/." "$build/" ;;
+  aurora-models|aurora-capture-ns|whisper-cpp-aurora|mil-hwx-compiler) cp -aL "$root/packages/$name/." "$build/" ;;
   *) cp -a "$root/packages/$name/." "$build/" ;;
 esac
 cd "$build"

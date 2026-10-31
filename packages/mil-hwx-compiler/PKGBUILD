@@ -1,0 +1,28 @@
+pkgname=mil-hwx-compiler
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Open MIL compiler pinned to merged linked H13 schedules with MobileNet runner'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/mil-hwx-compiler'
+license=('MIT' 'LGPL-2.1-or-later' 'GPL-3.0-or-later')
+depends=('bash' 'python' 'python-numpy' 'libffi' 'libxml2' 'icu' 'openssl' 'zlib' 'libdrm')
+makedepends=('clang' 'lld' 'cmake' 'ninja' 'make' 'pkgconf' 'patchelf' 'robin-map')
+source=('mil-hwx-compiler-3837b4cc2f432754970dbff0f61a3397fede7478.tar.gz' "libobjc2-a1faad66cee79f29c4ca268b004111edc33a2ae2.tar.gz::https://codeload.github.com/gnustep/libobjc2/tar.gz/a1faad66cee79f29c4ca268b004111edc33a2ae2" "tools-make-d0349cc83a23367acdc53df364f73504c281b26c.tar.gz::https://codeload.github.com/gnustep/tools-make/tar.gz/d0349cc83a23367acdc53df364f73504c281b26c" "libs-base-3d7013e144b153abcd6c088dc8d6c64ebd43bc4b.tar.gz::https://codeload.github.com/gnustep/libs-base/tar.gz/3d7013e144b153abcd6c088dc8d6c64ebd43bc4b" 'libane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b.tar.gz' 'build-mil-hwxc' 'install-mil-hwxc' 'mil-hwxc')
+sha256sums=('3288b55c2bdb5c61607430044cd43e5c67b4d29cc1869aaabfd4ae20e4f30264' '695405064778adc40b77ba78e29594dfe0c07107dc3882a3276684f6ca2fe1b1' '687a79b3f1fa00d56085c64906bdbc3634fa891379879960c67f520abfd89fc6' '2c6b39a703e755ca6947cee41db1527fe95f5ab5f24b55fc02593fb0e3ca6520' 'c91630cb3c0579d2c9df49f88b8e0fcf467812587ee71da0fddfeae3bfd77229' 'c4d686ee41b684a7d969415a389870eb4bb688670b49d17071e3111ce9782b40' '50aad6308d558f7871f8268bb0cdd4726a04cf454279b6367760e53b10b98b89' '4ff719e95ddfed6ab75da7a44be87636994df09ef4d87918e5373156327400bc')
+_compiler=mil-hwx-compiler-3837b4cc2f432754970dbff0f61a3397fede7478
+_libane=omarchy-ane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b
+build() {
+  bash build-mil-hwxc "$srcdir/$_compiler" "$srcdir" "$srcdir/runtime"
+  make -C "$_libane/libane" -j6 CFLAGS="$CFLAGS -fPIC"
+  cc $CFLAGS -I"$_libane/libane" "$_compiler/tools/h13-mobilenet/anechain.c" "$_libane/libane/libane.a" -ldrm -o "$_compiler/tools/h13-mobilenet/anechain"
+}
+package() {
+  bash install-mil-hwxc "$srcdir/$_compiler" "$srcdir/runtime" "$pkgdir" /usr/lib/mil-hwx-compiler/runtime
+  install -Dm755 mil-hwxc "$pkgdir/usr/bin/mil-hwxc"
+  sed -i -e 's|@RUNTIME@|/usr/lib/mil-hwx-compiler/runtime|g' -e 's|@COMPILER@|/usr/libexec/mil-hwx-compiler/mil-hwxc|g' "$pkgdir/usr/bin/mil-hwxc"
+  install -Dm644 "$_compiler/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/compiler-MIT"
+  install -Dm644 "libobjc2-a1faad66cee79f29c4ca268b004111edc33a2ae2/COPYING" "$pkgdir/usr/share/licenses/$pkgname/libobjc2-MIT"
+  install -Dm644 "tools-make-d0349cc83a23367acdc53df364f73504c281b26c/COPYING" "$pkgdir/usr/share/licenses/$pkgname/GNUstep-GPL"
+  install -Dm644 "libs-base-3d7013e144b153abcd6c088dc8d6c64ebd43bc4b/COPYING.LIB" "$pkgdir/usr/share/licenses/$pkgname/GNUstep-LGPL"
+  install -Dm644 "omarchy-ane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/libane-MIT"
+}
