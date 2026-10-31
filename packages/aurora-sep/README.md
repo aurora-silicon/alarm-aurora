@@ -96,3 +96,15 @@ Arch Linux ARM does not ship SELinux, so this package carries no policy
 module. The Fedora package's `aurora-sep-selinux` labels `/dev/sep-bio` and
 lets fprintd read the lid switch; here the fprintd drop-ins from this package
 and `libfprint-aurora` are all the access control there is.
+
+## Kernel interface compatibility
+
+The sensor gate accepts SEP interface v4 and v5 with a physical reader;
+unknown interface versions and absent readers remain disabled. Both versions
+use the same readiness diagnostics. libfprint uses the legacy enrolment request
+on v4, and the account-bound request and persistence checks on v5. A failed
+v5 enrolment never retries the v4 request. Install the companion patched
+fprintd to retain host records when deleting from the device fails.
+Keep the existing SEP OS identity and persistent state across this update.
+
+See the [controller-approved v4/v5 qualification plan](https://github.com/aurora-silicon/aurora-sep-userspace/blob/2799b51243708d0a551b67d902472319f132c417/docs/sep-v5-test-plan.md) before removing the kernel hold.
