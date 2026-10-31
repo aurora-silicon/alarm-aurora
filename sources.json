@@ -39,6 +39,14 @@
     "archive_root": "speakerguardd-34aeed9085ad0f66cb8f266f997e11dd781470a6",
     "sha256": "726c7e7062297fabac79a547d779c643221369f53dff34d332c4a2ef846d7dbb"
   },
+  "aurora-camera-denoise": {
+    "repository": "https://github.com/aurora-silicon/camera-denoise",
+    "commit": "846646456ee17ba1fb60be169abcd0727bed36f4",
+    "version": "0.1.0",
+    "source_url": "https://codeload.github.com/aurora-silicon/camera-denoise/tar.gz/846646456ee17ba1fb60be169abcd0727bed36f4",
+    "archive_root": "camera-denoise-846646456ee17ba1fb60be169abcd0727bed36f4",
+    "sha256": "a2f560eb1c864bb70eabed85c36be8ecaaa89d48c0917e6c94abb5a47161ae63"
+  },
   "alsa-ucm-conf-aurora": {
     "repository": "https://github.com/aurora-silicon/alsa-ucm-conf-asahi",
     "commit": "a270b2e2d705ed521b07d008aac45283c75fb986",
