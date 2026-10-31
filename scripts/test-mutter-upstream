@@ -20,10 +20,13 @@ if [[ ${1:-} == --inside ]]; then
   set +e
   xvfb-run -a meson test -C build --print-errorlogs > /src/out/mutter-upstream-comparison/full.log 2>&1
   full_result=$?
+  set -e
   cp -a build/meson-logs /src/out/mutter-upstream-comparison/upstream-full
+  set +e
   xvfb-run -a meson test -C build --print-errorlogs --repeat 10 \
     map-fixed-size map-after-headless input-capture > /src/out/mutter-upstream-comparison/repeat.log 2>&1
   repeat_result=$?
+  set -e
   cp -a build/meson-logs /src/out/mutter-upstream-comparison/upstream-repeat
   set -e
   printf 'upstream_full=%s\nupstream_repeat=%s\n' "$full_result" "$repeat_result" \
