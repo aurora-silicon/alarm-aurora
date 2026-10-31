@@ -1,12 +1,12 @@
 pkgname=speakerguardd
 pkgver=0.1.12
-pkgrel=3
+pkgrel=4
 pkgdesc='Apple speaker feed-forward protection with J700 profile'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd'
 license=('MIT')
-_commit=2137581b706a1140e5fb4607883523a35da67fad
+_commit=0287029648842be7b62ce9869ceaf5dbe9555831
 makedepends=('git' 'rust' 'cargo' 'python' 'alsa-lib' 'pkgconf')
 depends=('glibc' 'gcc-libs' 'alsa-lib')
 source=("speakerguardd::git+$url.git#commit=$_commit" use-feedback-guard 50-j700-guard.conf)
