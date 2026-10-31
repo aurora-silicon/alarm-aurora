@@ -39,7 +39,7 @@ class ParityTests(unittest.TestCase):
     def test_local_source_checksums_are_current(self):
         # Parse through bash so source array ordering and variable expansion match makepkg.
         names = ('alsa-utils-aurora', 'aurora-audio', 'aurora-system-fixes',
-                 'aurora-flatpak-gl', 'mesa-aurora-fex-guest', 'linux-aurora')
+                 'aurora-flatpak-gl', 'mesa-aurora-fex-guest', 'linux-aurora', 'aurora-storage')
         for name in names:
             directory = ROOT / 'packages' / name
             result = subprocess.check_output(['bash', '-c',
