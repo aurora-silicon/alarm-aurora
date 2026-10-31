@@ -6,7 +6,7 @@ arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd'
 license=('MIT')
-_commit=d7efb9266747c37bea09aec1c5573fe4a53d4e45
+_commit=221c8bfa2ac4aa43a1f9075420a95c1d12bce4b0
 makedepends=('git' 'rust' 'cargo' 'python' 'alsa-lib' 'pkgconf' 'gcc' 'make' 'ladspa')
 depends=('glibc' 'gcc-libs' 'alsa-lib' 'python')
 source=("speakerguardd::git+$url.git#commit=$_commit" use-feedback-guard 50-j700-guard.conf)
