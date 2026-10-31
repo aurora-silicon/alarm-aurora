@@ -11,7 +11,8 @@ preserve edits. The command-line kernel feature list takes precedence over
 KernelExperimental in main.conf. An explicit Experimental=false in main.conf
 can disable the experimental profiles.
 
-To remove both BlueZ and WirePlumber defaults, remove this package. It is not
+To remove the BlueZ defaults, remove this package. Upstream WirePlumber roles
+are preserved; this package does not install a role override. It is not
 required by the protected platform or audio metapackage. After an authorized
 install, configuration change, or removal, apply deliberately:
 
