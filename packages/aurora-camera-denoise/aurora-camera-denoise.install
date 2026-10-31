@@ -1,9 +1,0 @@
-# Apply the shipped user preset for all users, as Fedora's
-# systemd_user_post does. Units already enabled or disabled stay as they are.
-post_install() {
-  systemctl --global --preset-mode=enable-only preset aurora-camera-denoise.service >/dev/null 2>&1 || :
-}
-
-pre_remove() {
-  systemctl --global disable aurora-camera-denoise.service >/dev/null 2>&1 || :
-}

@@ -1,0 +1,35 @@
+pkgname=whisper-cpp-aurora
+pkgver=1.9.5
+pkgrel=1
+pkgdesc='Aurora Whisper file transcription with Vulkan and the Linux ANE adapter'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/whisper.cpp'
+license=('MIT')
+depends=('glibc' 'gcc-libs' 'vulkan-icd-loader' 'vulkan-tools' 'python' 'python-numpy')
+makedepends=('libdrm' 'cmake' 'ninja' 'shaderc' 'vulkan-headers' 'spirv-headers')
+optdepends=('mil-hwx-compiler: shared ANE graph runner for compiled open encoder bundles')
+provides=("whisper.cpp-aurora=$pkgver")
+source=("whisper.cpp-aurora-e65f3c4423baae5898e40458d8cb1d192897172e.tar.gz::https://codeload.github.com/aurora-silicon/whisper.cpp/tar.gz/e65f3c4423baae5898e40458d8cb1d192897172e" 'libane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b.tar.gz' 'whisper.cpp-aurora')
+sha256sums=('e7e542fcde72b4b5b21732bbcce1e03e8382d659e137358c7a453ca06b163346' 'c91630cb3c0579d2c9df49f88b8e0fcf467812587ee71da0fddfeae3bfd77229' '403b7f94a17d602b9070916a3a9171670401411d0b1b634b5f7059bc8d157528')
+_whisper=whisper.cpp-e65f3c4423baae5898e40458d8cb1d192897172e
+_libane=omarchy-ane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b
+build() {
+  make -C "$_libane/libane" -j6 CFLAGS="$CFLAGS -fPIC"
+  cmake -S "$_whisper" -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_VULKAN=ON -DWHISPER_ANE=ON -DWHISPER_SDL2=OFF -DWHISPER_COREML=OFF -DWHISPER_BUILD_SERVER=OFF -DWHISPER_BUILD_TESTS=ON -DLIBANE_INCLUDE_DIR="$srcdir/$_libane/libane" -DLIBANE_LIBRARY="$srcdir/$_libane/libane/libane.a" -DWHISPER_ANE_WORKER_PATH=/usr/share/whisper-aurora/ane/worker.py
+  cmake --build build -j6
+}
+check() {
+  ctest --test-dir build -L unit --output-on-failure
+  python "$_whisper/tests/ane/test_worker.py"
+}
+package() {
+  # Runtime-only helper; it is not needed to compile this package.
+  depends+=('aurora-models')
+  install -Dm755 build/bin/whisper-cli "$pkgdir/usr/bin/whisper-cli-aurora"
+  install -Dm755 build/bin/whisper-bench "$pkgdir/usr/bin/whisper-bench-aurora"
+  install -Dm644 "$_whisper/models/ane/worker.py" "$pkgdir/usr/share/whisper-aurora/ane/worker.py"
+  install -Dm755 whisper.cpp-aurora "$pkgdir/usr/bin/whisper.cpp-aurora"
+  sed -i -e 's|@CLI@|/usr/bin/whisper-cli-aurora|g' -e 's|@FETCH@|/usr/bin/aurora-model-fetch|g' -e 's|@VULKANINFO@|/usr/bin/vulkaninfo|g' "$pkgdir/usr/bin/whisper.cpp-aurora"
+  install -Dm644 "$_whisper/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$_libane/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/libane-LICENSE"
+}

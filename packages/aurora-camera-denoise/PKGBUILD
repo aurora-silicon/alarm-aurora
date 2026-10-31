@@ -1,6 +1,6 @@
 pkgname=aurora-camera-denoise
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='PipeWire filter that denoises the built-in camera on Apple silicon laptops in low light'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -9,7 +9,6 @@ license=('MIT')
 _commit=846646456ee17ba1fb60be169abcd0727bed36f4
 depends=('glibc' 'pipewire')
 makedepends=('meson' 'ninja' 'systemd')
-install=aurora-camera-denoise.install
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/camera-denoise/tar.gz/$_commit")
 sha256sums=('a2f560eb1c864bb70eabed85c36be8ecaaa89d48c0917e6c94abb5a47161ae63')
 
@@ -32,10 +31,9 @@ package() {
   # Backends such as the Neural Engine one install here later; the filter
   # falls back to the built-in CPU backend while it is empty.
   install -dm755 "$pkgdir/usr/lib/aurora-camera-denoise"
-  # On by default for every user. It only acts on boards listed in
-  # boards.conf; a user turns it off with systemctl --user mask.
+  # Installing the package must never start a camera filter.
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/user-preset/80-aurora-camera-denoise.preset" <<'PRESET'
-enable aurora-camera-denoise.service
+disable aurora-camera-denoise.service
 PRESET
   install -Dm644 "camera-denoise-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
