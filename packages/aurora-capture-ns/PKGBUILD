@@ -21,7 +21,7 @@ prepare() {
 build() {
   make -C "$_libane/libane" -j6 CFLAGS="$CFLAGS -fPIC"
   (cd "$_rnnoise"; ./autogen.sh; ./configure --prefix=/usr --disable-examples; make -j6)
-  (cd "$_libdf"; CARGO_BUILD_JOBS=6 cargo build --release --locked -p deep_filter --no-default-features --features capi)
+  (cd "$_libdf"; CARGO_PROFILE_RELEASE_OPT_LEVEL=2 CARGO_PROFILE_RELEASE_LTO=false CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-$(nproc)}" cargo build --release --locked -p deep_filter --no-default-features --features capi)
   make -C "$_capture" -j6 LIBANE_DIR="$srcdir/$_libane/libane" LIBANE_LIB="$srcdir/$_libane/libane/libane.a" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 }
 check() {
