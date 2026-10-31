@@ -1,0 +1,16 @@
+pkgname=aurora-storage
+pkgver=1
+pkgrel=1
+pkgdesc='Driver-scoped Aurora storage defaults'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('systemd')
+source=(60-aurora-apple-nvme.rules README.md LICENSE)
+sha256sums=('0f3f85e9bd6a78f2a4319186a4a73b310e9af05e0d8f212a9c6637eec5f45985' '9fa2bc56a62f8b0b95ce2577590ded98f01fa9da4dec5b5f1a0cac9e9809db7a' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+
+package() {
+  install -Dm644 60-aurora-apple-nvme.rules "$pkgdir/usr/lib/udev/rules.d/60-aurora-apple-nvme.rules"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
