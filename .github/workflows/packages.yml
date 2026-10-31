@@ -148,6 +148,7 @@ jobs:
             out/packages/*.pkg.tar.*
             out/container/tmp/package-build/src/linux-*/build/base/.config
             build.log
+            out/container/tmp/package-build/src/build/meson-logs/**
             out/graphics-upgrade/*.txt
             out/graphics-upgrade/*.sha256
             out/graphics-upgrade/*.conf
@@ -161,6 +162,7 @@ jobs:
           name: alarm-${{ matrix.package }}-failed-attempt-${{ github.run_attempt }}
           path: |
             build.log
+            out/container/tmp/package-build/src/build/meson-logs/**
             out/graphics-upgrade/*.txt
             out/graphics-upgrade/*.sha256
             out/graphics-upgrade/*.conf
