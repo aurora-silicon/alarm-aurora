@@ -11,8 +11,8 @@ if [[ ${1:-} == --inside ]]; then
       git apply --reverse "../${source[i]}"
     fi
   done
-  # Establish that the two changed implementation files are the release bytes.
-  for path in src/backends/native/meta-output-kms.c src/wayland/meta-wayland-touch.c src/backends/meta-input-capture-session.c; do
+  # Establish that the changed implementation files are the release bytes.
+  for path in src/backends/native/meta-output-kms.c src/wayland/meta-wayland-touch.c src/backends/meta-input-capture-session.c src/compositor/meta-window-actor-x11.c; do
     cmp "$path" <(tar -xOf "/tmp/package-build/mutter-$_tag.tar.xz" "mutter-$_tag/$path")
   done
   cd ..

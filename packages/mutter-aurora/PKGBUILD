@@ -4,7 +4,7 @@
 pkgname=mutter-aurora
 _tag=51.1
 pkgver=51.1.aurora1
-pkgrel=3
+pkgrel=4
 pkgdesc="Window manager and compositor for GNOME, defaulting VRR-capable displays to variable refresh rate"
 url="https://gitlab.gnome.org/GNOME/mutter"
 arch=(aarch64)
@@ -92,11 +92,13 @@ source=(
   0001-wayland-touch-Do-not-crash-on-empty-focus-surface.patch
   0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch
   0002-input-capture-disable-on-eis-disconnect.patch
+  0003-x11-assign-frame-counters-on-actor-views.patch
 )
 sha256sums=('0d311d87901dbcb94518fb89304febe30852ce5d8a4befa9f87e85c68eceefde'
             'c68c274af7ead7f811c7fce0557752ed983dbe9aef90918f0c91177e861fbd1e'
             'd4606ed010fe9633ef0f3d2fcf79bd6f7ef2712c98d1b009592772b142ab34fe'
             '996105591388ef3eaf0194db3a39ad9ded37253ab6997ac20c89d19f5c7f5a8c'
+            '5629798d50d63a77c902c3683c136e548eacfad710719c7befe5421ebac37b4e'
 )
 
 prepare() {
@@ -104,6 +106,7 @@ prepare() {
   git apply -v "../0001-wayland-touch-Do-not-crash-on-empty-focus-surface.patch"
   git apply -v "../0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch"
   git apply -v "../0002-input-capture-disable-on-eis-disconnect.patch"
+  git apply -v "../0003-x11-assign-frame-counters-on-actor-views.patch"
 }
 
 build() {
