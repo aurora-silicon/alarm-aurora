@@ -1,6 +1,6 @@
 pkgname=omarchy-ane-tools
 pkgver=0.5.7
-pkgrel=1
+pkgrel=2
 pkgdesc='Apple Neural Engine userspace tools for the in-kernel ANE driver'
 arch=('aarch64')
 url='https://github.com/joshuaswarren/omarchy-ane'
@@ -10,7 +10,12 @@ _commit=68e92712bbffa08f5002dcc542434fe1393f0578
 makedepends=('gcc' 'make' 'binutils' 'libdrm' 'python')
 depends=('glibc' 'python')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/joshuaswarren/omarchy-ane/tar.gz/$_commit")
-sha256sums=('09fee8d386728939d4752acb21a3ff99192809bf608f8d1bca6cd426b460aea6')
+source+=(70-omarchy-ane.rules omarchy-ane-tools.sysusers fix-smoke.py)
+sha256sums=('09fee8d386728939d4752acb21a3ff99192809bf608f8d1bca6cd426b460aea6' 'ce57f24b6af6c10bec168592f2d3f3dfc88086ec065286a4dc1767e1177b23dc' '8e7935bbe73faf3195d0f72004a445968c5c98702df19cd4a3ecb7cf318530b8' 'e803c67186b95a49fc6fe51d5aba7f58be85f22e2627d2a5f7b93fac097ef2b8')
+prepare() {
+  cd "omarchy-ane-$_commit"
+  python "$srcdir/fix-smoke.py"
+}
 build() {
   cd "omarchy-ane-$_commit"
   make -C libane libane
@@ -23,6 +28,8 @@ check() {
   python tools/test_ane_firmware_fetch.py
 }
 package() {
+  install -Dm644 "$srcdir/70-omarchy-ane.rules" "$pkgdir/usr/lib/udev/rules.d/70-omarchy-ane.rules"
+  install -Dm644 "$srcdir/omarchy-ane-tools.sysusers" "$pkgdir/usr/lib/sysusers.d/omarchy-ane-tools.conf"
   cd "omarchy-ane-$_commit"
   install -Dm755 tools/ane-run "$pkgdir/usr/bin/omarchy-ane-run"
   install -Dm755 -t "$pkgdir/usr/bin" packaging/omarchy-ane-smoke packaging/omarchy-ane-firmware-fetch
