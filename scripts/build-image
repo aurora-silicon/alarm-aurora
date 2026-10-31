@@ -74,7 +74,7 @@ p.write_text(s)
 PY
 packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez bluez-utils wireless-regdb linux-firmware
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
-  avd-fw upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes
+  avd-fw upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes aurora-logos
   aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless tiny-dfr pipewire-pulse pipewire-alsa openssh)
 case $profile in
   arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
