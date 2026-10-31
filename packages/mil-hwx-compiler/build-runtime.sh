@@ -6,6 +6,15 @@ sources=$(realpath "${1:?unpacked sources directory}")
 prefix="$PWD/.gnustep"
 jobs=${JOBS:-8}
 export CC=clang CXX=clang++ OBJC=clang OBJCXX=clang++
+# Keep the failing compiler/link/run probe, not just configure's summary.
+configure_stage() {
+  local ane_config_rc=0
+  ./configure "$@" || ane_config_rc=$?
+  if [ "$ane_config_rc" != 0 ]; then
+    if [ -f config.log ]; then cat config.log >&2; fi
+    return "$ane_config_rc"
+  fi
+}
 cmake -S "$sources/libobjc2-a1faad66cee79f29c4ca268b004111edc33a2ae2" -B .objc-build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix" \
   -DCMAKE_INSTALL_LIBDIR=lib -DGNUSTEP_INSTALL_TYPE=NONE \
@@ -18,7 +27,7 @@ export PKG_CONFIG_PATH="$prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PAT
 export CPPFLAGS="-I$prefix/include" LDFLAGS="-L$prefix/lib -Wl,-rpath,$prefix/lib -fuse-ld=lld"
 (
   cd "$sources/tools-make-d0349cc83a23367acdc53df364f73504c281b26c"
-  ./configure --prefix="$prefix" --with-layout=fhs --with-library-combo=ng-gnu-gnu \
+  configure_stage --prefix="$prefix" --with-layout=fhs --with-library-combo=ng-gnu-gnu \
     --with-runtime-abi=gnustep-2.0 --enable-objc-arc --enable-native-objc-exceptions
   make -j "$jobs"
   make install
@@ -27,7 +36,7 @@ export GNUSTEP_CONFIG_FILE="$prefix/etc/GNUstep/GNUstep.conf"
 . "$prefix/share/GNUstep/Makefiles/GNUstep.sh"
 (
   cd "$sources/libs-base-3d7013e144b153abcd6c088dc8d6c64ebd43bc4b"
-  ./configure --prefix="$prefix" --disable-tls --disable-xslt --disable-zeroconf \
+  configure_stage --prefix="$prefix" --disable-tls --disable-xslt --disable-zeroconf \
     --disable-libdispatch --disable-nsurlsession
   make -j "$jobs"
   make install
