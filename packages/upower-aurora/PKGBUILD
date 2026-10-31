@@ -1,7 +1,7 @@
 pkgname=upower-aurora
 pkgver=1.91.5.aurora1
 pkgrel=1
-_commit=a272302411c68953c97018e0901d5cb6a2ae6250
+_commit=ec0b67ff412d97b16629614edc4decbb34d05983
 pkgdesc='UPower with Aurora macsmc battery time reporting'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -14,7 +14,7 @@ depends=('dbus' 'glib2' 'glibc' 'libgcc' 'libgudev' 'libimobiledevice' 'libplist
 makedepends=('meson' 'ninja' 'glib2-devel' 'gobject-introspection' 'systemd')
 checkdepends=('python-dbusmock' 'python-gobject' 'python-packaging' 'umockdev')
 source=("upower-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/upower/tar.gz/$_commit")
-sha256sums=('e78f885f7bdd3d8b7f673a2ee12d5e28b3719b491b9c2c48a1c8ee4143d99882')
+sha256sums=('6758f97ce858a51919755a206387b7ca8795793fa62ebd8b8e5ae5fe3fbe9784')
 
 build() {
   arch-meson "upower-$_commit" build \
