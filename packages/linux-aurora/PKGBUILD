@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=6
+pkgrel=7
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -34,13 +34,12 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config common.config)
+        rust-toolchain.toml bindgen-kernel.py config)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             'fba78492f3a52733846ca06b1a343b7f8948d90b7d55ad51cd2b83685516af85'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'e85863a366965b6129f5386e96f241313ee0b3b8c06ddb7b74b49ed2ff72a3fc'
-            'ca1d12792107302076cfc3ed102d2dd2574626505c18066f39ef731909ace873')
+            'e85863a366965b6129f5386e96f241313ee0b3b8c06ddb7b74b49ed2ff72a3fc')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -93,9 +92,9 @@ prepare() {
   rustup toolchain install 1.99.0 --profile minimal --component rust-src
   mkdir -p build/base
   # The full distribution configuration (resolved against this pin) is the
-  # base; the kernel's asahi.config and the shared common.config apply on top.
+  # base; the source-pinned asahi.config owns shared Apple hardware settings.
   cp ../config build/base/.config
-  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config ../common.config
+  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config
   # Keep shared kexec support: apple_piodma_lock_transition() in
   # pcie-apple-piodma-diag.c acquires the kernel kexec blocker before Neo radio
   # admission retains DMA/firmware ownership. Both kexec
@@ -104,7 +103,7 @@ prepare() {
   # device trees under /lib/modules/*-ARCH.
   scripts/config --file build/base/.config --set-str LOCALVERSION '-ARCH' --disable LOCALVERSION_AUTO
   _make O="$PWD/build/base" olddefconfig
-  python3 ../validate-config.py arch/arm64/configs/asahi.config ../common.config build/base/.config
+  python3 ../validate-config.py arch/arm64/configs/asahi.config build/base/.config
   grep -qx 'CONFIG_RUST=y' build/base/.config || {
     echo 'linux-aurora requires Rust drivers; toolchain/configuration disabled CONFIG_RUST' >&2; return 1;
   }
