@@ -48,3 +48,12 @@ Inspect the KMS `VRR_ENABLED` property during a fullscreen scanout candidate and
 after leaving fullscreen; a `+vrr` mode selection alone is insufficient.
 Rollback with exact saved RPMs or an explicitly selected stock Fedora NEVRA for
 all installed Mutter subpackages, then restart GDM and verify again.
+
+## Arch integration
+
+`mutter-aurora` is `51.1.aurora1-2`, provides `mutter=51.1` and `libmutter-51.so`,
+and replaces the stock `mutter` package. Its archive and both patch checksums
+match the Fedora 45 and NixOS inputs. `makepkg --syncdeps --noconfirm` now runs
+`check()` with Xvfb and llvmpipe; the native ALARM workflow preserves Meson logs.
+Install a reviewed package with `pacman -U`, and roll back with the retained
+stock package using the same command. Keep Shell and schemas on GNOME 51.
