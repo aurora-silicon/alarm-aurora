@@ -1,0 +1,43 @@
+pkgname=omarchy-ane-tools
+pkgver=0.5.7
+pkgrel=2
+pkgdesc='Apple Neural Engine userspace tools for the in-kernel ANE driver'
+arch=('aarch64')
+url='https://github.com/joshuaswarren/omarchy-ane'
+license=('GPL-2.0-only OR MIT')
+_commit=68e92712bbffa08f5002dcc542434fe1393f0578
+# libdrm: drm.h for libane, which omarchy-ane-run links statically.
+makedepends=('gcc' 'make' 'binutils' 'libdrm' 'python')
+depends=('glibc' 'python')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/joshuaswarren/omarchy-ane/tar.gz/$_commit")
+source+=(70-omarchy-ane.rules omarchy-ane-tools.sysusers fix-smoke.py)
+sha256sums=('09fee8d386728939d4752acb21a3ff99192809bf608f8d1bca6cd426b460aea6' '7f24ff7c5574f941f0509d19a033e58c052114654872a3a26f8f539a80a3ef17' '8e7935bbe73faf3195d0f72004a445968c5c98702df19cd4a3ecb7cf318530b8' 'e803c67186b95a49fc6fe51d5aba7f58be85f22e2627d2a5f7b93fac097ef2b8')
+prepare() {
+  cd "omarchy-ane-$_commit"
+  python "$srcdir/fix-smoke.py"
+}
+build() {
+  cd "omarchy-ane-$_commit"
+  make -C libane libane
+  make -C tools ane-run
+}
+check() {
+  # Host-only, no device or network. tools/test_ane_smoke.py is left out: it
+  # times fake ANE calls against a 2 s limit and fails on slow (emulated) builders.
+  cd "omarchy-ane-$_commit"
+  python tools/test_ane_firmware_fetch.py
+}
+package() {
+  install -Dm644 "$srcdir/70-omarchy-ane.rules" "$pkgdir/usr/lib/udev/rules.d/70-omarchy-ane.rules"
+  install -Dm644 "$srcdir/omarchy-ane-tools.sysusers" "$pkgdir/usr/lib/sysusers.d/omarchy-ane-tools.conf"
+  cd "omarchy-ane-$_commit"
+  install -Dm755 tools/ane-run "$pkgdir/usr/bin/omarchy-ane-run"
+  install -Dm755 -t "$pkgdir/usr/bin" packaging/omarchy-ane-smoke packaging/omarchy-ane-firmware-fetch
+  # omarchy-ane-smoke looks for its programs here.
+  local gen
+  for gen in h13 h14; do
+    install -Dm644 "fixtures/$gen-anec/add/program-0.anec" \
+      "$pkgdir/usr/share/omarchy-ane/fixtures/$gen-anec/add/program-0.anec"
+  done
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -1,0 +1,47 @@
+pkgname=mil-hwx-compiler
+pkgver=0.3.1
+pkgrel=1
+pkgdesc='Open MIL to ANE HWX and ANEC compiler'
+arch=('aarch64')
+url='https://github.com/joshuaswarren/mil-hwx-compiler'
+license=('MIT' 'LGPL-2.1-or-later')
+_commit=927013f5480768b07c8e62a866e1514c41aba778
+# GNUstep Base enables curl and GMP when building in the signed ALARM root.
+depends=('glibc' 'gcc-libs' 'libffi' 'libxml2' 'icu' 'zlib' 'curl' 'gmp')
+makedepends=('clang' 'lld' 'cmake' 'ninja' 'make' 'pkgconf' 'robin-map' 'openssl' 'python' 'patchelf' 'which')
+checkdepends=('git')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/joshuaswarren/mil-hwx-compiler/tar.gz/927013f5480768b07c8e62a866e1514c41aba778"
+  "libobjc2-a1faad66cee79f29c4ca268b004111edc33a2ae2.tar.gz::https://codeload.github.com/gnustep/libobjc2/tar.gz/a1faad66cee79f29c4ca268b004111edc33a2ae2"
+  "gnustep-make-d0349cc83a23367acdc53df364f73504c281b26c.tar.gz::https://codeload.github.com/gnustep/tools-make/tar.gz/d0349cc83a23367acdc53df364f73504c281b26c"
+  "gnustep-base-3d7013e144b153abcd6c088dc8d6c64ebd43bc4b.tar.gz::https://codeload.github.com/gnustep/libs-base/tar.gz/3d7013e144b153abcd6c088dc8d6c64ebd43bc4b"
+  build-runtime.sh
+  install-runtime.sh
+  gnustep-base-block-ivar.patch
+)
+sha256sums=('45eddcad03d68aaccb78d622711b91f144a88f9df952784e8c64c9bd1eb03790'
+  '695405064778adc40b77ba78e29594dfe0c07107dc3882a3276684f6ca2fe1b1'
+  '687a79b3f1fa00d56085c64906bdbc3634fa891379879960c67f520abfd89fc6'
+  '2c6b39a703e755ca6947cee41db1527fe95f5ab5f24b55fc02593fb0e3ca6520'
+  '5487d877bec7abb16e49bdb6bca19ae10fd7b6017f4d39bd12d4dd0659b30823'
+  'ddf957f90620d519f94daf3db9b52b2f49b01bd7bd34d05d2d747fa3ad927695'
+  'ac9c46b338a462475e7a8ac95f2dd75c2d0b4571eda3bb4b18143fb0cf52be9f')
+
+prepare() {
+  patch -d "$srcdir/libs-base-3d7013e144b153abcd6c088dc8d6c64ebd43bc4b" -p1 < "$srcdir/gnustep-base-block-ivar.patch"
+}
+
+build() {
+  cd "$srcdir/mil-hwx-compiler-$_commit"
+  JOBS=8 bash "$srcdir/build-runtime.sh" "$srcdir"
+  make build/mil-hwxc GNUSTEP_PREFIX="$PWD/.gnustep" CXX=clang++
+}
+check() {
+  cd "$srcdir/mil-hwx-compiler-$_commit"
+  export LD_LIBRARY_PATH="$PWD/.gnustep/lib"
+  make test-h13 GNUSTEP_PREFIX="$PWD/.gnustep" CXX=clang++
+  python tests/test_h14_fixture_programs.py build/mil-hwxc
+}
+package() {
+  cd "$srcdir/mil-hwx-compiler-$_commit"
+  bash "$srcdir/install-runtime.sh" "$pkgdir/usr" "$srcdir"
+}

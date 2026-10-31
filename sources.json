@@ -127,5 +127,47 @@
     "archive_file": "alsa-utils-1.2.16.tar.bz2",
     "archive_root": "alsa-utils-1.2.16",
     "sha256": "092399d5e8749a1d5e188e393157521cec4b75693b60ebb79bbce728cff2232c"
+  },
+  "omarchy-ane-tools": {
+    "repository": "https://github.com/joshuaswarren/omarchy-ane",
+    "commit": "68e92712bbffa08f5002dcc542434fe1393f0578",
+    "version": "0.5.7",
+    "source_url": "https://codeload.github.com/joshuaswarren/omarchy-ane/tar.gz/68e92712bbffa08f5002dcc542434fe1393f0578",
+    "archive_root": "omarchy-ane-68e92712bbffa08f5002dcc542434fe1393f0578",
+    "sha256": "09fee8d386728939d4752acb21a3ff99192809bf608f8d1bca6cd426b460aea6",
+    "redistribute_source": false
+  },
+  "mil-hwx-compiler": {
+    "repository": "https://github.com/joshuaswarren/mil-hwx-compiler",
+    "commit": "927013f5480768b07c8e62a866e1514c41aba778",
+    "source_url": "https://codeload.github.com/joshuaswarren/mil-hwx-compiler/tar.gz/927013f5480768b07c8e62a866e1514c41aba778",
+    "archive_root": "mil-hwx-compiler-927013f5480768b07c8e62a866e1514c41aba778",
+    "sha256": "45eddcad03d68aaccb78d622711b91f144a88f9df952784e8c64c9bd1eb03790",
+    "version": "0.3.1",
+    "tag": "v0.3.1",
+    "extra_sources": {
+      "libobjc2": {
+        "repository": "https://github.com/gnustep/libobjc2",
+        "commit": "a1faad66cee79f29c4ca268b004111edc33a2ae2",
+        "source_url": "https://codeload.github.com/gnustep/libobjc2/tar.gz/a1faad66cee79f29c4ca268b004111edc33a2ae2",
+        "archive_root": "libobjc2-a1faad66cee79f29c4ca268b004111edc33a2ae2",
+        "sha256": "695405064778adc40b77ba78e29594dfe0c07107dc3882a3276684f6ca2fe1b1"
+      },
+      "gnustep-make": {
+        "repository": "https://github.com/gnustep/tools-make",
+        "commit": "d0349cc83a23367acdc53df364f73504c281b26c",
+        "source_url": "https://codeload.github.com/gnustep/tools-make/tar.gz/d0349cc83a23367acdc53df364f73504c281b26c",
+        "archive_root": "tools-make-d0349cc83a23367acdc53df364f73504c281b26c",
+        "sha256": "687a79b3f1fa00d56085c64906bdbc3634fa891379879960c67f520abfd89fc6"
+      },
+      "gnustep-base": {
+        "repository": "https://github.com/gnustep/libs-base",
+        "commit": "3d7013e144b153abcd6c088dc8d6c64ebd43bc4b",
+        "source_url": "https://codeload.github.com/gnustep/libs-base/tar.gz/3d7013e144b153abcd6c088dc8d6c64ebd43bc4b",
+        "archive_root": "libs-base-3d7013e144b153abcd6c088dc8d6c64ebd43bc4b",
+        "sha256": "2c6b39a703e755ca6947cee41db1527fe95f5ab5f24b55fc02593fb0e3ca6520"
+      }
+    },
+    "redistribute_source": false
   }
 }
