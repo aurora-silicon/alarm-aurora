@@ -7,7 +7,7 @@ url='https://github.com/joshuaswarren/mil-hwx-compiler'
 license=('MIT' 'LGPL-2.1-or-later')
 _commit=927013f5480768b07c8e62a866e1514c41aba778
 depends=('glibc' 'gcc-libs' 'libffi' 'libxml2' 'icu' 'zlib')
-makedepends=('clang' 'lld' 'cmake' 'ninja' 'make' 'pkgconf' 'robin-map' 'openssl' 'python' 'patchelf')
+makedepends=('clang' 'lld' 'cmake' 'ninja' 'make' 'pkgconf' 'robin-map' 'openssl' 'python' 'patchelf' 'which')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/joshuaswarren/mil-hwx-compiler/tar.gz/927013f5480768b07c8e62a866e1514c41aba778"
   "libobjc2-a1faad66cee79f29c4ca268b004111edc33a2ae2.tar.gz::https://codeload.github.com/gnustep/libobjc2/tar.gz/a1faad66cee79f29c4ca268b004111edc33a2ae2"
   "gnustep-make-d0349cc83a23367acdc53df364f73504c281b26c.tar.gz::https://codeload.github.com/gnustep/tools-make/tar.gz/d0349cc83a23367acdc53df364f73504c281b26c"
