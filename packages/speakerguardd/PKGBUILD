@@ -1,12 +1,12 @@
 pkgname=speakerguardd
-pkgver=0.1.13rc1
+pkgver=0.1.13rc2
 pkgrel=1
 pkgdesc='Unified Apple speaker protection release candidate'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd'
 license=('MIT')
-_commit=221c8bfa2ac4aa43a1f9075420a95c1d12bce4b0
+_commit=c1de6aa10eb42719fae9a756cfa91e7c24f4c98c
 makedepends=('git' 'rust' 'cargo' 'python' 'alsa-lib' 'pkgconf' 'gcc' 'make' 'ladspa')
 depends=('glibc' 'gcc-libs' 'alsa-lib' 'python')
 source=("speakerguardd::git+$url.git#commit=$_commit" use-feedback-guard 50-j700-guard.conf)
