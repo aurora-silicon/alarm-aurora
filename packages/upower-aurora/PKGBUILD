@@ -1,20 +1,20 @@
 pkgname=upower-aurora
-pkgver=1.91.4.aurora1
+pkgver=1.91.5.aurora1
 pkgrel=1
-_commit=00e8cb66b408e2a7e5f1c527accbe0634a12996c
+_commit=a272302411c68953c97018e0901d5cb6a2ae6250
 pkgdesc='UPower with Aurora macsmc battery time reporting'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/upower'
 license=('GPL-2.0-or-later')
-provides=('upower=1.91.4' 'libupower-glib.so')
+provides=('upower=1.91.5' 'libupower-glib.so')
 conflicts=('upower')
 backup=('etc/UPower/UPower.conf')
 depends=('dbus' 'glib2' 'glibc' 'libgcc' 'libgudev' 'libimobiledevice' 'libplist' 'polkit')
 makedepends=('meson' 'ninja' 'glib2-devel' 'gobject-introspection' 'systemd')
 checkdepends=('python-dbusmock' 'python-gobject' 'python-packaging' 'umockdev')
 source=("upower-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/upower/tar.gz/$_commit")
-sha256sums=('4b3b15a50f9f92988b4b570a5147ff2cc9ae119a806d56c464b0b2654509c7d3')
+sha256sums=('e78f885f7bdd3d8b7f673a2ee12d5e28b3719b491b9c2c48a1c8ee4143d99882')
 
 build() {
   arch-meson "upower-$_commit" build \
@@ -28,6 +28,7 @@ check() {
   meson test -C build --list > registered-tests.txt
   grep -q test_macsmc_kernel_time_at_zero_rate registered-tests.txt
   grep -q test_other_supply_ignores_kernel_time registered-tests.txt
+  grep -q test_macsmc_kernel_time_charge_units registered-tests.txt
   meson test -C build --print-errorlogs
 }
 
