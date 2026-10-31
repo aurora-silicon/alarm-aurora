@@ -1,0 +1,100 @@
+# Maintainer: Fabian Bornschein <fabiscafe@archlinux.org>
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+
+pkgname=gnome-settings-daemon-aurora
+_tag=51.1
+pkgver=51.1.aurora1
+pkgrel=1
+pkgdesc="GNOME Settings Daemon"
+url="https://gitlab.gnome.org/GNOME/gnome-settings-daemon"
+arch=(aarch64)
+license=(
+  GPL-2.0-or-later
+  LGPL-2.0-or-later
+)
+depends=(
+  alsa-lib
+  bash
+  dconf
+  fontconfig
+  gcr-4
+  geoclue
+  geocode-glib-2
+  glib2
+  glibc
+  gnome-desktop-4
+  gsettings-desktop-schemas
+  gtk4
+  libcanberra-pulse
+  libcolord
+  libcups
+  libgcc
+  libgudev
+  libgweather-4
+  libmm-glib
+  libnm
+  libnotify
+  libp11-kit
+  libpulse
+  libx11
+  libxfixes
+  polkit
+  pulse-native-provider
+  systemd-libs
+  upower
+)
+makedepends=(
+  docbook-xsl
+  git
+  glib2-devel
+  libxslt
+  meson
+  python
+  usbguard
+)
+checkdepends=(
+  python-dbusmock
+  python-gobject
+)
+optdepends=('usbguard: USB protection support')
+groups=(gnome)
+provides=("gnome-settings-daemon=$_tag")
+conflicts=(gnome-settings-daemon)
+replaces=(gnome-settings-daemon)
+backup=(etc/xdg/Xwayland-session.d/00-xrdb)
+source=(
+  "git+https://gitlab.gnome.org/GNOME/gnome-settings-daemon.git#tag=$_tag"
+  "git+https://gitlab.gnome.org/GNOME/libgnome-volume-control.git"
+  0001-color-opt-in-ambient-white-point.patch
+  gnome-ambient-white-point
+)
+b2sums=('52dd4163a11446ad7de40f0ac736dcbed18d72efbdb164bd790c947c375c840adde0d88a2ad2a920b29ed70611b87cf838c07478c228ccbf8cbde618582853f8'
+        'SKIP'
+        '53318167f7b2bad6b3c1b6a9e47cf9c87e9e7c3018802444ff08ca7733ade103233aa4b7968bcb48eecca486def4499ba7d3f83f114c8cc1d78ff3d356cd52ef'
+        '9ad00cdd3cdc01d86f1ef829448b35156f1e66c7d3b3d398578a75ef5ddd4467fb282d5f1be4256b3c715bcbeaadc751850835649169fb3e265bd41cd8cd2ca7')
+
+prepare() {
+  cd gnome-settings-daemon
+  git apply --check ../0001-color-opt-in-ambient-white-point.patch
+  git apply ../0001-color-opt-in-ambient-white-point.patch
+
+  git submodule init
+  git submodule set-url subprojects/gvc "$srcdir/libgnome-volume-control"
+  git -c protocol.file.allow=always -c protocol.allow=never submodule update
+}
+
+build() {
+  arch-meson gnome-settings-daemon build
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  meson install -C build --no-rebuild --destdir "$pkgdir"
+  install -Dm644 gnome-ambient-white-point "$pkgdir/usr/share/doc/gnome-settings-daemon/gnome-ambient-white-point"
+}
+
+# vim:set sw=2 sts=-1 et:
