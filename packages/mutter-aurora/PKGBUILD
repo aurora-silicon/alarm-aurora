@@ -1,10 +1,10 @@
 # Arch's mutter 51.1-1 recipe (Jan Alexander Steffens, Fabian Bornschein) with
-# one Aurora patch: a VRR-capable output defaults to variable refresh rate.
+# Aurora VRR preference and the upstream touch null-focus crash fix.
 # The same patch is in fedora-aurora's mutter package.
 pkgname=mutter-aurora
 _tag=51.1
 pkgver=51.1.aurora1
-pkgrel=1
+pkgrel=4
 pkgdesc="Window manager and compositor for GNOME, defaulting VRR-capable displays to variable refresh rate"
 url="https://gitlab.gnome.org/GNOME/mutter"
 arch=(aarch64)
@@ -27,7 +27,7 @@ depends=(
   gnome-desktop-4
   gnome-settings-daemon
   graphene
-  gsettings-desktop-schemas
+  'gsettings-desktop-schemas>=51'
   gtk4
   harfbuzz
   iio-sensor-proxy
@@ -41,8 +41,8 @@ depends=(
   libgirepository
   libglvnd
   libgudev
-  libinput
-  libpipewire
+  'libinput>=1.31.0'
+  'libpipewire>=1.6.0'
   libsysprof-capture
   libwacom
   libx11
@@ -67,10 +67,17 @@ depends=(
   python-gobject
   startup-notification
   systemd-libs
-  wayland
+  'wayland>=1.26'
   xorg-xwayland
 )
 makedepends=(
+  gtk3
+  libevdev
+  python-dbusmock
+  umockdev
+  xorg-server-xvfb
+  xorg-xauth
+  ttf-dejavu
   bash-completion
   git
   glib2-devel
@@ -78,38 +85,50 @@ makedepends=(
   meson
   python-docutils
   sysprof
-  wayland-protocols
+  'wayland-protocols>=1.48'
 )
 source=(
-  # Mutter tags use SSH signatures which makepkg doesn't understand
-  "git+$url.git#tag=$_tag"
-  "git+https://gitlab.gnome.org/GNOME/gvdb.git#commit=b54bc5da25127ef416858a3ad92e57159ff565b3"
+  "https://download.gnome.org/sources/mutter/51/mutter-$_tag.tar.xz"
+  0001-wayland-touch-Do-not-crash-on-empty-focus-surface.patch
   0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch
+  0002-input-capture-disable-on-eis-disconnect.patch
+  0003-x11-assign-frame-counters-on-actor-views.patch
 )
-b2sums=('0064caf6a85d9cb42d9544ad2dab31ef158a957d20d5a99aabe27f40986f128714f97a5cbe970c1aba1cb9c86f0b94f2f279a22072bbfefb9c0c7e715d7a411f'
-        'f989bc2ceb52aad3c6a23c439df3bbc672bc11d561a247d19971d30cc85ed5d42295de40f8e55b13404ed32aa44f12307c9f5b470f2e288d1c9c8329255c43bf'
-        '4502d8a6b390148adb70bbf9d75c95f2516c47e262a1434525cd670f25f1455edd31048ff00bc847daf6230a4135615db2f34b173c0bb6a14d59bc25fb8d205b')
+sha256sums=('0d311d87901dbcb94518fb89304febe30852ce5d8a4befa9f87e85c68eceefde'
+            'c68c274af7ead7f811c7fce0557752ed983dbe9aef90918f0c91177e861fbd1e'
+            'd4606ed010fe9633ef0f3d2fcf79bd6f7ef2712c98d1b009592772b142ab34fe'
+            '996105591388ef3eaf0194db3a39ad9ded37253ab6997ac20c89d19f5c7f5a8c'
+            '5629798d50d63a77c902c3683c136e548eacfad710719c7befe5421ebac37b4e'
+)
 
 prepare() {
-  cd mutter
+  cd "mutter-$_tag"
+  git apply -v "../0001-wayland-touch-Do-not-crash-on-empty-focus-surface.patch"
   git apply -v "../0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch"
+  git apply -v "../0002-input-capture-disable-on-eis-disconnect.patch"
+  git apply -v "../0003-x11-assign-frame-counters-on-actor-views.patch"
 }
 
 build() {
   local meson_options=(
     -D docs=false
     -D installed_tests=false
-    -D tests=disabled
+    -D tests=enabled
   )
 
   CFLAGS="${CFLAGS/-O2/-O3} -fno-semantic-interposition"
   LDFLAGS+=" -Wl,-Bsymbolic-functions"
 
-  # Inject gvdb
-  export MESON_PACKAGE_CACHE_DIR="$srcdir"
+  arch-meson "mutter-$_tag" build "${meson_options[@]}"
+  meson compile -C build -j8
+}
 
-  arch-meson mutter build "${meson_options[@]}"
-  meson compile -C build
+check() {
+  export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+  export XDG_RUNTIME_DIR="$srcdir/runtime"
+  mkdir -p "$XDG_RUNTIME_DIR"
+  chmod 700 "$XDG_RUNTIME_DIR"
+  xvfb-run -a meson test -C build --print-errorlogs
 }
 
 package() {

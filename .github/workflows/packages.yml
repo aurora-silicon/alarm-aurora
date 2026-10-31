@@ -135,6 +135,15 @@ jobs:
           set -euo pipefail
           docker run --rm -v "$PWD:/src" -w /src archlinux:base-devel \
             bash scripts/ci-build-fex-guest 2>&1 | tee build.log
+      - name: Compare a failing Mutter suite with the unpatched release
+        if: failure() && matrix.package == 'mutter-aurora'
+        run: |
+          set -euo pipefail
+          docker run --rm --privileged -v "$PWD:/src" -w /src \
+            registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
+              dnf install -y util-linux coreutils
+              bash scripts/test-mutter-upstream
+            ' 2>&1 | tee mutter-upstream-control.log
       # Provenance for the exact package bytes; publication verifies it.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: success() && github.event_name != 'pull_request'
@@ -148,6 +157,9 @@ jobs:
             out/packages/*.pkg.tar.*
             out/container/tmp/package-build/src/linux-*/build/base/.config
             build.log
+            out/container/tmp/package-build/src/build/meson-logs/**
+            out/mutter-upstream-comparison/**
+            mutter-upstream-control.log
             out/graphics-upgrade/*.txt
             out/graphics-upgrade/*.sha256
             out/graphics-upgrade/*.conf
@@ -161,6 +173,9 @@ jobs:
           name: alarm-${{ matrix.package }}-failed-attempt-${{ github.run_attempt }}
           path: |
             build.log
+            out/container/tmp/package-build/src/build/meson-logs/**
+            out/mutter-upstream-comparison/**
+            mutter-upstream-control.log
             out/graphics-upgrade/*.txt
             out/graphics-upgrade/*.sha256
             out/graphics-upgrade/*.conf
