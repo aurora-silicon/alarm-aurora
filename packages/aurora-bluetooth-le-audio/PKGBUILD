@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+pkgname=aurora-bluetooth-le-audio
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Optional Aurora BlueZ ISO and LE Audio defaults'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('bluez>=5.75' 'bluez-utils' 'pipewire-audio>=1.2' 'wireplumber>=0.5')
+backup=('etc/bluetooth/le-audio.conf')
+source=(le-audio.conf bluetooth.service.conf README.md LICENSE)
+sha256sums=('99c6f168f978fe885229cd65d1f8f2e285c95d0202487eb1c74219e82c1d644e'
+            '9d7034521d4e60a75324afc5e159ef1ff1ae7f9845cb2b45002fbb64e476c9b0'
+            '15458ecbaed02744258de888c3551b4b5e4fc5bc488051f56efba2366017f126'
+            '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+package() {
+  install -Dm644 le-audio.conf "$pkgdir/etc/bluetooth/le-audio.conf"
+  install -Dm644 bluetooth.service.conf "$pkgdir/usr/lib/systemd/system/bluetooth.service.d/50-aurora-le-audio.conf"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -29,3 +29,6 @@ Native local Aura, U-Boot, ALSA/audio, bless, speakerguardd, firmware and boot p
 The default image includes Aurora's `avd-fw` and `upower-aurora` forks. UPower is selected in the initial desktop transaction so its provider satisfies desktop dependencies; the image rejects stock `upower` alongside it. The kernel uses the shared 7.3.0 tree with one universal defconfig plus the shared hardware requirements and Arch integration options.
 
 The [28/29 October Fedora parity table](docs/fedora-parity-20261029.md) covers locked-control ALSA restore, sequencer modules in mkinitcpio, malcontent shutdown drop-ins and matching native, FEX guest and Flatpak Mesa. Every image selects these packages. FEX guest Mesa builds on x86_64 Arch; the remaining recipes build in the signed AArch64 root. Flatpak packages carry both supported runtime payloads and reject stale repositories. Build and boot qualification status is recorded separately in the parity PR.
+
+Bluetooth LE Audio defaults, opt-out instructions and the three-distro parity
+table are documented in [Bluetooth LE Audio](docs/bluetooth-le-audio.md).
