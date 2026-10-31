@@ -23,7 +23,10 @@ chroot "$container" /bin/bash -euo pipefail -c '
   id builder >/dev/null 2>&1 || useradd -m builder
   printf "builder ALL=(ALL) NOPASSWD: /usr/bin/pacman\n" > /etc/sudoers.d/aurora-builder
   mkdir -p /tmp/package-build
-  cp -a "/src/packages/$1/." /tmp/package-build/
+  case $1 in
+    aurora-models|aurora-capture-ns|whisper-cpp-aurora) cp -aL "/src/packages/$1/." /tmp/package-build/ ;;
+    *) cp -a "/src/packages/$1/." /tmp/package-build/ ;;
+  esac
   chown -R builder:builder /tmp/package-build
   cd /tmp/package-build
   runuser -u builder -- makepkg --syncdeps --noconfirm

@@ -1,0 +1,64 @@
+pkgbase=aurora-capture-ns
+pkgname=('aurora-capture-ns' 'aurora-rnnoise' 'aurora-libdf')
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Opt-in capture-only RNNoise and DeepFilterNet filter'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/capture-ns'
+license=('MIT')
+makedepends=('libdrm' 'openssl' 'ladspa' 'python' 'rust' 'cargo')
+source=("aurora-capture-ns-f843fd3d053f716222caa7286a2095a9ffb8e762.tar.gz::https://codeload.github.com/aurora-silicon/capture-ns/tar.gz/f843fd3d053f716222caa7286a2095a9ffb8e762" "libane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b.tar.gz::https://codeload.github.com/aurora-silicon/omarchy-ane/tar.gz/1adf2ee392ef7d3d64a24743d293dbc1670f0e8b" "rnnoise-6cbfd53eb348a8d394e0757b4025c6ded34eb2b6.tar.gz::https://codeload.github.com/xiph/rnnoise/tar.gz/6cbfd53eb348a8d394e0757b4025c6ded34eb2b6" "libdf-d375b2d8309e0935d165700c91da9de862a99c31.tar.gz::https://codeload.github.com/Rikorose/DeepFilterNet/tar.gz/d375b2d8309e0935d165700c91da9de862a99c31" 'df-Cargo.lock' 'libdf-external-model.patch' 'aurora-capture-ns')
+sha256sums=('6adc53e4364e8ceb09b64bf019dfc855399693114513360fd4db4141d348d45d' '15921bc7d6f248bc2f5fdecb17bb7728d453aa7e19bca383d452bd923b8e5c7a' '5900832175a507e1ee5d4d596ff2c2b3a4eb66c59d2a12d33095c79e673e953d' '49471f3633a24c097d82f3b0d2dbd83a0c1bac3e2f6f6c9a675ef0020ebe5c51' '9267e89f88e5d347f40f7409c2711d05a8b9ddee1223017973321799227035d3' '1b47917af382c87ff51823b693b69c664e652c4952aa26f3fd4baabeb92e74c5' '46388d17aecb04e2837613e0a2669a2dbfd321307b2d48fe6fa84ae5ebbc7bbb')
+_capture=capture-ns-f843fd3d053f716222caa7286a2095a9ffb8e762
+_libane=omarchy-ane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b
+_rnnoise=rnnoise-6cbfd53eb348a8d394e0757b4025c6ded34eb2b6
+_libdf=DeepFilterNet-d375b2d8309e0935d165700c91da9de862a99c31
+
+prepare() {
+  cp df-Cargo.lock "$_libdf/Cargo.lock"
+  patch -d "$_libdf" -Np1 -i "$srcdir/libdf-external-model.patch"
+}
+build() {
+  make -C "$_libane/libane" -j6 CFLAGS="$CFLAGS -fPIC"
+  (cd "$_rnnoise"; ./autogen.sh; ./configure --prefix=/usr --disable-examples; make -j6)
+  (cd "$_libdf"; CARGO_BUILD_JOBS=6 cargo build --release --locked -p deep_filter --no-default-features --features capi)
+  make -C "$_capture" -j6 LIBANE_DIR="$srcdir/$_libane/libane" LIBANE_LIB="$srcdir/$_libane/libane/libane.a" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+}
+check() {
+  cd "$_capture"
+  export AURORA_RNNOISE_LIBRARY="$srcdir/$_rnnoise/.libs/librnnoise.so"
+  export AURORA_DF_LIBRARY="$srcdir/$_libdf/target/release/libdf.so"
+  export AURORA_DF_MODEL="$srcdir/$_libdf/models/DeepFilterNet3_onnx.tar.gz"
+  export AURORA_RNNOISE_MODEL="$PWD/build/rnnoise-v011.txt"
+  python tools/export_rnnoise.py "$srcdir/$_rnnoise/src/rnn_data.c" "$AURORA_RNNOISE_MODEL"
+  make -j6 LIBANE_DIR="$srcdir/$_libane/libane" LIBANE_LIB="$srcdir/$_libane/libane/libane.a" build/test-stream build/test-engine build/test-ladspa
+  build/test-stream
+  build/test-engine
+  build/test-ladspa build/libaurora_capture_ns.so
+  python -m unittest discover -s tests -p test_config.py -v
+}
+package_aurora-capture-ns() {
+  depends=('glibc' 'openssl' 'python' 'pipewire' 'aurora-models' "aurora-rnnoise=$pkgver-$pkgrel" "aurora-libdf=$pkgver-$pkgrel")
+  install -Dm755 "$_capture/build/libaurora_capture_ns.so" "$pkgdir/usr/lib/ladspa/libaurora_capture_ns.so"
+  install -Dm755 "$_capture/tools/aurora-capture-ns" "$pkgdir/usr/lib/aurora-capture-ns/launcher.py"
+  install -Dm755 aurora-capture-ns "$pkgdir/usr/bin/aurora-capture-ns"
+  sed -i -e 's|@FETCH@|/usr/bin/aurora-model-fetch|g' -e 's|@RNNOISE@|/usr/lib/aurora-capture-ns/librnnoise.so.0|g' -e 's|@LIBDF@|/usr/lib/aurora-capture-ns/libdf.so|g' -e 's|@LAUNCHER@|/usr/lib/aurora-capture-ns/launcher.py|g' -e 's|@PLUGIN@|/usr/lib/ladspa/libaurora_capture_ns.so|g' "$pkgdir/usr/bin/aurora-capture-ns"
+  install -Dm644 "$_capture/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$_libane/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/libane-LICENSE"
+}
+package_aurora-rnnoise() {
+  pkgdesc='Pinned RNNoise v0.1.1 library for Aurora capture demos'
+  license=('BSD-3-Clause')
+  depends=('glibc')
+  install -dm755 "$pkgdir/usr/lib/aurora-capture-ns"
+  cp -a "$_rnnoise"/.libs/librnnoise.so* "$pkgdir/usr/lib/aurora-capture-ns/"
+  install -Dm644 "$_rnnoise/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
+package_aurora-libdf() {
+  pkgdesc='Pinned libDF C API with external models for Aurora capture demos'
+  license=('MIT' 'Apache-2.0')
+  depends=('gcc-libs' 'glibc')
+  install -Dm755 "$_libdf/target/release/libdf.so" "$pkgdir/usr/lib/aurora-capture-ns/libdf.so"
+  install -Dm644 "$_libdf/LICENSE-MIT" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-MIT"
+  install -Dm644 "$_libdf/LICENSE-APACHE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-APACHE"
+}

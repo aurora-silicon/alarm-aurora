@@ -6,7 +6,10 @@ name=${1:?package required}
 [[ $(uname -m) == aarch64 ]] || { echo 'A native AArch64 builder is required' >&2; exit 2; }
 build=$root/out/build/$name
 mkdir -p "$build" "$root/out/packages"
-cp -a "$root/packages/$name/." "$build/"
+case $name in
+  aurora-models|aurora-capture-ns|whisper-cpp-aurora) cp -aL "$root/packages/$name/." "$build/" ;;
+  *) cp -a "$root/packages/$name/." "$build/" ;;
+esac
 cd "$build"
 PKGDEST="$root/out/packages" makepkg --syncdeps --noconfirm --cleanbuild
 

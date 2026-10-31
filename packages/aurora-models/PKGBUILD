@@ -1,0 +1,19 @@
+pkgname=aurora-models
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Explicit first-run fetcher for audited Aurora demo weights'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('python')
+source=('aurora-model-fetch' 'models.json' 'export_rnnoise.py' 'LICENSE' 'capture-ns-LICENSE')
+sha256sums=('ddeb393ac1bd6e11d25234abfe44357ae843e0f56bce625cb093a88def3a99f3' '0aa2a0f6edb9f0e95a6adc8b3b8afac1f1d124329073587929ab2f2eadcc212c' '96a9d1c4364946006d120268212b5954c90a2cad2fffdf977f3ebfddc6cd8c4c' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9' '0f1d2f6b481443d9e3c8ecdd6d8cad0c2b695085aaa47d3c30fad37f7783b92b')
+check() { python -m py_compile aurora-model-fetch export_rnnoise.py; }
+package() {
+  install -Dm755 aurora-model-fetch "$pkgdir/usr/bin/aurora-model-fetch"
+  sed -i 's|@DATA@|/usr/share/aurora-models|g' "$pkgdir/usr/bin/aurora-model-fetch"
+  install -Dm644 models.json "$pkgdir/usr/share/aurora-models/models.json"
+  install -Dm644 export_rnnoise.py "$pkgdir/usr/share/aurora-models/export_rnnoise.py"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 capture-ns-LICENSE "$pkgdir/usr/share/licenses/$pkgname/capture-ns-LICENSE"
+}

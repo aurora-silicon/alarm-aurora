@@ -95,9 +95,8 @@ fi
 [[ ! -e $mountroot/etc/mkinitcpio.d/linux-aarch64.preset ]]
 chroot "$mountroot" pacman -Q linux-aurora avd-fw upower-aurora openssh
 chroot "$mountroot" pacman -Q alsa-utils-aurora aurora-system-fixes aurora-flatpak-gl mesa-aurora-fex-guest
-# The camera filter is on for every user; its install script applies the
-# package's user preset.
-[[ -L $mountroot/etc/systemd/user/pipewire.service.wants/aurora-camera-denoise.service ]]
+# Camera effects must remain opt-in on fresh images.
+[[ ! -L $mountroot/etc/systemd/user/pipewire.service.wants/aurora-camera-denoise.service ]]
 # Fail the image if any graphics package has escaped the host Mesa version.
 mesa_version=$(chroot "$mountroot" pacman -Q mesa-aurora | awk '{print $2}')
 for package in vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl; do
