@@ -6,7 +6,7 @@ arch=('aarch64')
 url='https://github.com/aurora-silicon/whisper.cpp'
 license=('MIT')
 depends=('glibc' 'gcc-libs' 'vulkan-icd-loader' 'vulkan-tools' 'python' 'python-numpy')
-makedepends=('libdrm' 'cmake' 'ninja' 'shaderc' 'vulkan-headers')
+makedepends=('libdrm' 'cmake' 'ninja' 'shaderc' 'vulkan-headers' 'spirv-headers')
 provides=("whisper.cpp-aurora=$pkgver")
 source=("whisper.cpp-aurora-e65f3c4423baae5898e40458d8cb1d192897172e.tar.gz::https://codeload.github.com/aurora-silicon/whisper.cpp/tar.gz/e65f3c4423baae5898e40458d8cb1d192897172e" 'libane-1adf2ee392ef7d3d64a24743d293dbc1670f0e8b.tar.gz' 'whisper.cpp-aurora')
 sha256sums=('e7e542fcde72b4b5b21732bbcce1e03e8382d659e137358c7a453ca06b163346' 'c91630cb3c0579d2c9df49f88b8e0fcf467812587ee71da0fddfeae3bfd77229' 'fb48b3d593a666248b11c906469a527623e9cbdb4fe6802b63b54cf13e870050')
