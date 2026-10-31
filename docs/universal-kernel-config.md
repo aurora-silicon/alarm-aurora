@@ -39,3 +39,12 @@ distro config cannot add their implementations to an integration pin.
 KUnit options added by these source changes are test options, not hardware
 admission switches. Configuration resolution and source checks do not prove
 device boot, runtime PM, encoding, radio or tunnel operation.
+
+ALARM owns the resolved distribution config consumed by NixOS. This continues
+DJ's [ALARM #44](https://github.com/aurora-silicon/alarm-aurora/pull/44)
+distribution-base restoration and [NixOS #51](https://github.com/aurora-silicon/nixos-aurora/pull/51)
+inheritance design; [NixOS #48](https://github.com/aurora-silicon/nixos-aurora/pull/48)
+restored its desktop requirements first. Refresh ALARM's committed `config`
+with the pinned source fragment and `olddefconfig`, then update NixOS's
+vendored snapshot, source commit, kernel pin and SHA256 together. NixOS adds
+only its own policy; it does not maintain another hardware overlay.
