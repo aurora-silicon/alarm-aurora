@@ -147,7 +147,7 @@ snapshot. Do not install until that exact rollback package is available.
 mkdir -p candidate ambient-rollback/packages
 gh run download "$CI_RUN" --repo aurora-silicon/alarm-aurora \
   --name alarm-gnome-settings-daemon-aurora --dir candidate
-candidate_pkg=$(find candidate -name 'gnome-settings-daemon-aurora-51.1.aurora1-1-aarch64.pkg.tar.zst' -print -quit)
+candidate_pkg=$(find candidate -name 'gnome-settings-daemon-aurora-51.1.aurora1-1-aarch64.pkg.tar.xz' -print -quit)
 test -n "$candidate_pkg"
 sudo pacman -U "$candidate_pkg"
 ```
@@ -158,6 +158,8 @@ After the common settings rollback above, reinstall the saved distribution
 package and accept replacement of the Aurora variant.
 
 ```sh
-sudo pacman -U ./ambient-rollback/packages/gnome-settings-daemon-*.pkg.tar.zst
+saved_pkg=$(find ambient-rollback/packages -type f -name 'gnome-settings-daemon-*.pkg.tar.*' ! -name '*.sig' -print -quit)
+test -n "$saved_pkg"
+sudo pacman -U "$saved_pkg"
 systemctl --user restart org.gnome.SettingsDaemon.Color.service
 ```
