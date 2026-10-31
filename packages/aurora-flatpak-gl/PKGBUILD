@@ -1,7 +1,7 @@
 pkgname=aurora-flatpak-gl
 epoch=1
-pkgver=26.3.0_devel.202610300304.cf4e08105df
-pkgrel=3
+pkgver=26.3.0_devel.202610310638.c208afc352e
+pkgrel=1
 pkgdesc='Aurora Mesa Flatpak GL extension for Freedesktop 25.08 and 26.08'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/alarm-aurora'
@@ -11,11 +11,11 @@ makedepends=('flatpak-builder' 'dbus' 'python')
 options=('!strip' '!debug')
 install=aurora-flatpak-gl.install
 backup=('etc/profile.d/aurora-flatpak-gl.sh')
-_commit=cf4e08105dfa526b8874318b6a52b3ce948f6297
-_sha256=b898c15a604a8d7d01467a2fc5b3ad70814d0eb6294228ac9128b946f0a76ddd
+_commit=c208afc352e9d4c10ee71c883a369a9079dd7d84
+_sha256=a8ca816b201673a9e2cf5aeafefdfa1bdffe2e14cd125b3bffd1cfe5040a3b0b
 source=(aurora-flatpak-gl 60-aurora-flatpak-gl.conf aurora-flatpak-gl.sh
         build-extension.sh org.freedesktop.Platform.GL.aurora.yml.in validate-repo.sh validate-repository.py LICENSE)
-sha256sums=('52c6ffed0efa0890d6d23f8cc0030a5228b0ea86e5a540ce4131d31a54f4db05' '32cf9c71aef5f13664369f299a2872835302410fd1a03ddca2a13a87879357b3' 'e193fb70d360d81729615a18e9eb08dd715839f78767d82fde218727b1ca49f2' 'fbf43ba7469f68af08def39f87881a2e717424c317d5c7130c13c5556a969b0b' 'b88c55dc31d08a55e5a94a8122457c037b8ee1fc901163851fcff517f552ed29' 'da14ca864bda4cb8f1e7b10f8f2b08527fb5761b89ed848b336a284ea53843c7' 'df397b0d600e473aae3213ad571ce6ae979a562781048de172292bbd25768667' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+sha256sums=('52c6ffed0efa0890d6d23f8cc0030a5228b0ea86e5a540ce4131d31a54f4db05' '32cf9c71aef5f13664369f299a2872835302410fd1a03ddca2a13a87879357b3' 'e193fb70d360d81729615a18e9eb08dd715839f78767d82fde218727b1ca49f2' 'fbf43ba7469f68af08def39f87881a2e717424c317d5c7130c13c5556a969b0b' 'b88c55dc31d08a55e5a94a8122457c037b8ee1fc901163851fcff517f552ed29' 'da14ca864bda4cb8f1e7b10f8f2b08527fb5761b89ed848b336a284ea53843c7' 'f1134c780eee79487b6b29cc14d3c91ec423813289e2d9faa1f131ab1ef5cc53' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
 
 build() {
   export AURORA_MESA_COMMIT=$_commit AURORA_MESA_SHA256=$_sha256
