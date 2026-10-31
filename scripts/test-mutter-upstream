@@ -1,0 +1,48 @@
+#!/bin/bash
+# Compare a failed patched suite with vanilla sources in the same signed root.
+# The original check remains failed. This control never creates packages.
+set -euo pipefail
+if [[ ${1:-} == --inside ]]; then
+  cd /tmp/package-build
+  source ./PKGBUILD
+  cd "src/mutter-$_tag"
+  git apply --reverse ../0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch
+  git apply --reverse ../0001-wayland-touch-Do-not-crash-on-empty-focus-surface.patch
+  # Establish that the two changed implementation files are the release bytes.
+  for path in src/backends/native/meta-output-kms.c src/wayland/meta-wayland-touch.c; do
+    cmp "$path" <(tar -xOf "/tmp/package-build/mutter-$_tag.tar.xz" "mutter-$_tag/$path")
+  done
+  cd ..
+  meson compile -C build -j8
+  export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+  export XDG_RUNTIME_DIR=$(mktemp -d)
+  trap 'rm -rf "$XDG_RUNTIME_DIR"' EXIT
+  set +e
+  xvfb-run -a meson test -C build --print-errorlogs > /src/out/mutter-upstream-comparison/full.log 2>&1
+  full_result=$?
+  cp -a build/meson-logs /src/out/mutter-upstream-comparison/upstream-full
+  xvfb-run -a meson test -C build --print-errorlogs --repeat 10 \
+    map-fixed-size map-after-headless input-capture > /src/out/mutter-upstream-comparison/repeat.log 2>&1
+  repeat_result=$?
+  cp -a build/meson-logs /src/out/mutter-upstream-comparison/upstream-repeat
+  set -e
+  printf 'upstream_full=%s\nupstream_repeat=%s\n' "$full_result" "$repeat_result" \
+    > /src/out/mutter-upstream-comparison/results.txt
+  cat /src/out/mutter-upstream-comparison/results.txt
+  (( full_result == 0 && repeat_result == 0 ))
+  exit
+fi
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+container=$root/out/container
+comparison=$root/out/mutter-upstream-comparison
+test -f "$container/tmp/package-build/src/build/build.ninja"
+mkdir -p "$comparison"
+cp -a "$container/tmp/package-build/src/build/meson-logs" "$comparison/patched"
+chown --reference="$container/tmp/package-build" "$comparison"
+mount --bind "$container" "$container"
+mount --rbind /dev "$container/dev"
+mount -t proc proc "$container/proc"
+mount --rbind /sys "$container/sys"
+mount --bind "$root" "$container/src"
+chroot "$container" /usr/bin/runuser -u builder -- \
+  /bin/bash /src/scripts/test-mutter-upstream --inside
