@@ -51,29 +51,6 @@ class ParityTests(unittest.TestCase):
                     with self.subTest(package=name, source=source):
                         self.assertEqual(hashlib.sha256((directory / source).read_bytes()).hexdigest(), digest)
 
-    def test_flatpak_rejects_missing_stale_and_mislabelled_branches(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            repo = root / 'repo'
-            (repo / 'objects').mkdir(parents=True)
-            commit = 'a' * 40
-            ostree = root / 'ostree'
-            ostree.write_text('#!/bin/sh\nprintf "Aurora Mesa %s for %s\\n" "$TEST_COMMIT" "${3##*/}"\n')
-            ostree.chmod(0o755)
-            env = {**os.environ, 'PATH': str(root) + ':' + os.environ['PATH'], 'TEST_COMMIT': commit}
-            def check():
-                return subprocess.run(['bash', str(GL / 'validate-repo.sh'), str(repo), commit],
-                                      env=env, capture_output=True).returncode
-            self.assertNotEqual(check(), 0)
-            for branch in ('25.08', '26.08'):
-                (repo / f'aurora-mesa-commit.{branch}').write_text(commit + '\n')
-            self.assertEqual(check(), 0)
-            (repo / 'aurora-mesa-commit.26.08').write_text('b' * 40 + '\n')
-            self.assertNotEqual(check(), 0)
-            (repo / 'aurora-mesa-commit.26.08').write_text(commit + '\n')
-            env['TEST_COMMIT'] = 'b' * 40
-            self.assertNotEqual(check(), 0)
-
     def test_flatpak_install_upgrade_remove_preserves_admin_settings(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

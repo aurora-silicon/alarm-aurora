@@ -1,8 +1,8 @@
 pkgbase=mesa-aurora
-pkgname=('mesa-aurora' 'vulkan-aurora')
+pkgname=('mesa-aurora' 'vulkan-aurora' 'opencl-rusticl-aurora')
 epoch=1
 pkgver=26.3.0_devel.202610300304.cf4e08105df
-pkgrel=1
+pkgrel=2
 pkgdesc='Aurora Asahi Gallium, Zink and Honeykrisp'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -36,25 +36,32 @@ _meson() {
     --wrap-mode nodownload -Db_pie=true -Db_ndebug=true -Dpython.bytecompile=1 "$@"
 }
 build() {
-  # The bootstrap builds only three shader tools; the driver build runs tests.
-  _meson mesa tools "${_options[@]}" -Dllvm=enabled -Dbuild-tests=false
+  export MESA_GIT_SHA1_OVERRIDE=$_commit
+  # Rusticl needs LLVM at runtime; native GL/Vulkan use the second tree.
+  _meson mesa tools "${_options[@]}" -Dllvm=enabled -Dgallium-rusticl=true -Dbuild-tests=false
   ninja -C tools -j "${OMARCHY_BUILD_JOBS:-10}" \
-    src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/asahi/clc/asahi_clc
+    src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/asahi/clc/asahi_clc \
+    src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0
   printf '%s\n' '[binaries]' \
     "mesa_clc = '$srcdir/tools/src/compiler/clc/mesa_clc'" \
     "vtn_bindgen2 = '$srcdir/tools/src/compiler/spirv/vtn_bindgen2'" \
     "asahi_clc = '$srcdir/tools/src/asahi/clc/asahi_clc'" > tools.ini
 
   _meson mesa build "${_options[@]}" --native-file tools.ini \
-    -Dllvm=disabled -Dspirv-tools=disabled -Dmesa-clc=system -Dprecomp-compiler=system \
+    -Dgallium-rusticl=false -Dllvm=disabled -Dspirv-tools=disabled -Dmesa-clc=system -Dprecomp-compiler=system \
     -Dbuild-tests=true
   meson compile -C build -j "${OMARCHY_BUILD_JOBS:-10}"
   DESTDIR="$srcdir/mesa-stage" meson install -C build --no-rebuild
 }
 check() {
+  export MESA_GIT_SHA1_OVERRIDE=$_commit
   meson test -C build --print-errorlogs \
     --num-processes "${OMARCHY_BUILD_JOBS:-10}" || return 1
-  # Nothing packaged may follow the system's LLVM or SPIRV-Tools.
+  strings "$srcdir/mesa-stage/usr/lib/libvulkan_asahi.so" | \
+    grep -F "(git-${_commit:0:10}), Borealis" || return 1
+  readelf -h "$srcdir/tools/src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0" | \
+    grep -q 'Machine:.*AArch64' || return 1
+  # Nothing in the native GL/Vulkan stage may follow the system's LLVM or SPIRV-Tools.
   [[ -d $srcdir/mesa-stage ]] || return 1
   local binary dependencies
   while IFS= read -r -d '' binary; do
@@ -90,4 +97,25 @@ package_vulkan-aurora() {
   install -Dm755 "$srcdir/mesa-stage/usr/lib/libvulkan_asahi.so" "$pkgdir/usr/lib/libvulkan_asahi.so"
   install -d "$pkgdir/usr/share/vulkan/icd.d"
   cp -a "$srcdir"/mesa-stage/usr/share/vulkan/icd.d/*asahi*.json "$pkgdir/usr/share/vulkan/icd.d/"
+}
+
+# ALARM extra ships opencl-mesa, formerly opencl-rusticl-mesa.
+# Retain ALARM's bounded Clover migration and Arch's opencl-rusticl alias.
+# Do not provide the Clover-specific package name: this ships Rusticl.
+# Keep the actual runtime and linker interface together, separate from GL.
+package_opencl-rusticl-aurora() {
+  pkgdesc='Aurora Mesa Rusticl OpenCL driver'
+  depends=("mesa-aurora=$epoch:$pkgver-$pkgrel" 'ocl-icd' 'libclc' 'llvm-libs'
+           'clang' 'spirv-tools' 'spirv-llvm-translator' 'gcc-libs' 'libdrm'
+           'libglvnd' 'libx11' 'libxcb' 'libxshmfence' 'wayland' 'zlib' 'zstd')
+  provides=("opencl-rusticl=$epoch:$pkgver" "opencl-mesa=$epoch:$pkgver" "opencl-rusticl-mesa=$epoch:$pkgver" 'opencl-driver')
+  conflicts=('opencl-rusticl' 'opencl-mesa' 'opencl-rusticl-mesa' 'opencl-clover-mesa')
+  replaces=('opencl-rusticl' 'opencl-mesa' 'opencl-rusticl-mesa' 'opencl-clover-mesa<=1:25.0.5-1')
+  install -Dm755 "$srcdir/tools/src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0" \
+    "$pkgdir/usr/lib/libRusticlOpenCL.so.1.0.0"
+  ln -s libRusticlOpenCL.so.1.0.0 "$pkgdir/usr/lib/libRusticlOpenCL.so.1"
+  ln -s libRusticlOpenCL.so.1 "$pkgdir/usr/lib/libRusticlOpenCL.so"
+  install -Dm644 "$srcdir/tools/src/gallium/targets/rusticl/rusticl.icd" \
+    "$pkgdir/etc/OpenCL/vendors/rusticl.icd"
+  install -Dm644 "$srcdir/mesa/docs/license.rst" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

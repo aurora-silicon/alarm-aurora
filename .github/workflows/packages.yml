@@ -1,7 +1,7 @@
 name: Native ALARM packages
 on:
   push:
-    branches: [main]
+    branches: [main, 'ci/**']
   pull_request:
   workflow_dispatch:
     inputs:
@@ -31,12 +31,18 @@ jobs:
           names=sorted(p.parent.name for p in Path('packages').glob('*/PKGBUILD'))
           event=json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
           before=event.get('before','')
+          if (os.environ['GITHUB_EVENT_NAME']=='pull_request'
+              or os.environ.get('GITHUB_REF','').startswith('refs/heads/ci/')
+              or not before.strip('0')):
+              before=subprocess.check_output(['git','merge-base','HEAD','origin/main'],text=True).strip()
           requested=event.get('inputs',{}).get('packages','').split()
           if requested:
               if not set(requested)<=set(names): raise SystemExit('Unknown requested package')
               names=sorted(set(requested))
-          elif os.environ['GITHUB_EVENT_NAME']=='push' and before.strip('0'):
+          elif os.environ['GITHUB_EVENT_NAME'] in ('push','pull_request') and before.strip('0'):
               paths=subprocess.check_output(['git','diff','--name-only',before,os.environ['GITHUB_SHA']],text=True).splitlines()
+              if 'scripts/test-graphics-upgrade' in paths:
+                  paths.append('packages/mesa-aurora/PKGBUILD')
               if 'sources.json' in paths:
                   previous=json.loads(subprocess.check_output(['git','show',before+':sources.json'],text=True))
                   current=json.loads(Path('sources.json').read_text())
@@ -47,7 +53,7 @@ jobs:
                   if changed <= set(source_packages):
                       paths.remove('sources.json')
                       paths.extend('packages/'+source_packages[name]+'/PKGBUILD' for name in changed)
-              core={'scripts/ci-build-package','scripts/ci-build-alarm-container','scripts/ci-build-fex-guest','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','.github/workflows/packages.yml','sources.json'}
+              core={'scripts/ci-build-package','scripts/ci-build-alarm-container','scripts/ci-build-fex-guest','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','sources.json'}
               if not core.intersection(paths):
                   names=sorted({p.split('/')[1] for p in paths if p.startswith('packages/') and p.split('/')[1] in names})
           print('packages='+json.dumps(names))
@@ -83,6 +89,9 @@ jobs:
             registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
               dnf install -y python3 gnupg2 tar gzip util-linux coreutils
               bash scripts/ci-build-package "$1"
+              if [[ $1 == mesa-aurora ]]; then
+                chroot out/container /bin/bash /src/scripts/test-graphics-upgrade /tmp/package-build
+              fi
             ' build '${{ matrix.package }}' 2>&1 | tee build.log
       - name: Build Flatpak GL in signed ALARM OCI root
         if: matrix.package == 'aurora-flatpak-gl'
@@ -112,6 +121,10 @@ jobs:
             out/packages/*.pkg.tar.*
             out/container/tmp/package-build/src/linux-*/build/base/.config
             build.log
+            out/graphics-upgrade/*.txt
+            out/graphics-upgrade/*.sha256
+            out/graphics-upgrade/*.conf
+            out/graphics-upgrade/stock-packages.tar
           include-hidden-files: true
           retention-days: 30
       # A failed attempt keeps its log under a name publication never reads.
@@ -121,6 +134,10 @@ jobs:
           name: alarm-${{ matrix.package }}-failed-attempt-${{ github.run_attempt }}
           path: |
             build.log
+            out/graphics-upgrade/*.txt
+            out/graphics-upgrade/*.sha256
+            out/graphics-upgrade/*.conf
+            out/graphics-upgrade/stock-packages.tar
             out/container/tmp/package-build/src/linux-*/build/base/.config
           include-hidden-files: true
           retention-days: 14

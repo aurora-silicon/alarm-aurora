@@ -1,0 +1,54 @@
+#!/bin/bash
+# Disposable CI chroot only. Exercise libalpm replacement and exact rollback.
+set -euo pipefail
+[[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
+packages=${1:?directory containing freshly built packages}
+commit=$(python3 -c 'import json; print(json.load(open("/src/sources.json"))["mesa-aurora"]["commit"])')
+proof=/src/out/graphics-upgrade
+mkdir -p "$proof/stock"
+pacman -S --noconfirm --needed mesa opencl-mesa vulkan-asahi clinfo pkgconf
+# Preserve signed stock archives and exact installed bytes before replacement.
+pacman -Sw --noconfirm --cachedir "$proof/stock" mesa opencl-mesa vulkan-asahi
+# Pacman epoch colons are valid on Linux but rejected by artifact upload.
+# Preserve original signed archive names inside one portable evidence file.
+tar -cf "$proof/stock-packages.tar" -C "$proof" stock
+pacman -Q | sort > "$proof/before.txt"
+files=(/usr/lib/libvulkan_asahi.so /usr/lib/libRusticlOpenCL.so.1.0.0
+       /usr/include/gbm.h /usr/lib/pkgconfig/gbm.pc /etc/OpenCL/vendors/rusticl.icd)
+sha256sum "${files[@]}" > "$proof/before.sha256"
+# Local unsigned candidates are permitted only by this disposable test config.
+cp /etc/pacman.conf "$proof/pacman.conf"
+sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
+# Answer normal conflict-removal prompts; do not force files or ignore deps.
+printf 'y\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U \
+  "$packages"/mesa-aurora-*.pkg.tar.* "$packages"/vulkan-aurora-*.pkg.tar.* \
+  "$packages"/opencl-rusticl-aurora-*.pkg.tar.*
+pacman -Q | sort > "$proof/after.txt"
+! pacman -Q mesa opencl-mesa vulkan-asahi 2>/dev/null
+pacman -Q mesa-aurora vulkan-aurora opencl-rusticl-aurora
+pacman -T 'opencl-driver' 'opencl-mesa' 'opencl-rusticl-mesa' 'libgbm.so' 'mesa'
+test -f /usr/lib/libgbm.so
+test -f /usr/include/gbm.h
+pkg-config --exists gbm egl
+strings /usr/lib/libvulkan_asahi.so | grep -F "(git-${commit:0:10}), Borealis"
+ldd /usr/lib/libRusticlOpenCL.so.1.0.0 > "$proof/rusticl-ldd.txt"
+! grep -F 'not found' "$proof/rusticl-ldd.txt"
+# Enumerating without a GPU still loads the real ICD and Rusticl platform.
+clinfo --list | tee "$proof/clinfo.txt"
+grep -i rusticl "$proof/clinfo.txt"
+python3 - "$proof" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+packages = lambda name: dict(line.split(' ', 1) for line in (root / name).read_text().splitlines())
+before, after = packages('before.txt'), packages('after.txt')
+removed = before.keys() - after.keys()
+assert removed == {'mesa', 'opencl-mesa', 'vulkan-asahi'}, removed
+assert all(after[name] == version for name, version in before.items() if name not in removed)
+PY
+mapfile -t stock < <(find "$proof/stock" -type f -name '*.pkg.tar.*' ! -name '*.sig' | sort)
+printf 'y\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${stock[@]}"
+pacman -Q | sort > "$proof/rollback.txt"
+cmp "$proof/before.txt" "$proof/rollback.txt"
+sha256sum -c "$proof/before.sha256"
+echo 'Stock Mesa/OpenCL/devel upgrade and atomic rollback passed.'
