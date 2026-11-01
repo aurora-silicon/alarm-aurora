@@ -21,7 +21,7 @@ Passed:
 - Stock FFmpeg/mpv executable and library SHA-256 values are unchanged.
 - Stock/candidate installed file inventories have no file conflict.
 - Actual systemd 70-uaccess.rules tags media and video4linux.
-- 184 repository tests passed, with 2 skipped.
+- 184 repository tests run: 182 passed, 2 skipped.
 
 The first compiler run's later broad tests lacked Git; final verification added
 that test dependency and passed the complete suite. Earlier infrastructure and
