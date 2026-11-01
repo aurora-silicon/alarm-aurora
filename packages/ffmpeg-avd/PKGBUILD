@@ -1,0 +1,88 @@
+# Maintainer: Aurora contributors <noreply@aurora-silicon.org>
+pkgbase=ffmpeg-avd
+pkgname=(ffmpeg-avd mpv-avd)
+pkgver=8.1
+pkgrel=1
+pkgdesc='Isolated FFmpeg and mpv with the public V4L2 Request API hwaccels'
+arch=(aarch64)
+url='https://github.com/Kwiboo/FFmpeg'
+license=('LGPL-2.1-or-later' 'GPL-2.0-or-later')
+makedepends=(meson ninja pkgconf linux-api-headers libdrm systemd-libs libva
+  libplacebo libglvnd mesa wayland wayland-protocols libxkbcommon libdisplay-info
+  lcms2 libass luajit zlib gnutls dav1d libpulse alsa-lib)
+options=(!lto !debug)
+_mpv_commit=41f6a645068483470267271e1d09966ca3b9f413
+source=("https://ffmpeg.org/releases/ffmpeg-${pkgver}.tar.xz"
+  "mpv-${_mpv_commit}.tar.gz::https://codeload.github.com/mpv-player/mpv/tar.gz/${_mpv_commit}"
+  0001-v4l2request-n8.1.patch 0002-mpv-request-drm-import.patch)
+sha256sums=('b072aed6871998cce9b36e7774033105ca29e33632be5b6347f3206898e0756a'
+  '068960e89211f2adc80af03f637fa393fb5e407d3dd23592c8fe8c5490bb7ae4'
+  '36406ad3579e3454eda9c3b9199d6b31dfcf936facf08078a7782dc98d198c6e'
+  '983f519487674ccc7fe3db2f8ca38034438d867be991339ee51fa2f251f8a8cb')
+
+prepare() {
+  patch -d "ffmpeg-${pkgver}" -Np1 -i "$srcdir/0001-v4l2request-n8.1.patch"
+  patch -d "mpv-${_mpv_commit}" -Np1 -i "$srcdir/0002-mpv-request-drm-import.patch"
+}
+
+build() {
+  cd "$srcdir/ffmpeg-${pkgver}"
+  ./configure --prefix=/usr --bindir=/usr/bin --libdir=/usr/lib/aurora-avd \
+    --incdir=/usr/include/aurora-avd --disable-static --enable-shared --enable-pic \
+    --disable-stripping --disable-debug --disable-doc --disable-ffplay --disable-autodetect \
+    --enable-v4l2-request --enable-libdrm --enable-libudev --enable-vaapi \
+    --enable-gnutls --enable-libdav1d --enable-zlib \
+    --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS -Wl,-rpath,/usr/lib/aurora-avd"
+  make -j8
+  make DESTDIR="$srcdir/stage" install
+  local pc
+  for pc in "$srcdir/stage/usr/lib/aurora-avd/pkgconfig/"*.pc; do
+    sed -i "s|^prefix=.*|prefix=$srcdir/stage/usr|; s|^libdir=.*|libdir=$srcdir/stage/usr/lib/aurora-avd|; s|^includedir=.*|includedir=$srcdir/stage/usr/include/aurora-avd|" "$pc"
+  done
+  export PKG_CONFIG_PATH="$srcdir/stage/usr/lib/aurora-avd/pkgconfig"
+  meson setup "$srcdir/mpv-build" "$srcdir/mpv-${_mpv_commit}" \
+    --prefix=/usr --libdir=lib --buildtype=plain --wrap-mode=nodownload --auto-features=disabled \
+    -Dlibmpv=false -Dmanpage-build=disabled -Dvaapi=enabled -Ddrm=enabled \
+    -Dwayland=enabled -Dgl=enabled -Degl=enabled -Degl-wayland=enabled \
+    -Dgbm=enabled -Degl-drm=enabled -Ddmabuf-wayland=enabled -Dvaapi-drm=enabled \
+    -Dalsa=enabled -Dpulse=enabled -Dlua=luajit -Dlcms2=enabled -Dzlib=enabled \
+    -Dc_link_args="$LDFLAGS -Wl,-rpath,/usr/lib/aurora-avd"
+  meson compile -C "$srcdir/mpv-build" -j8
+}
+
+check() {
+  export LD_LIBRARY_PATH="$srcdir/stage/usr/lib/aurora-avd"
+  "$srcdir/ffmpeg-${pkgver}/ffmpeg" -hide_banner -hwaccels | tee "$srcdir/hwaccels.txt"
+  grep -qx v4l2request "$srcdir/hwaccels.txt"
+  local codec
+  for codec in H264 HEVC VP9 AV1; do
+    grep -q "#define CONFIG_${codec}_V4L2REQUEST_HWACCEL 1" "$srcdir/ffmpeg-${pkgver}/config_components.h"
+  done
+  "$srcdir/mpv-build/mpv" --no-config --hwdec=help > "$srcdir/mpv-hwdec.txt"
+  cat "$srcdir/mpv-hwdec.txt"
+  grep -qw v4l2request "$srcdir/mpv-hwdec.txt"
+  grep -qw v4l2request-copy "$srcdir/mpv-hwdec.txt"
+}
+
+package_ffmpeg-avd() {
+  pkgdesc='Isolated FFmpeg 8.1 with public V4L2 Request API decoding'
+  license=('LGPL-2.1-or-later')
+  depends=(glibc libdrm systemd-libs libva gnutls dav1d zlib)
+  install -dm755 "$pkgdir/usr/lib/aurora-avd" "$pkgdir/usr/bin"
+  cp -a "$srcdir/stage/usr/lib/aurora-avd/"lib*.so.* "$pkgdir/usr/lib/aurora-avd/"
+  install -m755 "$srcdir/ffmpeg-${pkgver}/ffmpeg" "$pkgdir/usr/bin/ffmpeg-avd"
+  install -m755 "$srcdir/ffmpeg-${pkgver}/ffprobe" "$pkgdir/usr/bin/ffprobe-avd"
+  install -Dm644 "$srcdir/ffmpeg-${pkgver}/COPYING.LGPLv2.1" "$pkgdir/usr/share/licenses/$pkgname/COPYING.LGPLv2.1"
+}
+
+package_mpv-avd() {
+  pkgdesc='mpv linked to the private V4L2 Request API FFmpeg'
+  license=('GPL-2.0-or-later')
+  depends=("ffmpeg-avd=$pkgver-$pkgrel" glibc libplacebo libglvnd mesa libdrm libva
+    wayland libxkbcommon libdisplay-info lcms2 libass luajit libpulse alsa-lib)
+  # Meson removes the temporary FFmpeg staging directory from RUNPATH.
+  meson install -C "$srcdir/mpv-build" --destdir "$srcdir/mpv-stage"
+  install -Dm755 "$srcdir/mpv-stage/usr/bin/mpv" "$pkgdir/usr/bin/mpv-avd"
+  install -Dm644 "$srcdir/mpv-${_mpv_commit}/Copyright" "$pkgdir/usr/share/licenses/$pkgname/Copyright"
+  install -Dm644 "$srcdir/mpv-${_mpv_commit}/LICENSE.GPL" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.GPL"
+}

@@ -1,0 +1,52 @@
+#!/bin/bash
+# Run as root in a disposable ALARM aarch64 container, with this repo at /src.
+set -euo pipefail
+[[ $(uname -m) == aarch64 && $(id -u) == 0 ]]
+[[ -e /.dockerenv || -e /run/.containerenv ]]
+cd /src
+mkdir -p out/avd
+sha256sum packages/ffmpeg-avd/* scripts/build-avd-container scripts/check-avd-install.py scripts/check-basics.py > out/avd/recipe-sha256.txt
+collect_logs() {
+  local rc=$?
+  trap - EXIT
+  mkdir -p /src/out/avd/logs
+  if [[ -d /tmp/avd-build ]]; then
+    (cd /tmp/avd-build && find . -maxdepth 1 -type f -name '*.pkg.tar.*' \
+      -exec cp '{}' /src/out/avd/ \;) || true
+    (cd /tmp/avd-build && find . -type f \( -name '*.log' -o -path '*/meson-logs/*' \)       -exec cp --parents '{}' /src/out/avd/logs/ \;) || true
+  fi
+  exit "$rc"
+}
+trap collect_logs EXIT
+pacman-key --init
+pacman-key --populate archlinuxarm
+# Install dependencies as root; makepkg itself runs unprivileged without sudo.
+source packages/ffmpeg-avd/PKGBUILD
+pacman -Syu --noconfirm --needed base-devel git python ffmpeg mpv "${makedepends[@]}"
+sha256sum /usr/bin/ffmpeg /usr/bin/ffprobe /usr/bin/mpv /usr/lib/libav*.so.* /usr/lib/libsw*.so.* > /tmp/stock.sha256
+useradd -m builder
+install -d -o builder -g builder /tmp/avd-build
+cp -a packages/ffmpeg-avd/. /tmp/avd-build/
+chown -R builder:builder /tmp/avd-build
+cd /tmp/avd-build
+runuser -u builder -- makepkg --noconfirm --log
+install -d /src/out/avd
+mapfile -t archives < <(runuser -u builder -- makepkg --packagelist)
+[[ ${#archives[@]} == 2 ]]
+for archive in "${archives[@]}"; do [[ -f $archive ]]; done
+cp "${archives[@]}" /src/out/avd/
+cp src/hwaccels.txt src/mpv-hwdec.txt /src/out/avd/
+pacman -U --noconfirm "${archives[@]}"
+sha256sum -c /tmp/stock.sha256
+python /src/scripts/check-avd-install.py | tee /src/out/avd/install-check.txt
+python - <<'PY'
+import importlib.util
+spec=importlib.util.spec_from_file_location('basics','/src/scripts/check-basics.py')
+basics=importlib.util.module_from_spec(spec);spec.loader.exec_module(basics)
+problem=basics.check_media_access(basics.Root('/'))
+assert problem is None, problem
+print('systemd media and video4linux uaccess rules retained')
+PY
+python -m unittest discover -s /src/tests > /src/out/avd/repository-tests.log 2>&1
+pacman -Ql ffmpeg-avd mpv-avd > /src/out/avd/files.txt
+cp /tmp/stock.sha256 /src/out/avd/
