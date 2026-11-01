@@ -1,10 +1,8 @@
 [Unit]
 Description=Offer fingerprint at the GNOME login screen
 Documentation=file:///usr/share/doc/aurora-sep/README.md
-# The login screen asks fprintd for the reader once, as it comes up. Hold it
-# back until Touch ID is up, so that it finds the reader and the fingerprints.
-Wants=aurora-sep-ready.service
-After=aurora-sep-ready.service
+# Generate the overlays before the greeter reads its resources. SEP activation
+# and template restore proceed independently; the overlay watches readiness.
 Before=gdm.service
 
 [Service]
