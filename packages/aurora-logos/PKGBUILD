@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT
+pkgname=aurora-logos
+pkgver=1
+pkgrel=1
+pkgdesc='Aurora desktop icons and Plasma distribution artwork'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('hicolor-icon-theme')
+backup=('etc/xdg/kcm-about-distrorc')
+source=(AuroraLogo-16.png AuroraLogo-22.png AuroraLogo-24.png AuroraLogo-32.png AuroraLogo-48.png AuroraLogo-64.png AuroraLogo-96.png AuroraLogo-128.png AuroraLogo-256.png AuroraLogo-512.png kcm-about-distrorc LICENSE provenance.json)
+sha256sums=('e513c6e63d4c6b895031e9cd9fa4c28bcfb2ff29d1359b05784d644a6a8b66d5'
+            '1b0c6d731efd7b9e95d54ea872bca408c9949d09c241afa91e67a4da52bc0f43'
+            '79218848cbf76b693656aaba210d46ab141fb00351c49be6d587074e609f91fb'
+            '707d6d55f2360d53578358b48aaca23524d0fd8a0ea57a2f8b00531c19d7b6c0'
+            'ad3a321dd252054fe1771b107f29ba55f8bf04c0171073bcdfeea9264207a0ef'
+            '068c997fa2cf9179cace075b4a05f9f76fbf064f0370957197720956156de329'
+            'cd4f5a15d90b557029a7e2feb4564ce353c93e753c0afe72c2c8d6333ff7bf63'
+            '6e27595973c70d28f0e64a329bbf124acdb8d203d379f597e1f8e84695653ee5'
+            '3e7c157b9a8ebb7ca9ff327a1c5dc2890fe36a360f93ae10e9538fd2f8a42a32'
+            '67c785a07f8c84d76a44e201d45faf819c5645182aa995aa22bdf0faeeb96dab'
+            '23bf4a71a7b4bae39c4c88be74edc70b1303b615706f0e71bb6e3b087e3a10f2'
+            '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9'
+            '430b2868917e03a499fe68573ea92bd6b2805d12f0afe940de4fbd15a5256eb4')
+
+package() {
+  local size
+  for size in 16 22 24 32 48 64 96 128 256 512; do
+    install -Dm644 "AuroraLogo-$size.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/aurora-logo-icon.png"
+    install -Dm644 "AuroraLogo-$size.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/places/start-here.png"
+  done
+  install -Dm644 AuroraLogo-256.png "$pkgdir/usr/share/pixmaps/system-logo-white.png"
+  install -Dm644 kcm-about-distrorc "$pkgdir/etc/xdg/kcm-about-distrorc"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 provenance.json "$pkgdir/usr/share/doc/$pkgname/provenance.json"
+}

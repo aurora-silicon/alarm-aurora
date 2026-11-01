@@ -29,11 +29,11 @@ class KernelConfigTests(unittest.TestCase):
                 self.assertIn(config.get('CONFIG_' + option, 'n'), ('y', 'm'))
         self.assertEqual(config.get('CONFIG_RUST'), 'y')
 
-    def test_full_config_already_satisfies_the_shared_fragment(self):
-        config = values(KERNEL / 'config')
-        for option, value in values(KERNEL / 'common.config').items():
-            with self.subTest(option=option):
-                self.assertEqual(config.get(option, 'n'), value)
+    def test_hardware_has_one_source(self):
+        recipe = (KERNEL / 'PKGBUILD').read_text()
+        self.assertIn('arch/arm64/configs/asahi.config', recipe)
+        self.assertNotIn('common.config', recipe)
+        self.assertFalse((KERNEL / 'common.config').exists())
 
     def test_build_starts_from_the_full_config_and_checks_requirements(self):
         recipe = (KERNEL / 'PKGBUILD').read_text()

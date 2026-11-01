@@ -1,12 +1,12 @@
 pkgname=aurora-camera-denoise
 pkgver=0.1.0
-pkgrel=1
-pkgdesc='PipeWire filter that denoises the built-in camera on Apple silicon laptops in low light'
+pkgrel=2
+pkgdesc='PipeWire filter that denoises the built-in camera on Apple silicon laptops, like macOS'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/camera-denoise'
 license=('MIT')
-_commit=846646456ee17ba1fb60be169abcd0727bed36f4
+_commit=da883730b16d6ac6ddb55e9e0348e92065d05c69
 depends=('glibc' 'pipewire')
 makedepends=('meson' 'ninja' 'systemd')
 install=aurora-camera-denoise.install
@@ -32,8 +32,8 @@ package() {
   # Backends such as the Neural Engine one install here later; the filter
   # falls back to the built-in CPU backend while it is empty.
   install -dm755 "$pkgdir/usr/lib/aurora-camera-denoise"
-  # On by default for every user. It only acts on boards listed in
-  # boards.conf; a user turns it off with systemctl --user mask.
+  # On by default for every user, like the camera filtering on macOS. A user
+  # turns it off in denoise.conf or with systemctl --user mask.
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/user-preset/80-aurora-camera-denoise.preset" <<'PRESET'
 enable aurora-camera-denoise.service
 PRESET

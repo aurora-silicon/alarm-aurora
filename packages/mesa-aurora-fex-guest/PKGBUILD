@@ -1,14 +1,14 @@
 # x86 payload for the aarch64 FEX host. CI builds this recipe on x86_64 Arch.
 pkgname=mesa-aurora-fex-guest
 epoch=1
-pkgver=26.3.0_devel.202610300304.cf4e08105df
-pkgrel=3
+pkgver=26.3.0_devel.202610310638.c208afc352e
+pkgrel=1
 pkgdesc='Aurora Mesa x86_64 and i686 graphics layer for the FEX guest'
 arch=('any')
 url='https://github.com/aurora-silicon/mesa'
 license=('MIT')
-_commit=cf4e08105dfa526b8874318b6a52b3ce948f6297
-_sha256=b898c15a604a8d7d01467a2fc5b3ad70814d0eb6294228ac9128b946f0a76ddd
+_commit=c208afc352e9d4c10ee71c883a369a9079dd7d84
+_sha256=a8ca816b201673a9e2cf5aeafefdfa1bdffe2e14cd125b3bffd1cfe5040a3b0b
 makedepends=('meson' 'ninja' 'gcc-libs' 'gcc' 'lib32-gcc-libs' 'lib32-glibc' 'clang' 'llvm' 'libclc'
              'spirv-llvm-translator' 'spirv-tools' 'glslang' 'rust' 'rust-bindgen' 'cbindgen'
              'python-mako' 'python-yaml' 'python-packaging' 'python-ply' 'python-pycparser'
@@ -23,7 +23,7 @@ makedepends=('meson' 'ninja' 'gcc-libs' 'gcc' 'lib32-gcc-libs' 'lib32-glibc' 'cl
 source=("mesa-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/mesa/tar.gz/$_commit"
         aurora-fex-mesa.service
         60-aurora-fex-mesa-upgrade.hook)
-sha256sums=('b898c15a604a8d7d01467a2fc5b3ad70814d0eb6294228ac9128b946f0a76ddd' '20eef88ebcb0bf5d09afdcb28696c588e516ab69775e343f3cd75b9d57cdd907'
+sha256sums=('a8ca816b201673a9e2cf5aeafefdfa1bdffe2e14cd125b3bffd1cfe5040a3b0b' '20eef88ebcb0bf5d09afdcb28696c588e516ab69775e343f3cd75b9d57cdd907'
             'acd1e005a05bd8e229300a846863b6fcb3c29f389d66d9c8b903cb5d70913503')
 # The embedded x86 layer is not linked against the host's libraries.
 options=('!strip' '!debug')
