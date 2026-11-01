@@ -1,17 +1,17 @@
 pkgname=aurora-camera-denoise
 pkgver=0.1.0
-pkgrel=3
+pkgrel=4
 pkgdesc='PipeWire filter that denoises the built-in camera on Apple silicon laptops, like macOS'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/camera-denoise'
 license=('MIT')
-_commit=77e35ccbfd2f2b5c16a48caf501dd850c9430302
+_commit=a929985764bc03d1d3517c2a7e9b8dde918381b8
 depends=('glibc' 'pipewire')
 makedepends=('meson' 'ninja' 'systemd')
 install=aurora-camera-denoise.install
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/camera-denoise/tar.gz/$_commit")
-sha256sums=('bd3c92b0272e98e8651283a7848164e04faaa6d69feae3f699b61415c65f576b')
+sha256sums=('a64325767aff4555b6c6ca1caaded55ac814c0da474c1a47bbaf99dc81175fa0')
 
 build() {
   # The binary looks for backends in $prefix/$libdir/aurora-camera-denoise, so
