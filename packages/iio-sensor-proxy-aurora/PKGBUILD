@@ -44,7 +44,8 @@ build() {
   arch-meson build iio-sensor-proxy \
     -Dsystemdsystemunitdir=/usr/lib/systemd/system \
     -Dudevrulesdir=/usr/lib/udev/rules.d \
-    -Dsysconfdir=/usr/share
+    -Dsysconfdir=/usr/share \
+    -Dtests=true
   meson compile -C build
 }
 
