@@ -1,6 +1,6 @@
 pkgname=aurora-system-fixes
 pkgver=1
-pkgrel=4
+pkgrel=5
 pkgdesc='Aurora systemd drop-ins awaiting named upstream fixes'
 arch=('any')
 url='https://github.com/aurora-silicon/alarm-aurora'
@@ -10,8 +10,8 @@ source=(malcontent-signal.conf malcontent-webd-update-signal.conf LICENSE 50-aft
         61-aurora-dmi-id.rules 60-aurora-dmi-vendor.hwdb)
 sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '866a2b6a4d7c7408a0a3b9d33a932c548c4fedec6917d414f237f0064e7aa6f1' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9'
             '47f566640dbb31023b46db86695608adea7782e00f49f622e50be21491455a10'
-            '3f3cf3f6a04dbc8e35f6950f1fad0664175cc859f21c47d85bfaa7d1e4839f42'
-            '963d1d72ce348afc8c6f1bd9d81293afff75b2a4781c6860f08686ecb9f091d9')
+            'bfc15b89689f807c5e66bae31359c2842b28af57b73f0fde6f9396c7ad0ac54c'
+            'db7b2900eb3c4caaa195b12a4affd0bbcc82fbc091e1fa93b0ea3db97e6cf7b9')
 
 package() {
   install -Dm644 50-after-swapfile.conf \
