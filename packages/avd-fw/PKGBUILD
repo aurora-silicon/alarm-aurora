@@ -15,7 +15,8 @@ license=('MIT')
 # clang cross-compiles to arm-none-eabi out of the box, so no arm-none-eabi
 # toolchain is required; llvm supplies llvm-objcopy, which meson.build looks
 # up by name to turn each linked ELF into a padded raw image.
-makedepends=('meson' 'clang' 'llvm' 'lld' 'python')
+# LLVM 23 changes image bytes; the shared hash manifest requires LLVM 22.
+makedepends=('meson' 'clang22' 'llvm22' 'lld22' 'python')
 # !buildflags is load-bearing: makepkg's CFLAGS/LDFLAGS target the aarch64 host
 # and would be injected into a bare-metal Cortex-M3 build. !strip keeps makepkg
 # from running the host strip over raw firmware images.
@@ -24,6 +25,7 @@ source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/av
 sha256sums=('b7353f5fefea60b2d3aa63a1424fade72c87f27159685c30234e1b310b97af88')
 
 build() {
+  export PATH="/usr/lib/llvm22/bin:$PATH"
   # The cross file selects clang, pins the host machine to cortex-m3 and sets
   # libdir=lib, which lands the images in /usr/lib/firmware/apple.
   #
@@ -37,6 +39,7 @@ build() {
 }
 
 check() {
+  export PATH="/usr/lib/llvm22/bin:$PATH"
   python - <<'CHECK'
 from pathlib import Path
 import hashlib
@@ -69,6 +72,7 @@ CHECK
 }
 
 package() {
+  export PATH="/usr/lib/llvm22/bin:$PATH"
   meson install -C build --destdir "$pkgdir"
   # Retain the exact linked symbols alongside the open firmware.
   for elf in build/avd-fw-*.elf; do
