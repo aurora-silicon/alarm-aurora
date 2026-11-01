@@ -11,7 +11,7 @@ depends=('glibc' 'pipewire')
 makedepends=('meson' 'ninja' 'systemd')
 install=aurora-camera-denoise.install
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/camera-denoise/tar.gz/$_commit")
-sha256sums=('a2f560eb1c864bb70eabed85c36be8ecaaa89d48c0917e6c94abb5a47161ae63')
+sha256sums=('d3457a8697f3af3e5cf0fa94ea9fd3406e5dd2eec53eafdfc71b36d3ec5cd933')
 
 build() {
   # The binary looks for backends in $prefix/$libdir/aurora-camera-denoise, so
