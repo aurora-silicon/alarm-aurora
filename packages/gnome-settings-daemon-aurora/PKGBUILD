@@ -4,7 +4,7 @@
 pkgname=gnome-settings-daemon-aurora
 _tag=51.1
 pkgver=51.1.aurora1
-pkgrel=1
+pkgrel=2
 pkgdesc="GNOME Settings Daemon"
 url="https://gitlab.gnome.org/GNOME/gnome-settings-daemon"
 arch=(aarch64)
@@ -70,7 +70,7 @@ source=(
 )
 b2sums=('52dd4163a11446ad7de40f0ac736dcbed18d72efbdb164bd790c947c375c840adde0d88a2ad2a920b29ed70611b87cf838c07478c228ccbf8cbde618582853f8'
         'SKIP'
-        '53318167f7b2bad6b3c1b6a9e47cf9c87e9e7c3018802444ff08ca7733ade103233aa4b7968bcb48eecca486def4499ba7d3f83f114c8cc1d78ff3d356cd52ef'
+        'b8cce5a62bbe0a1436e59eca2bcaf02e0761c104fb67278e5ff85471cbda7bd79234f4439c905fe2697895da7cfcb7bf111cdab939511675782ee99a8fa0c934'
         '9ad00cdd3cdc01d86f1ef829448b35156f1e66c7d3b3d398578a75ef5ddd4467fb282d5f1be4256b3c715bcbeaadc751850835649169fb3e265bd41cd8cd2ca7')
 
 prepare() {
