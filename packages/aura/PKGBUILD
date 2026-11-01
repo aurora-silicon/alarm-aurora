@@ -1,13 +1,13 @@
 # Aurora bootloader; ordinary updates refresh ESP Stage 2, never enroll Stage 1.
 pkgname=aura
-pkgver=1.0.0b1.r20261101
-pkgrel=2
+pkgver=1.0.0b2
+pkgrel=1
 pkgdesc='Aurora Silicon bootloader for Apple Silicon'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aura'
 license=('MIT' 'GPL-2.0-only')
-_commit=a9cad94edb46fd4baf77c6cb1776b3bb5f1a566f
+_commit=241540a6ea6f7847551d90a9db1f763199578263
 _compat=1.6.1.aurora19
 provides=("m1n1=$_compat" "m1n1-aurora=$_compat" "m1n1-neo=$_compat")
 conflicts=('m1n1' 'm1n1-aurora' 'm1n1-neo')
@@ -15,7 +15,7 @@ replaces=('m1n1-neo')
 makedepends=('git' 'clang' 'lld' 'llvm' 'rustup' 'make' 'python')
 options=('!strip' '!debug')
 source=("aura::git+$url.git#commit=$_commit" build-qualification.json validate-qualification.py)
-sha256sums=('SKIP' 'be9ca721c037a0366c97a1525d6a69215ff15d5b190436b596c10f602e3a8674' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
+sha256sums=('SKIP' '3d40900d355903deca9dcf5d1d45a87ea7585dffc254cc786932ad0c42215bd8' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
 prepare() {
   rustup toolchain install 1.99.0 --profile minimal --target aarch64-unknown-none-softfloat
   [[ $(git -C aura rev-parse HEAD) == "$_commit" ]]
