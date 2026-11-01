@@ -103,7 +103,7 @@ source=(
   0001-nightlight-ambient-white-point.patch
 )
 sha256sums=('ea5e68d957c7d70abed97222a592d4445fda29129e20942658badd224ee138b4'
-            'af2146660a47d449f877789820233653cfb47d85b8c958c3a5889c0105a2fa85')
+            'cecef18a01bebb51408bdfdbc3424d4a3a549431644802bc8644fc5ed719fe01')
 prepare() {
   cd $_pkgname-$_tag
   patch -Np1 -i ../0001-nightlight-ambient-white-point.patch
