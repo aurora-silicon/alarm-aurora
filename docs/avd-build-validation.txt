@@ -1,0 +1,34 @@
+AArch64 ALARM AVD userspace validation
+
+FFmpeg 8.1 + request series b57fbbe50c9b2656fad86a1a7eeabfd2b2a50935.
+mpv 41f6a645068483470267271e1d09966ca3b9f413 + the unchanged DRM import patch.
+
+Compiler/package transcript: build-logs/avd-alarm-aarch64-build.log.gz
+Final disposable-install/test transcript: build-logs/avd-alarm-aarch64-check.log.gz
+
+Both source archives and patches passed their pinned SHA-256 checks. The initial
+compiler run produced the two archives below and passed makepkg's feature checks.
+The final test run verified the archive hashes, AArch64 metadata and exact
+.BUILDINFO PKGBUILD hash before reinstalling those unchanged archives.
+
+Passed:
+- ffmpeg-avd -hwaccels lists v4l2request.
+- H264, HEVC, VP9 and AV1 request hwaccels are compiled.
+- mpv-avd --hwdec=help lists v4l2request and v4l2request-copy.
+- ffmpeg-avd, ffprobe-avd and mpv-avd are AArch64 ELF executables.
+- Every FFmpeg dependency resolves under /usr/lib/aurora-avd.
+- Installed RUNPATHs contain no temporary staging directory.
+- Stock FFmpeg/mpv executable and library SHA-256 values are unchanged.
+- Stock/candidate installed file inventories have no file conflict.
+- Actual systemd 70-uaccess.rules tags media and video4linux.
+- 184 repository tests passed, with 2 skipped.
+
+The first compiler run's later broad tests lacked Git; final verification added
+that test dependency and passed the complete suite. Earlier infrastructure and
+packaging failures are retained in the private worker evidence. These transcripts
+start at package building/final verification and omit builder bootstrap details.
+No physical AVD decode, zero-copy or performance result is claimed here.
+
+Archives (aarch64):
+f46445ea2302c4e37b7d9a62d510c989b6606e8c2b5dc56e028e863d82fe19f6  ffmpeg-avd-8.1-1-aarch64.pkg.tar.xz
+211665c7dc5942d1c9a1840faed33b14bfe9725f52f3decccd19a88f4b1005ae  mpv-avd-8.1-1-aarch64.pkg.tar.xz

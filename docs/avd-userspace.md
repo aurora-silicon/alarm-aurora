@@ -66,3 +66,5 @@ cmp software.frames request.frames
 ```
 
 Check the decoder log as well as the hashes. For a ten-bit clip use the matching ten-bit software format for both commands. No AVD machine is accessed by the package build checks.
+
+The [aarch64 validation record](avd-build-validation.txt) links the compiler and final installation/test logs.
