@@ -11,8 +11,8 @@ pkgrel=8
 # Immutable pin on aurora-silicon/linux aurora-wip. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=052924773992f3fd51ce2861f0e8202cd46619a6
-_sha256=6fa1baf19d8e3212c08ef9c6e4a49dc4e49a091b12b66daf4270582e95bc5cdd
+_commit=437edfa194947b4fca833f3f23226e9cff7652d3
+_sha256=f6c7ce777b9431962e70c5d21363ad8349cf84482b8881ed8fb8877c7c0bc66f
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
@@ -36,7 +36,7 @@ options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
         rust-toolchain.toml bindgen-kernel.py config)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '6fa1baf19d8e3212c08ef9c6e4a49dc4e49a091b12b66daf4270582e95bc5cdd'
+            'f6c7ce777b9431962e70c5d21363ad8349cf84482b8881ed8fb8877c7c0bc66f'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
             'e57f43671a863440359e1a9eb092f7b84f8e93cfc1e9de68a9ab138af3f37d61')
