@@ -1,0 +1,121 @@
+# Arch's kwin 6.8.2-1 recipe with one Aurora patch: an opt-in ambient white
+# point in Night Light. The same patch is in fedora-aurora's kwin package.
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: Andrea Scarpino <andrea@archlinux.org>
+
+pkgname=kwin-aurora
+_pkgname=kwin
+_tag=6.8.2
+pkgver=6.8.2.aurora1
+_dirver=$(echo $_tag | cut -d. -f1-3)
+pkgrel=1
+pkgdesc='An easy to use, but flexible, Wayland compositor, with an opt-in ambient white point'
+arch=(aarch64)
+url='https://kde.org/plasma-desktop/'
+license=(LGPL-2.0-or-later)
+depends=(
+  aurorae
+  breeze
+  glibc
+  iio-sensor-proxy
+  plasma-activities
+  kauth
+  kcmutils
+  kcolorscheme
+  kconfig
+  kcoreaddons
+  kcrash
+  kdbusaddons
+  kdeclarative
+  kdecoration
+  kglobalaccel
+  kglobalacceld
+  kguiaddons
+  ki18n
+  kidletime
+  kirigami
+  kitemmodels
+  knewstuff
+  knighttime
+  knotifications
+  kpackage
+  kquickcharts
+  krunner
+  kscreenlocker
+  kservice
+  ksvg
+  kwayland
+  kwidgetsaddons
+  kwindowsystem
+  kxmlgui
+  lcms2
+  libcanberra
+  libdisplay-info
+  libdrm
+  libei
+  libepoxy
+  libevdev
+  libgcc
+  libinput
+  libpipewire
+  libqaccessibilityclient-qt6
+  libstdc++
+  libxcb
+  libxcvt
+  libxkbcommon
+  mesa
+  milou
+  pipewire-session-manager
+  libplasma
+  qt6-5compat
+  qt6-base
+  qt6-declarative
+  qt6-svg
+  qt6-tools
+  systemd-libs
+  vulkan-icd-loader
+  wayland
+  xcb-util-keysyms
+  xcb-util-wm
+)
+makedepends=(
+  extra-cmake-modules
+  kdoctools
+  krunner
+  plasma-wayland-protocols
+  python
+  vulkan-headers
+  wayland-protocols
+  xorg-xwayland
+)
+optdepends=(
+  'plasma-keyboard: virtual keyboard'
+)
+groups=(
+  plasma
+)
+provides=("kwin=$_tag")
+conflicts=(kwin)
+replaces=(kwin)
+source=(
+  https://download.kde.org/stable/plasma/$_dirver/$_pkgname-$_tag.tar.xz
+  0001-nightlight-ambient-white-point.patch
+)
+sha256sums=('ea5e68d957c7d70abed97222a592d4445fda29129e20942658badd224ee138b4'
+            'af2146660a47d449f877789820233653cfb47d85b8c958c3a5889c0105a2fa85')
+prepare() {
+  cd $_pkgname-$_tag
+  patch -Np1 -i ../0001-nightlight-ambient-white-point.patch
+}
+
+build() {
+  cmake -B build  -S $_pkgname-$_tag \
+    -DKDE_INSTALL_LIBEXECDIR=lib \
+    -DBUILD_TESTING=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
