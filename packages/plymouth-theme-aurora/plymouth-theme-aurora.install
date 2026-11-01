@@ -1,0 +1,28 @@
+_conf=/etc/plymouth/plymouthd.conf
+_mark='# Set by plymouth-theme-aurora, which draws in device pixels'
+
+post_install() {
+  # Make Aurora the splash unless the owner already chose a theme.
+  if ! grep -qs '^[[:space:]]*Theme[[:space:]]*=' $_conf; then
+    plymouth-set-default-theme aurora
+  fi
+  # The theme draws in device pixels, so the logo matches aura's to the pixel;
+  # Plymouth's own 2x scale on Retina panels would double it. An owner's own
+  # DeviceScale wins.
+  if [[ $(plymouth-set-default-theme 2>/dev/null) == aurora ]] &&
+     ! grep -qs '^[[:space:]]*DeviceScale[[:space:]]*=' $_conf; then
+    sed -i "/^[[:space:]]*\[Daemon\][[:space:]]*\$/a $_mark\nDeviceScale=1" $_conf
+  fi
+  echo 'Rebuild the initramfs (mkinitcpio -P) for the splash to change at the next boot.'
+}
+
+post_upgrade() {
+  post_install
+}
+
+pre_remove() {
+  sed -i "/^$_mark\$/{N;/\nDeviceScale=1\$/d}" $_conf 2>/dev/null
+  if [[ $(plymouth-set-default-theme 2>/dev/null) == aurora ]]; then
+    plymouth-set-default-theme --reset
+  fi
+}
