@@ -6,7 +6,7 @@ arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/u-boot'
 license=('GPL-2.0-or-later')
-_commit=01f255b636737bc783b581b04584d1224ab06cf4
+_commit=7d97eb149b45ffc87cdab87fbaae4d312fda8589
 provides=("uboot-asahi=$pkgver")
 conflicts=('uboot-asahi' 'uboot-asahi-j700')
 replaces=('uboot-asahi-j700')
