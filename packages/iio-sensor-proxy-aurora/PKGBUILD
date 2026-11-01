@@ -50,7 +50,11 @@ build() {
 }
 
 check() {
-  meson test -C build
+  # The Qualcomm SSC tests need SSC services that the build container lacks;
+  # they fail the same way on the unpatched 3.9. Run everything else,
+  # including the colour temperature test.
+  mapfile -t tests < <(meson test -C build --list 2>/dev/null | grep -v ssc)
+  meson test -C build --print-errorlogs "${tests[@]}"
 }
 
 package() {
