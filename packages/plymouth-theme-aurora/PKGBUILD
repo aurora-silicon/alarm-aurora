@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+pkgname=plymouth-theme-aurora
+pkgver=1
+pkgrel=1
+pkgdesc='Aurora boot splash: the bootloader logo, kept in place, with a spinner'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('plymouth' 'cantarell-fonts')
+makedepends=('plymouth')
+source=(aurora.plymouth aurora-logo-256.png LICENSE)
+sha256sums=('90079c691756858c72502af9b43c5c113ee06657772ce69f4cec3be47ea7abd6'
+            'fa5d7331716eca34b7f6e4613f6a2b42a18134fdd65eb6c8dcf21fd6bed6f630'
+            'd74b21234e71d54dec84a84c255644ec63a209f564296d5903b1607779697175')
+
+package() {
+  local d="$pkgdir/usr/share/plymouth/themes/aurora" f
+  install -Dm644 aurora.plymouth "$d/aurora.plymouth"
+  # The image aura (Stage 1) draws centred on Retina panels, so the logo stays put.
+  install -Dm644 aurora-logo-256.png "$d/watermark.png"
+  # two-step reads every image from ImageDir: reuse the spinner theme's animation
+  # and dialog images; the plymouth initcpio hook installs the link targets too.
+  for f in /usr/share/plymouth/themes/spinner/*.png; do
+    [[ ${f##*/} == watermark.png ]] && continue
+    ln -s "../spinner/${f##*/}" "$d/${f##*/}"
+  done
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
