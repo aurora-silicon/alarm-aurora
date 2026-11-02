@@ -28,3 +28,26 @@ snapshot. Both desktop package lists in `scripts/build-image` already select
 `plymouth`, and the Aurora repository precedes the distribution repository.
 After upgrading an installed system, regenerate its initramfs with
 `mkinitcpio -P` so it includes the patched libraries.
+
+## Script keyboard lifetime and theme 1-4
+
+The same carry also applies `0001-Fix-splash-keyboard-lifetime.patch`, copied
+unchanged from the Ryan-authored t-4476 implementation. It notifies consumers
+before freeing renderer keyboards, updates the script library on replacement
+and detach, and preserves input handler ownership across hide/show. Removing
+theme caps-lock polling alone cannot make the hide path safe.
+
+`check-keyboard-lifetime.sh` runs native query and renderer-removal fixtures
+against the just-built libraries and private X11/label modules under Xvfb.
+The renderer fixture uses a private PTY and requires no hardware console.
+The original terminal-input PTY regression remains enabled.
+
+Plymouth 26.134.222-5 provides `plymouth-script-keyboard-lifetime=1` using
+pacman's capability syntax. Theme 1-4 requires that capability >= 1.
+
+Public GPL-2.0-or-later implementation sources are Plymouth
+[24.004.60](https://gitlab.freedesktop.org/plymouth/plymouth/-/tree/d6e6366d622962dce02d8c7e4ab814f54a202509)
+and [26.134.222](https://gitlab.freedesktop.org/plymouth/plymouth/-/tree/1aacf818fd5d1b6a7695546eb08fcbc46893dd0b).
+Install the matching core and theme together and rebuild the initramfs or
+NixOS boot generation. Preserve the previous packages, configuration and
+initramfs or generation, and restore them together to roll back.

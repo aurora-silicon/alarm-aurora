@@ -6,7 +6,7 @@
 
 pkgname=plymouth
 pkgver=26.134.222
-pkgrel=4
+pkgrel=5
 pkgdesc='Graphical boot splash screen'
 arch=(aarch64)
 url='https://www.freedesktop.org/wiki/Software/Plymouth/'
@@ -34,7 +34,10 @@ makedepends=(
   git
   gtk3
   meson
+  xorg-server-xvfb
+  cantarell-fonts
 )
+provides=('plymouth-script-keyboard-lifetime=1')
 optdepends=('gtk3: x11 renderer')
 backup=(
   etc/logrotate.d/bootlog
@@ -50,6 +53,10 @@ source=(
   50-plymouth.conf
   0001-ply-terminal-Keep-terminal-input-nonblocking.patch
   test-terminal-input.c
+  0001-Fix-splash-keyboard-lifetime.patch
+  check-keyboard-lifetime.sh
+  test-keyboard-lifetime.c
+  test-script-keyboard.c
 )
 b2sums=(
   5130dbb16d4634915b7f68542b6c29d664bd8c26f4508adf536833e93f2c78aee287208e88dc3bcf8298979c6f9811657ab5a30c1563b1e5307b7e886b6bffa2
@@ -58,6 +65,10 @@ b2sums=(
   2e3734330e200fa45e87c37084572ed22ccf1d8fc1e921e1b5b336bbaa508a9b7fc1f4ee7daed01feeacbadf3778312fd9f636092e610c4ed84a337f29168be6
   15b3dd628ac05659f0ea7128b873a00263aa45ef8964a2bd985c3c9bcd8df86dfcd204fd572a68cfae0d2087b4ae46224a2799e23dee1cb25fc59dbebfae22ee
   5ab47942d222c311b495d056f24bdd9d08438162fef1ca6e51982fc00018acbf0c31e4c61164b40950fe2511e17ba2a4635894d145d83a9b349e5a8a83f8c026
+  SKIP
+  SKIP
+  SKIP
+  SKIP
   SKIP
   SKIP
 )
@@ -70,6 +81,10 @@ sha256sums=(
   SKIP
   121c8fc8d6347acf1621041c6489a4180698fbea981bddcef8b2ffa33062e38a
   d91afcdfd4cfa7ea433296cfb90336cfc1ab108a880ff5e1db8d973490cf67ab
+  15796339bf108427e6200e76a21d2be3145849b6492c766cc1a82b7679b5f774
+  67fb773a7762be6ee600f2ebbd94b806c9f8ac2cd45294cbf6dda699f5fa5c4a
+  f5b437538d957b150c85dda1077f931ca7e69913377164494d58fa85904bdec6
+  d27ecd03811ed635a0cdd0d0f9721861ac02acc93eee7689d643b9b9397bf94e
 )
 
 prepare() {
@@ -80,6 +95,8 @@ prepare() {
   git cherry-pick -n cea90be39d263e388003a07d125b469c0803d55c
 
   patch -Np1 -i "$srcdir/0001-ply-terminal-Keep-terminal-input-nonblocking.patch"
+
+  patch -Np1 -i "$srcdir/0001-Fix-splash-keyboard-lifetime.patch"
 
   # Use mkinitcpio to update initrd
   sed -i 's/^dracut -f$/mkinitcpio -P/' scripts/plymouth-update-initrd
@@ -105,6 +122,7 @@ build() {
 }
 
 check() {
+  bash "$srcdir/check-keyboard-lifetime.sh" "$srcdir/plymouth" "$srcdir/build" "$srcdir"
   # This release predates the upstream Meson test harness.
   cc -D_GNU_SOURCE -Wall -Wextra -Werror $CFLAGS \
     -Ibuild -Iplymouth -Iplymouth/src/libply -Iplymouth/src/libply-splash-core \

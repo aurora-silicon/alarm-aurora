@@ -1,0 +1,17 @@
+#!/bin/bash
+# Build the local capability provider before the dependent theme in a fresh CI root.
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+bash "$root/scripts/ci-build-package" plymouth
+chroot "$root/out/container" /bin/bash -euo pipefail -c '
+  pacman -U --noconfirm /src/out/packages/plymouth-*.pkg.tar.*
+  mv /tmp/package-build /tmp/plymouth-dependency-build
+  mkdir /tmp/package-build
+  cp -a /src/packages/plymouth-theme-aurora/. /tmp/package-build/
+  chown -R builder:builder /tmp/package-build
+  cd /tmp/package-build
+  runuser -u builder -- makepkg --syncdeps --noconfirm
+  # Only the requested theme belongs to this job artifact; the core has its own job.
+  rm /src/out/packages/plymouth-*.pkg.tar.*
+  cp ./plymouth-theme-aurora-*.pkg.tar.* /src/out/packages/
+'
