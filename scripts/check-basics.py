@@ -14,6 +14,8 @@ filesystems the installer writes):
   lid        logind still suspends on lid close; sleep is not masked
   GL         factory images leave Mesa driver selection automatic
   ssh        no sshd unit is enabled; remote login is the owner's choice
+  greeter    KDE signs in with Plasma Login, whose greeter runs on KWin
+             Wayland at the display's scale (SDDM's Xorg greeter drew at 1x)
 
 --system names a NixOS system closure; its software and /etc are read
 from there instead of /usr and /etc.
@@ -238,6 +240,19 @@ def check_ssh(root):
     return None
 
 
+def check_greeter(root, profile):
+    if profile != 'kde':
+        return None
+    # systemctl enable links the display manager's Alias=; NixOS links its
+    # aliases= the same way. Either resolves to the unit file itself.
+    unit = root.path(f'{root.etc}/systemd/system/display-manager.service')
+    if not unit.is_file():
+        return 'no display manager is enabled (display-manager.service)'
+    if unit.name != 'plasmalogin.service':
+        return f'the display manager is {unit.name}, not Plasma Login (plasmalogin.service)'
+    return None
+
+
 def boot_reader(args):
     if args.boot_dir:
         base = Path(args.boot_dir)
@@ -336,6 +351,7 @@ def main():
         checks.append(('network', check_network(root, args.profile)))
         checks.append(('lid', check_lid(root)))
         checks.append(('ssh', check_ssh(root)))
+        checks.append(('greeter', check_greeter(root, args.profile)))
     if args.esp:
         checks.append(('boot', check_boot(args)))
     failures = [(name, problem) for name, problem in checks if problem]

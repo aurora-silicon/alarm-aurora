@@ -67,6 +67,9 @@ class CheckBasicsTests(unittest.TestCase):
             write(u / 'share/applications/kcm_networkmanagement.desktop')
             for name in ('Next', 'Air', 'Horos', 'Altai', 'Kokkini', 'Canopee', 'Cluster', 'Flow', 'Mountain'):
                 write(u / f'share/wallpapers/{name}/contents/images/1920x1080.png')
+            # systemctl enable plasmalogin.service links its Alias=.
+            write(root / 'usr/lib/systemd/system/plasmalogin.service', '[Service]\nExecStart=/usr/bin/plasmalogin\n')
+            link(e / 'systemd/system/display-manager.service', '/usr/lib/systemd/system/plasmalogin.service')
         return root
 
     def boot(self):
@@ -177,6 +180,33 @@ class CheckBasicsTests(unittest.TestCase):
         result = self.check('--profile', 'minimal', '--root', str(root))
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('ssh: ok', result.stdout)
+
+    def test_kde_signs_in_with_plasma_login(self):
+        root = self.desktop_root('kde')
+        result = self.check('--profile', 'kde', '--root', str(root))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('greeter: ok', result.stdout)
+
+    def test_kde_with_sddm_fails(self):
+        def mutate(root):
+            write(root / 'usr/lib/systemd/system/sddm.service', '[Service]\nExecStart=/usr/bin/sddm\n')
+            (root / 'etc/systemd/system/display-manager.service').unlink()
+            link(root / 'etc/systemd/system/display-manager.service', '/usr/lib/systemd/system/sddm.service')
+        self.assert_fails('kde', mutate, 'the display manager is sddm.service, not Plasma Login')
+
+    def test_kde_without_a_display_manager_fails(self):
+        self.assert_fails('kde', lambda root: (root / 'etc/systemd/system/display-manager.service').unlink(),
+                          'no display manager is enabled')
+
+    def test_gnome_and_minimal_have_no_greeter_requirement(self):
+        for profile in ('gnome', 'minimal'):
+            with self.subTest(profile=profile):
+                result = self.check('--profile', profile, '--root', str(self.desktop_root(profile)))
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertIn('greeter: ok', result.stdout)
+                self.temporary.cleanup()
+                self.temporary = tempfile.TemporaryDirectory()
+                self.base = Path(self.temporary.name)
 
     def test_core_with_an_early_uuid_search_fails(self):
         self.assert_fails('minimal', lambda root: write(self.base / 'esp/EFI/BOOT/BOOTAA64.EFI',
