@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Path
+Target = etc/mkinitcpio.conf.d/90-aurora.conf
+
+[Action]
+Description = Updating the Aurora initramfs...
+When = PostTransaction
+Exec = /usr/bin/mkinitcpio -P
