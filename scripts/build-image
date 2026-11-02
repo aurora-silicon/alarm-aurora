@@ -111,6 +111,9 @@ chroot "$mountroot" userdel -r alarm
 chroot "$mountroot" usermod -L root
 rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"
 printf 'uninitialized\n' > "$mountroot/etc/machine-id"
+# An install's first boot applies every preset (enable-only, as Arch builds
+# systemd). Apply them here, so the image already has what they enable.
+chroot "$mountroot" systemctl preset-all --preset-mode=enable-only
 chroot "$mountroot" systemctl enable NetworkManager.service bluetooth.service aurora-peripherals.service aurora-alarm-keyring.service aurora-fex-mesa.service
 # asahi-scripts' generic first-boot rewrites fstab to its @/@home layout and
 # randomizes the ESP ID. Aurora seals both filesystem layout and EFI identity.
@@ -203,6 +206,13 @@ chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
 sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/$channel/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
 rm -f "$mountroot/tmp/asahi-alarm.gpg" "$mountroot/tmp/aurora-alarm.asc"
+# The first boot must find nothing left to change. A unit the image keeps
+# off although a preset enables it needs a line in 80-aurora-image.preset.
+presets=$(chroot "$mountroot" systemctl preset-all --preset-mode=enable-only 2>&1) || { printf '%s\n' "$presets" >&2; exit 1; }
+if grep -E '^(Created symlink|Removed) ' <<<"$presets" >&2; then
+  echo 'Units differ from their presets; the first boot would change them' >&2
+  exit 1
+fi
 # Every image ships the basics (locale, terminal, wallpapers, network, lid
 # policy); a build that lacks one fails here instead of on a Mac.
 python3 "$root/scripts/check-basics.py" --profile "${profile#arch-}" --root "$mountroot"
