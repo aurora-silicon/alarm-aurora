@@ -16,7 +16,7 @@ permissions:
   attestations: write
 jobs:
   delivery:
-    uses: aurora-silicon/aurora-distributions/.github/workflows/build-payload.yml@e1535274a83df847f1fe77d3c496d489baef3fa7
+    uses: aurora-silicon/aurora-distributions/.github/workflows/build-payload.yml@d399935111d6c037294a2ef2d1c682f9ded2dc62
     with:
       profile: ${{ inputs.profile }}
       image-run: ${{ inputs.image-run }}
