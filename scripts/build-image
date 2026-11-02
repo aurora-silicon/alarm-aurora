@@ -77,7 +77,7 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez blue
   avd-fw upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes aurora-logos
   aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-camera-denoise tiny-dfr pipewire-pulse pipewire-alsa openssh)
 case $profile in
-  arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter sddm konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
+  arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
   arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
@@ -129,27 +129,32 @@ ln -sfn /run/systemd/resolve/stub-resolv.conf "$mountroot/etc/resolv.conf"
 # on KDE; GDM runs GNOME Initial Setup while no user exists). Minimal images
 # keep the text wizard on tty1.
 case $profile in
-  arch-kde) chroot "$mountroot" systemctl enable sddm plasma-setup.service; chroot "$mountroot" systemctl set-default graphical.target;;
+  # Plasma Login Manager, as on Fedora 44: its greeter runs on KWin Wayland,
+  # so it is drawn at the display's scale. Arch's SDDM greeter runs on Xorg at
+  # 96 DPI and came up at 1x on HiDPI panels.
+  arch-kde) chroot "$mountroot" systemctl enable plasmalogin.service plasma-setup.service; chroot "$mountroot" systemctl set-default graphical.target;;
   arch-gnome) chroot "$mountroot" systemctl enable gdm; chroot "$mountroot" systemctl set-default graphical.target;;
   *) chroot "$mountroot" systemctl set-default multi-user.target;;
 esac
 if [[ $profile == arch-kde ]]; then
-  # Arch's SDDM has no theme configured and falls back to its plain built-in
-  # greeter; use Plasma's Breeze greeter, as Plasma's own setup would.
-  install -d -m 0755 "$mountroot/etc/sddm.conf.d"
-  printf '[Theme]\nCurrent=breeze\n' > "$mountroot/etc/sddm.conf.d/10-aurora-theme.conf"
-  [[ -f $mountroot/usr/share/sddm/themes/breeze/metadata.desktop ]]
+  # Plasma Setup writes its setup user's autologin for the display manager
+  # whose unit is enabled; only Plasma Login may be the KDE display manager.
+  [[ $(chroot "$mountroot" systemctl is-enabled plasmalogin.service) == enabled ]]
+  [[ $(readlink "$mountroot/etc/systemd/system/display-manager.service") == */plasmalogin.service ]]
+  if chroot "$mountroot" systemctl is-enabled --quiet sddm.service 2>/dev/null; then
+    echo 'SDDM is enabled beside Plasma Login' >&2; exit 1
+  fi
 fi
 if [[ $profile == arch-kde ]]; then
-  # GDM replaces plymouth-quit.service and quits the splash itself; SDDM does
-  # neither. Give SDDM GDM's role so the splash lasts until the greeter on
-  # every boot. The quit is time-bounded, and a failed SDDM still runs
-  # plymouth-quit.service, so the splash can never stay up.
-  install -d -m 0755 "$mountroot/etc/systemd/system/sddm.service.d"
-  cat > "$mountroot/etc/systemd/system/sddm.service.d/10-aurora-plymouth.conf" <<'EOF'
+  # GDM replaces plymouth-quit.service and quits the splash itself; Plasma
+  # Login does neither. Give it GDM's role so the splash lasts until the
+  # greeter on every boot. The quit is time-bounded, and a failed greeter
+  # still runs plymouth-quit.service, so the splash can never stay up.
+  install -d -m 0755 "$mountroot/etc/systemd/system/plasmalogin.service.d"
+  cat > "$mountroot/etc/systemd/system/plasmalogin.service.d/10-aurora-plymouth.conf" <<'EOF'
 [Unit]
-# The splash stays up until the greeter starts, as with GDM; if SDDM fails,
-# plymouth-quit.service still removes it.
+# The splash stays up until the greeter starts, as with GDM; if Plasma Login
+# fails, plymouth-quit.service still removes it.
 Conflicts=plymouth-quit.service
 After=plymouth-start.service
 OnFailure=plymouth-quit.service
