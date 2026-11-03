@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=16
+pkgrel=17
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -39,7 +39,7 @@ sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '3abc207e7aae5a5acb80e30486de4abcb69c8d6719f7cfa606667357e907a7c7'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'a5210516ac9f4d68e988c4ebf07b6899defeb5f55bca10b5620e65b7c02d8a98'
+            '79fdb66da662b30144ed30bc7b511316546cc337c28bde2737950eabe0cf993c'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6')
 
