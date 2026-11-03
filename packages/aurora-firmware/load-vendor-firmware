@@ -4,7 +4,9 @@
 set -euo pipefail
 property=${AURORA_ESP_PROPERTY:-/sys/firmware/devicetree/base/chosen/asahi,efi-system-partition}
 admission=${AURORA_PERIPHERAL_ADMISSION:-/usr/libexec/aurora/peripheral-firmware}
-destination=/run/aurora-firmware
+destination=${AURORA_FIRMWARE_DESTINATION:-/run/aurora-firmware}
+search_path=${AURORA_FIRMWARE_SEARCH_PATH:-/sys/module/firmware_class/parameters/path}
+mode=${1:-initrd}
 status=0
 if [[ -r $property ]]; then
   # Admission must run even if the handoff fails: the keyboard driver does
@@ -15,25 +17,43 @@ if [[ -r $property ]]; then
     uuid=$(tr -d '\000' < "$property")
     [[ $uuid =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$ ]] || exit 1
     uuid=${uuid,,}
-    mkdir -p "$destination" /run/aurora-esp
+    device=/dev/disk/by-partuuid/$uuid
+    mkdir -p "$destination"
     if [[ ! -s $destination/vendorfw/.vendorfw.manifest ]]; then
-      udevadm wait --timeout=60 "/dev/disk/by-partuuid/$uuid"
-      mount -t vfat -o ro "/dev/disk/by-partuuid/$uuid" /run/aurora-esp
-      trap 'umount /run/aurora-esp' EXIT
-      test -s /run/aurora-esp/vendorfw/firmware.cpio
-      (cd "$destination"; cpio --quiet --extract --no-absolute-filenames < /run/aurora-esp/vendorfw/firmware.cpio)
+      udevadm wait --timeout=60 "$device"
+      # The real root mounts the ESP read-write, and the kernel refuses a
+      # second, read-only mount of it, so a retry there reads it in place.
+      esp=$(findmnt --noheadings --first-only --output TARGET --source "$device" 2>/dev/null) || esp=
+      if [[ -z $esp ]]; then
+        esp=/run/aurora-esp
+        mkdir -p "$esp"
+        mount -t vfat -o ro "$device" "$esp"
+        trap 'umount /run/aurora-esp' EXIT
+      fi
+      if [[ ! -s $esp/vendorfw/firmware.cpio ]]; then
+        # Nothing to hand off; peripherals are still admitted below.
+        echo '<4>Aurora: the ESP has no vendor firmware; admitting peripherals without it' >&2
+        exit 0
+      fi
+      # Unconditional, so a retry replaces what a failed attempt left behind.
+      (cd "$destination"; cpio --quiet --extract --unconditional --no-absolute-filenames < "$esp/vendorfw/firmware.cpio")
     fi
     # This also works when firmware_class was built into the kernel.
-    printf '%s' "$destination/vendorfw" > /sys/module/firmware_class/parameters/path
+    printf '%s' "$destination/vendorfw" > "$search_path"
   )
   status=$?
   set -e
-  if (( status )); then
+  if (( status )) && [[ $mode == runtime ]]; then
     echo 'Aurora: vendor firmware handoff failed; admitting peripherals without it' >&2
+  elif (( status )); then
+    # A failed initrd unit stays failed after switch-root, even when the
+    # real root's retry succeeds, so that retry reports the result.
+    echo '<4>Aurora: vendor firmware handoff failed; the real root will retry it' >&2
+    status=0
   fi
 fi
 export AURORA_FIRMWARE_ROOT="$destination/vendorfw"
 export AURORA_ADMIT_BLUETOOTH=0
-if [[ ${1:-initrd} == runtime ]]; then export AURORA_ADMIT_BLUETOOTH=1; fi
+if [[ $mode == runtime ]]; then export AURORA_ADMIT_BLUETOOTH=1; fi
 "$admission"
 exit "$status"
