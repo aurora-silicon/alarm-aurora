@@ -1,13 +1,13 @@
 # Aurora bootloader; ordinary updates refresh ESP Stage 2, never enroll Stage 1.
 pkgname=aura
-pkgver=1.0.0b2
+pkgver=1.0.0b3
 pkgrel=1
 pkgdesc='Aurora Silicon bootloader for Apple Silicon'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aura'
 license=('MIT' 'GPL-2.0-only')
-_commit=241540a6ea6f7847551d90a9db1f763199578263
+_commit=1b4d11cb7943879ab3bcdfb44e51e9eb881966bf
 _compat=1.6.1.aurora19
 provides=("m1n1=$_compat" "m1n1-aurora=$_compat" "m1n1-neo=$_compat")
 conflicts=('m1n1' 'm1n1-aurora' 'm1n1-neo')
@@ -15,7 +15,7 @@ replaces=('m1n1-neo')
 makedepends=('git' 'clang' 'lld' 'llvm' 'rustup' 'make' 'python')
 options=('!strip' '!debug')
 source=("aura::git+$url.git#commit=$_commit" build-qualification.json validate-qualification.py)
-sha256sums=('SKIP' '3d40900d355903deca9dcf5d1d45a87ea7585dffc254cc786932ad0c42215bd8' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
+sha256sums=('SKIP' 'ab29509a268f15317d386623c5d627b6c0d3485cbde60d9e06f2ac81b284a8e4' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
 prepare() {
   rustup toolchain install 1.99.0 --profile minimal --target aarch64-unknown-none-softfloat
   [[ $(git -C aura rev-parse HEAD) == "$_commit" ]]
@@ -27,6 +27,7 @@ build() {
   make -j"${OMARCHY_BUILD_JOBS:-10}" RELEASE=1 CHAINLOADING=1 USE_CLANG=1 BUILTIN_LOGO=aurora
   install -Dm644 build/aura.bin "$srcdir/stage1/aura-raw.bin"
   install -Dm644 build/aura.macho "$srcdir/stage1/aura.macho"
+  install -Dm644 build/aura-boot.macho "$srcdir/stage1/aura-boot.macho"
   make clean
   make -j"${OMARCHY_BUILD_JOBS:-10}" RELEASE=1 CHAINLOADING=1 ESP_STAGE2=1 USE_CLANG=1 BUILTIN_LOGO=aurora
 }
@@ -38,6 +39,7 @@ package() {
   install -d "$pkgdir/usr/lib/m1n1-neo"
   ln -s ../asahi-boot/m1n1.bin "$pkgdir/usr/lib/m1n1-neo/m1n1.bin"
   install -Dm644 stage1/aura-raw.bin "$pkgdir/usr/share/aura/stage1/aura-raw.bin"
+  install -Dm644 stage1/aura-boot.macho "$pkgdir/usr/share/aura/stage1/aura-boot.macho"
   install -Dm644 stage1/aura.macho "$pkgdir/usr/share/aura/stage1/aura.macho"
   install -Dm644 aura/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -m644 aura/3rdparty_licenses/* "$pkgdir/usr/share/licenses/$pkgname/"
