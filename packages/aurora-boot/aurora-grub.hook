@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = etc/default/grub.d/40-aurora-console.cfg
+
+[Action]
+Description = Keeping GRUB on the firmware console...
+When = PostTransaction
+# Only on a system whose GRUB is set up; an image build runs grub-mkconfig itself.
+Exec = /usr/bin/sh -c '[ -f /boot/grub/grub.cfg ] && [ -x /usr/bin/grub-mkconfig ] || exit 0; exec /usr/bin/grub-mkconfig -o /boot/grub/grub.cfg'
