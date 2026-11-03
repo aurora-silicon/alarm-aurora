@@ -1,7 +1,7 @@
 # FEX from Aurora's fork. Replaces the Asahi ALARM FEX-Emu package; the
 # fork's submodules are pinned at its gitlinks (sources.json extra_sources).
 pkgbase=fex-emu
-pkgname=(fex-emu FEX-Emu)
+pkgname=(fex-emu fex-emu-steam FEX-Emu)
 pkgver=2610.r202611030240.3f4ee4277f1
 pkgrel=2
 pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
@@ -22,13 +22,16 @@ _bundled=(
   'Vulkan-Headers KhronosGroup/Vulkan-Headers ee2ec5fd83dafce291024683b50dc89219333076 External/Vulkan-Headers'
   'vixl FEX-Emu/vixl 585d860b12cdfc3a72f5fdad5e02e4d50a64c014 External/vixl'
   'unordered_dense martinus/unordered_dense 3234af2c03549bc85656bfd3a86993bf1cd8aef1 External/unordered_dense'
+  # The Steam compatibility tool build bundles fmt and xxHash.
+  'fmt fmtlib/fmt c07e2aa4b130b4fd359a1c6455a5201b17af01fa External/fmt'
+  'xxHash Cyan4973/xxHash e626a72bc2321cd320e953a0ccf1584cad60f363 External/xxhash'
 )
 source=("fex-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/fex/tar.gz/$_commit")
 for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
   source+=("$_n-$_c.tar.gz::https://codeload.github.com/$_r/tar.gz/$_c")
 done
-source+=(README.aurora 'usr-share-guestos-fex\x2dmesa.mount' 50-aurora-fex-rootfs.conf aurora-fex-provider-up 70-aurora-fex-provider.hook)
+source+=(README.aurora 'usr-share-guestos-fex\x2dmesa.mount' 50-aurora-fex-rootfs.conf aurora-fex-provider-up 70-aurora-fex-provider.hook compatibilitytool.vdf)
 sha256sums=("$_sha256"
             '68e6b500890270517d226abbc3610135de1600ddde29f44c9b68cca5e2a17f60'
             '3d3653841f81ea5be1a15cd4b458f048c1fffbcd97fcc808454a7fbe7cf1a555'
@@ -38,11 +41,14 @@ sha256sums=("$_sha256"
             'df7a152381a7fdaf98e36de7716b8d6d6ead776764bc76d1a1aef9049d1bca89'
             '55804a95de0ac4741c9e52898e5bbfadafee2143f114fd9606d20b56970c6821'
             'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
+            'e0099a9035521b29523915fae2e5f1b38229df896191e4a046f7b0d55a45c7d2'
+            '34e71c085636fbc1726482996d92719d0a16e6a6097970ecf2990a27b3821162'
             '6879e3eedd85db06ca0b69597ef9175d3a743b0119e57e004c437499ee3f970f'
             '95d9d6dd1c9540ee57c489151854cf76cfe69342fd46a2424c1caf89c1a78846'
             'b34374b732dab132f329bb3da84fb85d058f6bc96cf6f67420339c60b2cb122c'
             'ea009220ed858aa2a545bce47063315431899f0bd7537388d206499d911ba318'
-            '092148de73be50c3f3a17bc8c0e8d2225e199a9794f86832c2b2bdf754e6c389')
+            '092148de73be50c3f3a17bc8c0e8d2225e199a9794f86832c2b2bdf754e6c389'
+            '2c5b006cb2a699f8fe5ace06d57736499f08f927eb2c2f44cc9b6262c81a6e69')
 noextract=()
 for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
@@ -69,6 +75,13 @@ build() {
     -DENABLE_OFFLINE_TELEMETRY=OFF -DBUILD_TESTING=OFF -DBUILD_THUNKS=OFF \
     -DOVERRIDE_VERSION="$_describe" -DOVERRIDE_HASH="$_commit"
   cmake --build build
+  # The Steam compatibility tool, as a separate portable build.
+  cmake -S "fex-$_commit" -B steam-build -G Ninja \
+    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DUSE_LINKER=lld -DENABLE_CCACHE=OFF -DTUNE_CPU=none \
+    -DBUILD_STEAM_SUPPORT=ON -DBUILD_THUNKS=OFF -DBUILD_TESTING=OFF -DBUILD_FEXCONFIG=OFF -DENABLE_OFFLINE_TELEMETRY=OFF \
+    -DOVERRIDE_VERSION="$_describe" -DOVERRIDE_HASH="$_commit"
+  cmake --build steam-build
 }
 
 check() {
@@ -94,6 +107,17 @@ package_fex-emu() {
   install -Dm755 aurora-fex-provider-up "$pkgdir/usr/lib/fex-emu/aurora-fex-provider-up"
   install -Dm644 70-aurora-fex-provider.hook "$pkgdir/usr/share/libalpm/hooks/70-aurora-fex-provider.hook"
   install -d "$pkgdir/usr/share/guestos/fex-mesa"
+}
+
+package_fex-emu-steam() {
+  pkgdesc='FEX as a Steam compatibility tool, "FEX (Aurora)" (Aurora build)'
+  depends=('glibc' 'gcc-libs')
+  local tool="$pkgdir/usr/share/steam/compatibilitytools.d/fex-aurora"
+  DESTDIR="$tool" cmake --install steam-build
+  install -Dm644 compatibilitytool.vdf "$tool/compatibilitytool.vdf"
+  # toolmanifest.vdf starts /fex-compat-tool in the tool's root.
+  ln -s FEXCompatTool "$tool/fex-compat-tool"
+  install -Dm644 "fex-$_commit/LICENSE" "$pkgdir/usr/share/licenses/fex-emu-steam/LICENSE"
 }
 
 # Takes over the name of the Asahi ALARM package so installs and upgrades of

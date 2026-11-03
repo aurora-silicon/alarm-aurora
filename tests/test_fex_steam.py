@@ -47,7 +47,7 @@ class FexSteamTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256((ROOT / 'packages/fex-emu' / source).read_bytes()).hexdigest(), digest)
 
     def test_fex_emu_takes_over_fex_emu_and_not_fex(self):
-        self.assertEqual(field('fex-emu', None, 'pkgname'), ['fex-emu', 'FEX-Emu'])
+        self.assertEqual(field('fex-emu', None, 'pkgname'), ['fex-emu', 'fex-emu-steam', 'FEX-Emu'])
         # `fex` is not ours to take (Fedora's is an unrelated tool).
         self.assertNotIn('provides=', re.search(r'(?ms)^package_fex-emu\(\) \{\n(.*?)^\}', (ROOT / 'packages/fex-emu/PKGBUILD').read_text())[1])
         self.assertEqual(field('fex-emu', 'package_fex-emu', 'conflicts'), ['FEX-Emu<2610'])
