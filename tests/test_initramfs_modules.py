@@ -25,6 +25,23 @@ class InitramfsModuleTests(unittest.TestCase):
         config = (ROOT/'packages/linux-aurora/config').read_text().splitlines()
         self.assertIn('CONFIG_USB4_APPLE_SOC=m', config)
 
+    def test_display_chain_and_pmp_come_before_the_root_is_unlocked(self):
+        # The T6041 display gate waits 20 s for the PMP driver; on an encrypted
+        # root, apple-pmp on the root filesystem arrives only after the passphrase.
+        hooks = sourced('HOOKS')
+        self.assertIn('aurora-display', hooks)
+        self.assertLess(hooks.index('aurora-display'), hooks.index('sd-encrypt'))
+        hook = [line.strip() for line in (BOOT/'aurora-display.install').read_text().splitlines()]
+        for module in ('apple-pmp?', 'mux-apple-display-crossbar?', 'appledrm?'):
+            self.assertIn(f'add_module {module}', hook)
+        self.assertIn('install -Dm644 aurora-display.install "$pkgdir/usr/lib/initcpio/install/aurora-display"',
+                      (BOOT/'PKGBUILD').read_text())
+        self.assertIn('Target = usr/lib/initcpio/install/aurora-display',
+                      (BOOT/'aurora-boot.hook').read_text().splitlines())
+        config = (ROOT/'packages/linux-aurora/config').read_text().splitlines()
+        for option in ('CONFIG_DRM_APPLE=m', 'CONFIG_APPLE_PMP=m'):
+            self.assertIn(option, config)
+
     def test_modules_have_no_optional_suffix(self):
         # The systemd hook writes MODULES to modules-load.d unchanged, and
         # systemd-modules-load has no optional "name?" form.

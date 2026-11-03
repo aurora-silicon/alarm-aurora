@@ -5,6 +5,7 @@ Operation = Remove
 Type = Path
 Target = etc/mkinitcpio.conf.d/90-aurora.conf
 Target = usr/lib/initcpio/install/aurora-usb4
+Target = usr/lib/initcpio/install/aurora-display
 Target = usr/lib/initcpio/install/aurora-early-kms
 Target = usr/libexec/aurora/aurora-early-kms
 Target = usr/lib/aurora/initrd/aurora-early-kms.service
