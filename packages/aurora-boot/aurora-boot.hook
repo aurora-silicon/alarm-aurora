@@ -4,6 +4,7 @@ Operation = Upgrade
 Operation = Remove
 Type = Path
 Target = etc/mkinitcpio.conf.d/90-aurora.conf
+Target = usr/lib/initcpio/install/aurora-usb4
 
 [Action]
 Description = Updating the Aurora initramfs...

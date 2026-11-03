@@ -1,15 +1,16 @@
 pkgname=aurora-boot
 pkgver=20261018
-pkgrel=7
+pkgrel=8
 pkgdesc='Aurora Alarm boot integration'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
-source=('90-aurora.conf' 'initialize-keyring' 'aurora-alarm-keyring.service' 'aurora-boot.hook' '80-aurora-image.preset')
-sha256sums=('5ca316ce2ada49555a0c271b0dc7da0b62b52abe765176163ff8263dd0041a66' 'fec1107e24cda3e1197d9a803792b79e18ccdd839b5cf78cf862e7ee46a27e5b' 'f358a3db63a0a7d293607e56d519d747158d6ff8bc9704d12c8340745fe0f9e1' '2bffe6c9542bf1a05307fd5d3c089bb87bd2384630d58c877320806a9d928624' '92eddf89ceab1c399a7601d16571d6b22f515b6a7148fd25300dcdb9f4ea6ec2')
+source=('90-aurora.conf' 'initialize-keyring' 'aurora-alarm-keyring.service' 'aurora-boot.hook' '80-aurora-image.preset' 'aurora-usb4.install')
+sha256sums=('d13854cdb2d8dd83d3a29737d9dced264c57ac00af251938b4d4c5b5a0996b57' 'fec1107e24cda3e1197d9a803792b79e18ccdd839b5cf78cf862e7ee46a27e5b' 'f358a3db63a0a7d293607e56d519d747158d6ff8bc9704d12c8340745fe0f9e1' '69ec3a3f9e749209186f350e3948148b6db9d3960631ce452aa31353568e19a7' '92eddf89ceab1c399a7601d16571d6b22f515b6a7148fd25300dcdb9f4ea6ec2' '83c9f4a85658401161aa860544cbf4e4ddeb2e26c0759e2605dc775774d41d2d')
 package() {
   depends=('mkinitcpio' 'grub' 'asahi-scripts' 'aura' 'uboot-aurora' 'aurora-firmware' 'aurora-firstboot' 'aurora-neo-platform-config' 'speakersafetyd-aurora-profiles' 'aurora-keyring' 'asahi-alarm-keyring')
   install -Dm644 90-aurora.conf "$pkgdir/etc/mkinitcpio.conf.d/90-aurora.conf"
+  install -Dm644 aurora-usb4.install "$pkgdir/usr/lib/initcpio/install/aurora-usb4"
   install -Dm644 aurora-boot.hook "$pkgdir/usr/share/libalpm/hooks/95-aurora-boot.hook"
   install -Dm755 initialize-keyring "$pkgdir/usr/libexec/aurora/initialize-keyring"
   install -Dm644 aurora-alarm-keyring.service "$pkgdir/usr/lib/systemd/system/aurora-alarm-keyring.service"

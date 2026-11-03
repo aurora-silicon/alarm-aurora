@@ -16,14 +16,24 @@ def sourced(array):
 class InitramfsModuleTests(unittest.TestCase):
     def test_usb4_router_comes_with_the_type_c_controllers(self):
         # The asahi hook carries tps6598x and sn201202x but not their router.
-        self.assertIn('asahi', sourced('HOOKS'))
-        self.assertIn('thunderbolt_apple?', sourced('MODULES'))
+        hooks = sourced('HOOKS')
+        self.assertEqual(hooks.index('aurora-usb4'), hooks.index('asahi') + 1)
+        hook = [line.strip() for line in (BOOT/'aurora-usb4.install').read_text().splitlines()]
+        self.assertIn('add_module thunderbolt_apple?', hook)
+        self.assertIn('install -Dm644 aurora-usb4.install "$pkgdir/usr/lib/initcpio/install/aurora-usb4"',
+                      (BOOT/'PKGBUILD').read_text())
         config = (ROOT/'packages/linux-aurora/config').read_text().splitlines()
         self.assertIn('CONFIG_USB4_APPLE_SOC=m', config)
+
+    def test_modules_have_no_optional_suffix(self):
+        # The systemd hook writes MODULES to modules-load.d unchanged, and
+        # systemd-modules-load has no optional "name?" form.
+        self.assertEqual([m for m in sourced('MODULES') if m.endswith('?')], [])
 
     def test_initramfs_is_rebuilt_when_the_boot_configuration_changes(self):
         hook = (BOOT/'aurora-boot.hook').read_text().splitlines()
         self.assertIn('Target = etc/mkinitcpio.conf.d/90-aurora.conf', hook)
+        self.assertIn('Target = usr/lib/initcpio/install/aurora-usb4', hook)
         self.assertIn('Exec = /usr/bin/mkinitcpio -P', hook)
         pkgbuild = (BOOT/'PKGBUILD').read_text()
         self.assertIn("'aurora-boot.hook'", pkgbuild)
