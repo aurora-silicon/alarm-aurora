@@ -47,13 +47,23 @@ class FexSteamTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256((ROOT / 'packages/fex-emu' / source).read_bytes()).hexdigest(), digest)
 
     def test_fex_emu_takes_over_fex_emu_and_not_fex(self):
-        self.assertEqual(field('fex-emu', None, 'pkgname'), ['fex-emu', 'FEX-Emu'])
-        # `fex` is not ours to take (Fedora's is an unrelated tool).
-        self.assertNotIn('provides=', re.search(r'(?ms)^package_fex-emu\(\) \{\n(.*?)^\}', (ROOT / 'packages/fex-emu/PKGBUILD').read_text())[1])
-        self.assertEqual(field('fex-emu', 'package_fex-emu', 'conflicts'), ['FEX-Emu<2610'])
-        depends = field('fex-emu', 'package_FEX-Emu', 'depends')
-        self.assertEqual(len(depends), 1)
-        self.assertTrue(depends[0].startswith('fex-emu=2610'))
+        self.assertEqual(field('fex-emu', None, 'pkgname'), ['fex-emu'])
+        # pacman -Syu moves an Asahi FEX-Emu install to fex-emu; `fex` is not
+        # ours to take (Fedora's is an unrelated tool).
+        provides = field('fex-emu', 'package_fex-emu', 'provides')
+        self.assertEqual(len(provides), 1)
+        self.assertTrue(provides[0].startswith('FEX-Emu='))
+        self.assertEqual(field('fex-emu', 'package_fex-emu', 'conflicts'), ['FEX-Emu'])
+        self.assertEqual(field('fex-emu', 'package_fex-emu', 'replaces'), ['FEX-Emu'])
+
+    def test_no_two_packages_differ_only_in_case(self):
+        # The testing snapshot publishes each package file as a release asset,
+        # and release asset names are case-insensitive.
+        names = {}
+        for pkgbuild in sorted((ROOT / 'packages').glob('*/PKGBUILD')):
+            for name in field(pkgbuild.parent.name, None, 'pkgname') or []:
+                self.assertNotIn(name.lower(), names, f'{name} and {names.get(name.lower())}')
+                names[name.lower()] = name
 
     def test_steam_replaces_the_muvm_wrapper_and_uses_the_system_launcher(self):
         d = ROOT / 'packages/aurora-steam-native'
