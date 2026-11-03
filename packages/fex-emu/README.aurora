@@ -1,0 +1,38 @@
+# FEX on Aurora
+
+This is FEX built from Aurora's fork (https://github.com/aurora-silicon/fex),
+packaged as fex-emu. It replaces the FEX-Emu package from the Asahi ALARM
+repository, so `pacman -S fex-emu` and `pacman -S FEX-Emu` both install it.
+
+## 4 KiB pages
+
+FEX needs a 4 KiB page size. Aurora kernels use 16 KiB pages but can give a
+process tree 4 KiB pages when the kernel is booted with `user4k=on` (the
+default on Aurora images; `aurora-userpages` adds it to the GRUB command line).
+Start x86 programs inside a 4 KiB tree:
+
+    userpages 4k FEXBash
+    userpages 4k FEX ./program
+
+Programs started from a 4 KiB tree inherit it, including x86 programs that
+binfmt_misc hands to FEX. Started from an ordinary 16 KiB process,
+FEX runs with 16 KiB pages and x86 programs fail. `userpages --status` shows
+the current page size. Aurora's Steam launcher starts Steam in a 4 KiB tree.
+
+## Hardware TSO
+
+On kernels that offer the memory-model prctl (PR_SET_MEM_MODEL), FEX switches
+the process to the hardware total store order mode and drops its software
+TSO emulation. Check with:
+
+    FEXGetConfig --tso-emulation-info
+
+## Root filesystem
+
+FEX reads x86 root filesystems from /usr/share/fex-emu/RootFS and
+~/.local/share/fex-emu/RootFS; `FEXRootFSFetcher` fetches one. Steam's x86
+titles use the Steam runtime instead.
+
+## Thunks
+
+This build has no host library thunks (as the FEX-Emu package it replaces).
