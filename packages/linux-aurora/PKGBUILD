@@ -34,12 +34,14 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config)
+        rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '3a951125d4b546a8fbd8897d6f592640dfe08f573e4c4ad916bbe87cf0549c80'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '251d9dc8091715e6838b8d6391cbbe9b3ac20db3bb23e514e57ce09782096c93')
+            '251d9dc8091715e6838b8d6391cbbe9b3ac20db3bb23e514e57ce09782096c93'
+            '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
+            '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -128,11 +130,14 @@ build() {
   export LLVM="${AURORA_LLVM:-1}" RUSTUP_TOOLCHAIN=1.99.0
   export AURORA_BINDGEN_REAL="$srcdir/private-bindgen/rust-bindgen-0.73.2/target/release/bindgen"
   _make O="$PWD/build/base" -j"${OMARCHY_BUILD_JOBS:-10}" Image modules dtbs
+  # The launcher includes this tree's prctl.h, so its numbers match the kernel.
+  make -C tools/aurora-userpages
 }
 
 _package_kernel() {
   pkgdesc="The $pkgdesc kernel and modules"
-  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version")
+  # aurora-userpages: an ordinary upgrade brings the launcher and user4k=on.
+  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" aurora-userpages)
   optdepends=('crda: to set the correct wireless channels of your country'
               'linux-firmware: firmware images needed for some devices')
   # No generic linux provide: on a shared aarch64 repository it would compete
@@ -268,8 +273,22 @@ _package-headers() {
 
 }
 
-pkgname=("$pkgbase" "$pkgbase-headers")
-for _p in "${pkgname[@]}"; do
+package_aurora-userpages() {
+  pkgdesc='Run programs with 4K userspace pages on the Aurora kernel'
+  depends=(glibc)
+  options=(strip)
+
+  cd $_srcname
+  install -Dm755 tools/aurora-userpages/userpages "$pkgdir/usr/bin/userpages"
+  install -Dm644 tools/aurora-userpages/README.rst "$pkgdir/usr/share/doc/aurora-userpages/README.rst"
+  # Arch's GRUB reads /etc/default/grub.d after /etc/default/grub; the hook
+  # regenerates grub.cfg so an installed system boots with user4k=on.
+  install -Dm644 "$srcdir/50-aurora-user4k.cfg" "$pkgdir/etc/default/grub.d/50-aurora-user4k.cfg"
+  install -Dm644 "$srcdir/aurora-userpages.hook" "$pkgdir/usr/share/libalpm/hooks/90-aurora-userpages.hook"
+}
+
+pkgname=("$pkgbase" "$pkgbase-headers" aurora-userpages)
+for _p in "$pkgbase" "$pkgbase-headers"; do
   eval "package_$_p() {
     $(declare -f "_package${_p#$pkgbase}")
     _package${_p#$pkgbase}
