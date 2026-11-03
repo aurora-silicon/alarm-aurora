@@ -7,12 +7,13 @@ url='https://github.com/aurora-silicon/alarm-aurora'
 license=('MIT')
 depends=('systemd' 'bluez>=5.87')
 source=(malcontent-signal.conf malcontent-webd-update-signal.conf LICENSE 50-after-swapfile.conf
-        61-aurora-dmi-id.rules 60-aurora-dmi-vendor.hwdb drkonqi-ordering.conf)
+        61-aurora-dmi-id.rules 60-aurora-dmi-vendor.hwdb drkonqi-ordering.conf nm-dispatcher-persist.conf)
 sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '866a2b6a4d7c7408a0a3b9d33a932c548c4fedec6917d414f237f0064e7aa6f1' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9'
             '47f566640dbb31023b46db86695608adea7782e00f49f622e50be21491455a10'
             'bfc15b89689f807c5e66bae31359c2842b28af57b73f0fde6f9396c7ad0ac54c'
             'db7b2900eb3c4caaa195b12a4affd0bbcc82fbc091e1fa93b0ea3db97e6cf7b9'
-            '290e49ac91460cf801e49ffc0233efca075e0305855fa8ef81e90262d7ed1fcc')
+            '290e49ac91460cf801e49ffc0233efca075e0305855fa8ef81e90262d7ed1fcc'
+            'faa2b065fd84a14cf1e106eec88fb337b2b787fd9d08e58301f85a3288e685cc')
 
 package() {
   install -Dm644 50-after-swapfile.conf \
@@ -30,4 +31,6 @@ package() {
   for unit in drkonqi-coredump-cleanup.timer drkonqi-sentry-postman.path; do
     install -Dm644 drkonqi-ordering.conf "$pkgdir/usr/lib/systemd/user/$unit.d/50-aurora-ordering.conf"
   done
+  install -Dm644 nm-dispatcher-persist.conf \
+    "$pkgdir/usr/lib/systemd/system/NetworkManager-dispatcher.service.d/50-aurora-persist.conf"
 }
