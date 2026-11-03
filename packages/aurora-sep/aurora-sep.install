@@ -1,0 +1,4 @@
+# The pacman hook offers Touch ID to sudo and polkit; undo that on removal.
+pre_remove() {
+  /usr/libexec/aurora/touchid-pam --remove || :
+}
