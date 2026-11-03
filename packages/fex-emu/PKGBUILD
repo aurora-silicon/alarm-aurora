@@ -56,10 +56,12 @@ prepare() {
 }
 
 build() {
+  # FEX tunes for the build machine by default (-mcpu from its /proc/cpuinfo),
+  # which crashes with SIGILL on Apple CPUs when CI builds on Neoverse.
   cmake -S "fex-$_commit" -B build -G Ninja \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
-    -DUSE_LINKER=lld -DENABLE_LTO=ON -DENABLE_CCACHE=OFF \
+    -DUSE_LINKER=lld -DENABLE_LTO=ON -DENABLE_CCACHE=OFF -DTUNE_CPU=none \
     -DENABLE_OFFLINE_TELEMETRY=OFF -DBUILD_TESTING=OFF -DBUILD_THUNKS=OFF \
     -DOVERRIDE_VERSION="$_describe" -DOVERRIDE_HASH="$_commit"
   cmake --build build
