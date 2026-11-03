@@ -72,6 +72,11 @@ class FexSteamTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256((d / source).read_bytes()).hexdigest(), digest)
         subprocess.run(['bash', '-n', str(d / 'steam')], check=True)
 
+    def test_gtk2_is_built_here_for_the_native_client(self):
+        # Arch Linux ARM dropped GTK 2; steamui.so needs libgtk-x11-2.0.so.0.
+        self.assertEqual(field('gtk2', None, 'arch'), ['aarch64'])
+        self.assertIn('libgtk-x11-2.0.so', field('gtk2', 'package', 'provides'))
+
 
 if __name__ == '__main__':
     unittest.main()
