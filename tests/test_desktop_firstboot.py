@@ -133,10 +133,23 @@ class PlasmaSetupRecipeTests(unittest.TestCase):
 
     def test_release_tarball_is_digest_pinned(self):
         version, = self.recipe('printf "%s\\n" "$pkgver"')
-        source, = self.recipe('printf "%s\\n" "${source[@]}"')
-        digest, = self.recipe('printf "%s\\n" "${sha256sums[@]}"')
+        source, *patches = self.recipe('printf "%s\\n" "${source[@]}"')
+        digests = self.recipe('printf "%s\\n" "${sha256sums[@]}"')
         self.assertEqual(source, f'https://download.kde.org/stable/plasma/{version}/plasma-setup-{version}.tar.xz')
-        self.assertRegex(digest, r'^[0-9a-f]{64}$')
+        self.assertEqual(len(digests), 1 + len(patches))
+        for digest in digests:
+            self.assertRegex(digest, r'^[0-9a-f]{64}$')
+        for patch in patches:
+            self.assertTrue((ROOT/'packages/plasma-setup'/patch).is_file(), patch)
+
+    def test_setup_user_files_stay_non_executable(self):
+        # A recursive mode of 0750 made the setup user's autostart entry
+        # executable, and systemd's autostart generator warns about that.
+        patch = (ROOT/'packages/plasma-setup/0001-tmpfiles-keep-the-setup-user-s-files-non-executable.patch').read_text()
+        self.assertIn('-Z /run/plasma-setup 0750 plasma-setup plasma-setup - -\n', patch)
+        self.assertIn('+Z /run/plasma-setup ~0750 plasma-setup plasma-setup - -\n', patch)
+        self.assertIn('0001-tmpfiles-keep-the-setup-user-s-files-non-executable.patch',
+                      (ROOT/'packages/plasma-setup/PKGBUILD').read_text())
 
     def test_runtime_dependencies_cover_the_wizard_modules(self):
         depends = set(self.recipe('printf "%s\\n" "${depends[@]}"'))
