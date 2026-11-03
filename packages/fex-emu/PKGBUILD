@@ -1,9 +1,9 @@
 # FEX from Aurora's fork. Replaces the Asahi ALARM FEX-Emu package; the
 # fork's submodules are pinned at its gitlinks (sources.json extra_sources).
 pkgbase=fex-emu
-pkgname=(fex-emu FEX-Emu)
+pkgname=fex-emu
 pkgver=2610.r202611030240.3f4ee4277f1
-pkgrel=1
+pkgrel=2
 pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/fex'
@@ -76,16 +76,15 @@ package_fex-emu() {
   optdepends=('aurora-userpages: run FEX in 4 KiB page process trees on 16 KiB kernels'
               'qt6-declarative: FEXConfig'
               'sdl2-compat: FEXConfig')
-  conflicts=('FEX-Emu<2610')
+  # Takes over the Asahi ALARM FEX-Emu package: pacman -Syu replaces it, and
+  # anything that asks for FEX-Emu gets this build. No transitional FEX-Emu
+  # package: its file name differs from fex-emu's only in case, and release
+  # assets are case-insensitive, so the testing snapshot cannot carry both.
+  provides=("FEX-Emu=$pkgver-$pkgrel")
+  conflicts=('FEX-Emu')
+  replaces=('FEX-Emu')
   DESTDIR="$pkgdir" cmake --install build
   install -dm755 "$pkgdir/usr/share/fex-emu/RootFS" "$pkgdir/usr/share/fex-emu/overlays"
   install -Dm644 "fex-$_commit/LICENSE" "$pkgdir/usr/share/licenses/fex-emu/LICENSE"
   install -Dm644 README.aurora "$pkgdir/usr/share/doc/fex-emu/README.aurora"
-}
-
-# Takes over the name of the Asahi ALARM package so installs and upgrades of
-# FEX-Emu move to the Aurora build.
-package_FEX-Emu() {
-  pkgdesc='Transitional package: FEX-Emu is now fex-emu (Aurora build)'
-  depends=("fex-emu=$pkgver-$pkgrel")
 }
