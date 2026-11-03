@@ -14,6 +14,7 @@ filesystems the installer writes):
   lid        logind still suspends on lid close; sleep is not masked
   GL         factory images leave Mesa driver selection automatic
   ssh        no sshd unit is enabled; remote login is the owner's choice
+  units      no unit file or drop-in is executable (systemd warns every boot)
   greeter    KDE signs in with Plasma Login, whose greeter runs on KWin
              Wayland at the display's scale (SDDM's Xorg greeter drew at 1x)
 
@@ -240,6 +241,25 @@ def check_ssh(root):
     return None
 
 
+UNIT_SUFFIXES = ('.service', '.socket', '.target', '.path', '.timer', '.mount', '.automount',
+                 '.swap', '.slice', '.scope', '.device')
+
+
+def check_unit_modes(root):
+    for directory in (f'{root.usr}/lib/systemd/system', f'{root.usr}/lib/systemd/user',
+                      f'{root.etc}/systemd/system', f'{root.etc}/systemd/user'):
+        base = root.path(directory)
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob('*')):
+            drop_in = path.suffix == '.conf' and path.parent.name.endswith('.d')
+            if path.is_symlink() or not path.is_file() or not (drop_in or path.suffix in UNIT_SUFFIXES):
+                continue
+            if path.stat().st_mode & 0o111:
+                return f'{directory}/{path.relative_to(base)} is marked executable'
+    return None
+
+
 def check_greeter(root, profile):
     if profile != 'kde':
         return None
@@ -351,6 +371,7 @@ def main():
         checks.append(('network', check_network(root, args.profile)))
         checks.append(('lid', check_lid(root)))
         checks.append(('ssh', check_ssh(root)))
+        checks.append(('units', check_unit_modes(root)))
         checks.append(('greeter', check_greeter(root, args.profile)))
     if args.esp:
         checks.append(('boot', check_boot(args)))

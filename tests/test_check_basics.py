@@ -181,6 +181,25 @@ class CheckBasicsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('ssh: ok', result.stdout)
 
+    def test_executable_unit_or_drop_in_fails(self):
+        for name in ('usr/lib/systemd/system/macsmc-battery-charge-control-end-threshold.path',
+                     'usr/lib/systemd/user/drkonqi-sentry-postman.path.d/50-aurora-ordering.conf',
+                     'etc/systemd/system/example.service'):
+            with self.subTest(name=name):
+                self.assert_fails('minimal', lambda root: write(root / name, '[Unit]\n', mode=0o755),
+                                  f'/{name} is marked executable')
+                self.temporary.cleanup()
+                self.temporary = tempfile.TemporaryDirectory()
+                self.base = Path(self.temporary.name)
+
+    def test_plain_units_and_drop_ins_pass(self):
+        root = self.desktop_root('minimal')
+        write(root / 'usr/lib/systemd/system/example.service', '[Service]\n', mode=0o644)
+        write(root / 'usr/lib/systemd/system/example.service.d/50-example.conf', '[Unit]\n', mode=0o644)
+        result = self.check('--profile', 'minimal', '--root', str(root))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('units: ok', result.stdout)
+
     def test_kde_signs_in_with_plasma_login(self):
         root = self.desktop_root('kde')
         result = self.check('--profile', 'kde', '--root', str(root))

@@ -1,0 +1,43 @@
+# Maintainer: Jos Dehaes <jos.dehaes@gmail.com>
+# Maintainer: Matthias Kurz <m.kurz@irregular.at>
+
+# asahi-alarm's recipe (asahi-alarm/PKGBUILDs 8648855) with the unit mode fix
+# from AsahiLinux/asahi-scripts#75. Drop this copy once asahi-alarm ships it:
+# the aurora repository is listed first, so it shadows asahi-alarm's updates.
+pkgname=asahi-scripts
+pkgver=20261023
+pkgrel=2
+pkgdesc='Asahi Linux maintenance scripts'
+arch=('any')
+url='http://asahilinux.org'
+license=('MIT')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/asahi-alarm/${pkgname}/archive/refs/tags/${pkgver}.tar.gz"
+        0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch)
+install=asahi-scripts.install
+sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
+            '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9')
+b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641bdf60357411b2c14caf96eb19a4a23bd258d3a00127e70679a7ca8770'
+        '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93')
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  # systemd warns on every boot about unit files marked executable.
+  patch -p1 < "${srcdir}/0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch"
+}
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  make PREFIX=/usr DESTDIR=${pkgdir} all
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  make PREFIX=/usr DESTDIR=${pkgdir} install-arch
+  # re-add DTBS variable
+  sed -i -e '/${CONFIG/i : ${DTBS:=$(/bin/ls -d /lib/modules/*-ARCH | sort -rV | head -1)/dtbs/*.dtb}' "$pkgdir/usr/bin/update-m1n1"
+  install -Dm644 "$srcdir/${pkgname}-${pkgver}/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
