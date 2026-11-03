@@ -10,7 +10,7 @@ url='https://github.com/aurora-silicon/fex'
 license=('MIT' 'Apache-2.0' 'BSL-1.0' 'BSD-3-Clause' 'GPL-2.0-only')
 _commit=3f4ee4277f11b1986a5edf8ecc9c2c4169830bd4
 _sha256=628d5c16526cdf3f505dcd51bf6b9ec37c02c4b82b492ae6d1a8eec70cf239b8
-_describe=FEX-2610-19-g${_commit::7}
+_describe=FEX-${pkgver%%.r*}-aurora-g${_commit::7}
 makedepends=('cmake' 'ninja' 'clang' 'lld' 'llvm' 'python' 'python-setuptools' 'python-packaging'
              'fmt' 'xxhash' 'catch2' 'libepoxy' 'sdl2-compat' 'qt6-declarative' 'pkgconf')
 _bundled=(
@@ -38,7 +38,7 @@ sha256sums=("$_sha256"
             'df7a152381a7fdaf98e36de7716b8d6d6ead776764bc76d1a1aef9049d1bca89'
             '55804a95de0ac4741c9e52898e5bbfadafee2143f114fd9606d20b56970c6821'
             'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
-            '501e9bf4b89b711ea6254e7af9bb385367f57a1f89e792b5b34e4a4a9ac1df0c')
+            '869bce092e096557646db74227d7c4d6aa00bf15799031a5855c170108bf80bd')
 noextract=()
 for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"

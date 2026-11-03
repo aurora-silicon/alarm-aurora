@@ -17,19 +17,22 @@ checkdepends=('python' 'desktop-file-utils')
 source=("aurora-steam-native-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-steam-native/tar.gz/$_commit"
         steam steam.desktop)
 sha256sums=("$_sha256"
-            '2153474a45833b715ede236c2b391c850e22749f9e7c14fa68e06b637f90724c'
+            '5f9e6cfcf026f3a81a6a968dc6857232578a23098276c4d6b8a0c6edffeb23f6'
             '1e2f858be0c8d365131cd1fc7072df68f3a1a8b990a2ba479aa82b1f8e692b6b')
 
 prepare() {
   cd "aurora-steam-native-$_commit"
   find . -name __pycache__ -prune -exec rm -rf {} +
-  sed -e "s,@LIBDIR@,$_lib," -e 's,@USERPAGES@,/usr/bin/userpages,' "$srcdir/steam" > "$srcdir/steam.aurora"
+  sed -e "s,@LIBDIR@,$_lib," -e 's,@USERPAGES@,/usr/bin/userpages,' \
+    -e 's|@USER4K_HINT@|aurora-userpages adds user4k=on to GRUB_CMDLINE_LINUX unless /etc/default/grub sets user4k=; remove user4k=off there, run sudo grub-mkconfig -o /boot/grub/grub.cfg and reboot|' \
+    "$srcdir/steam" > "$srcdir/steam.aurora"
 }
 
 check() {
   cd "aurora-steam-native-$_commit"
   desktop-file-validate "$srcdir/steam.desktop" share/applications/org.aurorasilicon.Play.desktop
   bash -n "$srcdir/steam.aurora"
+  if grep -n '@[A-Z0-9_]*@' "$srcdir/steam.aurora"; then return 1; fi
   grep -qx 'userpages=${AURORA_USERPAGES_LAUNCHER:-/usr/bin/userpages}' "$srcdir/steam.aurora"
   local t
   for t in tests/test-steam-native4k-launch-env.py tests/test-offline-installer.py tests/test-aurora-play-settings.py; do

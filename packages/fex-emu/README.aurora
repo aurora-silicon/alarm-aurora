@@ -13,10 +13,10 @@ default on Aurora images; `aurora-userpages` adds it to the GRUB command line).
 Start x86 programs inside a 4 KiB tree:
 
     userpages 4k FEXBash
-    userpages 4k FEXInterpreter ./program
+    userpages 4k FEX ./program
 
 Programs started from a 4 KiB tree inherit it, including x86 programs that
-binfmt_misc hands to FEXInterpreter. Started from an ordinary 16 KiB process,
+binfmt_misc hands to FEX. Started from an ordinary 16 KiB process,
 FEX runs with 16 KiB pages and x86 programs fail. `userpages --status` shows
 the current page size. Aurora's Steam launcher starts Steam in a 4 KiB tree.
 
