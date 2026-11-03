@@ -1,0 +1,16 @@
+#!/bin/bash
+# The display chain belongs in the initramfs, as Fedora's 91aurora-early-kms
+# puts it there. On the M4 Pro the kernel's T6041 display gate brings the
+# external display processors up only once the PMP driver binds, and gives up
+# 20 s into the boot. With apple-pmp only on the root filesystem, an encrypted
+# root holds it back until the passphrase is typed, so the gate gives up and
+# every external display and Type-C DP route stays off for the whole boot.
+# appledrm brings apple-pmp, dcp-fabric-core and typec as dependencies, and
+# its crossbar soft dependency; both are named so that neither depends on
+# that resolution. udev loads them during the initramfs coldplug.
+build() {
+  add_module apple-pmp?
+  add_module mux-apple-display-crossbar?
+  add_module appledrm?
+}
+help() { echo 'Add the Apple display chain and its PMP to the initramfs.'; }
