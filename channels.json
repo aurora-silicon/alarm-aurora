@@ -2,15 +2,25 @@
   "channels": {
     "testing": {
       "actor": "DjDeveloperr",
-      "commit": "221cdb2303d19e3acafc8798d441b729fdb8f132",
-      "deployed_at": "2026-11-02T20:11:51Z",
+      "commit": "d2a0005af5faeafd6ba51d1d0cdea55a1d81351d",
+      "deployed_at": "2026-11-03T06:11:09Z",
       "provenance": "verified",
-      "released_at": "2026-11-02T20:00:12Z",
-      "run_id": "41516918458",
-      "tag": "testing-20261102.6"
+      "released_at": "2026-11-03T05:18:51Z",
+      "run_id": "41588263656",
+      "tag": "testing-20261103.5"
     }
   },
   "history": [
+    {
+      "actor": "DjDeveloperr",
+      "channel": "testing",
+      "commit": "d2a0005af5faeafd6ba51d1d0cdea55a1d81351d",
+      "deployed_at": "2026-11-03T06:11:09Z",
+      "provenance": "verified",
+      "released_at": "2026-11-03T05:18:51Z",
+      "run_id": "41588263656",
+      "tag": "testing-20261103.5"
+    },
     {
       "actor": "DjDeveloperr",
       "channel": "testing",
