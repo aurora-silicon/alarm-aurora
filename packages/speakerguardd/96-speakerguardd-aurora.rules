@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+# Start speakerguardd for the speaker cards of every machine whose profile
+# speakerguardd ships and Aurora has qualified. speakerguardd's own
+# 95-speakerguardd.rules names the J700 and keeps PipeWire off every
+# macaudio sense PCM (ACP_IGNORE). Without a running daemon the kernel keeps
+# each card's speakers at its safe level, so a card listed here is never
+# unprotected while the daemon starts, restarts or fails.
+SUBSYSTEM=="sound", DRIVERS=="snd-soc-macaudio", GOTO="aurora_speakerguardd_macaudio"
+GOTO="aurora_speakerguardd_end"
+
+LABEL="aurora_speakerguardd_macaudio"
+# Add a card only with its listening-gate qualification on that machine.
+KERNEL=="pcmC*D2c", ATTRS{id}=="AppleJ616", TAG+="systemd", ENV{SYSTEMD_WANTS}="speakerguardd.service"
+
+LABEL="aurora_speakerguardd_end"
