@@ -73,6 +73,21 @@ class FexSteamTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256((d / source).read_bytes()).hexdigest(), digest)
         subprocess.run(['bash', '-n', str(d / 'steam')], check=True)
 
+    def test_fex_mounts_the_stock_guest_rootfs_below_the_aurora_mesa_layer(self):
+        d = ROOT / 'packages/fex-emu'
+        unit = (d / 'usr-share-guestos-fex\\x2dmesa.mount').read_text()
+        self.assertIn('What=/usr/share/fex-emu/RootFS/default.erofs\n', unit)
+        self.assertIn('Where=/usr/share/guestos/fex-mesa\n', unit)
+        service = (ROOT / 'packages/mesa-aurora-fex-guest/aurora-fex-mesa.service').read_text()
+        self.assertIn('lowerdir=/usr/share/guestos/aurora-fex-mesa-layer:/usr/share/guestos/fex-mesa ', service)
+        self.assertIn('Wants=usr-share-guestos-fex\\x2dmesa.mount\n', (d / '50-aurora-fex-rootfs.conf').read_text())
+        hook = (d / '70-aurora-fex-provider.hook').read_text()
+        self.assertIn('Target = usr/share/fex-emu/RootFS/default.erofs\n', hook)
+        self.assertIn('Exec = /usr/lib/fex-emu/aurora-fex-provider-up\n', hook)
+        text = (d / 'PKGBUILD').read_text()
+        self.assertIn('"$pkgdir/usr/lib/systemd/system/aurora-fex-mesa.service.d/50-aurora-fex-rootfs.conf"', text)
+        subprocess.run(['sh', '-n', str(d / 'aurora-fex-provider-up')], check=True)
+
     def test_gtk2_is_built_here_for_the_native_client(self):
         # Arch Linux ARM dropped GTK 2; steamui.so needs libgtk-x11-2.0.so.0.
         self.assertEqual(field('gtk2', None, 'arch'), ['aarch64'])

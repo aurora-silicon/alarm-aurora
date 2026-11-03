@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/share/fex-emu/RootFS/default.erofs
+Target = usr/share/guestos/aurora-fex-mesa-layer/.aurora-mesa-commit
+
+[Action]
+Description = Mounting the FEX guest graphics provider...
+When = PostTransaction
+Exec = /usr/lib/fex-emu/aurora-fex-provider-up

@@ -3,7 +3,7 @@
 pkgbase=fex-emu
 pkgname=(fex-emu FEX-Emu)
 pkgver=2610.r202611030240.3f4ee4277f1
-pkgrel=1
+pkgrel=2
 pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/fex'
@@ -28,7 +28,7 @@ for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
   source+=("$_n-$_c.tar.gz::https://codeload.github.com/$_r/tar.gz/$_c")
 done
-source+=(README.aurora)
+source+=(README.aurora 'usr-share-guestos-fex\x2dmesa.mount' 50-aurora-fex-rootfs.conf aurora-fex-provider-up 70-aurora-fex-provider.hook)
 sha256sums=("$_sha256"
             '68e6b500890270517d226abbc3610135de1600ddde29f44c9b68cca5e2a17f60'
             '3d3653841f81ea5be1a15cd4b458f048c1fffbcd97fcc808454a7fbe7cf1a555'
@@ -38,7 +38,11 @@ sha256sums=("$_sha256"
             'df7a152381a7fdaf98e36de7716b8d6d6ead776764bc76d1a1aef9049d1bca89'
             '55804a95de0ac4741c9e52898e5bbfadafee2143f114fd9606d20b56970c6821'
             'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
-            '6879e3eedd85db06ca0b69597ef9175d3a743b0119e57e004c437499ee3f970f')
+            '6879e3eedd85db06ca0b69597ef9175d3a743b0119e57e004c437499ee3f970f'
+            '95d9d6dd1c9540ee57c489151854cf76cfe69342fd46a2424c1caf89c1a78846'
+            'b34374b732dab132f329bb3da84fb85d058f6bc96cf6f67420339c60b2cb122c'
+            'ea009220ed858aa2a545bce47063315431899f0bd7537388d206499d911ba318'
+            '092148de73be50c3f3a17bc8c0e8d2225e199a9794f86832c2b2bdf754e6c389')
 noextract=()
 for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
@@ -73,7 +77,9 @@ check() {
 
 package_fex-emu() {
   depends=('glibc' 'gcc-libs' 'fmt' 'xxhash' 'squashfuse' 'squashfs-tools' 'erofs-utils')
+  install=fex-emu.install
   optdepends=('aurora-userpages: run FEX in 4 KiB page process trees on 16 KiB kernels'
+              'fex-emu-rootfs-arch: x86 root filesystem, also the lower layer of the FEX guest graphics provider'
               'qt6-declarative: FEXConfig'
               'sdl2-compat: FEXConfig')
   conflicts=('FEX-Emu<2610')
@@ -81,6 +87,13 @@ package_fex-emu() {
   install -dm755 "$pkgdir/usr/share/fex-emu/RootFS" "$pkgdir/usr/share/fex-emu/overlays"
   install -Dm644 "fex-$_commit/LICENSE" "$pkgdir/usr/share/licenses/fex-emu/LICENSE"
   install -Dm644 README.aurora "$pkgdir/usr/share/doc/fex-emu/README.aurora"
+  # The stock guest root filesystem below mesa-aurora-fex-guest's Aurora Mesa
+  # layer (the Steam FEX graphics provider); no package provided that tree.
+  install -Dm644 'usr-share-guestos-fex\x2dmesa.mount' "$pkgdir/usr/lib/systemd/system/usr-share-guestos-fex\x2dmesa.mount"
+  install -Dm644 50-aurora-fex-rootfs.conf "$pkgdir/usr/lib/systemd/system/aurora-fex-mesa.service.d/50-aurora-fex-rootfs.conf"
+  install -Dm755 aurora-fex-provider-up "$pkgdir/usr/lib/fex-emu/aurora-fex-provider-up"
+  install -Dm644 70-aurora-fex-provider.hook "$pkgdir/usr/share/libalpm/hooks/70-aurora-fex-provider.hook"
+  install -d "$pkgdir/usr/share/guestos/fex-mesa"
 }
 
 # Takes over the name of the Asahi ALARM package so installs and upgrades of
