@@ -75,7 +75,7 @@ class FexSteamTests(unittest.TestCase):
 
     def test_fex_mounts_the_stock_guest_rootfs_below_the_aurora_mesa_layer(self):
         d = ROOT / 'packages/fex-emu'
-        unit = (d / 'usr-share-guestos-fex\\x2dmesa.mount').read_text()
+        unit = (d / 'fex-guest-rootfs.mount').read_text()
         self.assertIn('What=/usr/share/fex-emu/RootFS/default.erofs\n', unit)
         self.assertIn('Where=/usr/share/guestos/fex-mesa\n', unit)
         service = (ROOT / 'packages/mesa-aurora-fex-guest/aurora-fex-mesa.service').read_text()

@@ -31,7 +31,7 @@ for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
   source+=("$_n-$_c.tar.gz::https://codeload.github.com/$_r/tar.gz/$_c")
 done
-source+=(README.aurora 'usr-share-guestos-fex\x2dmesa.mount' 50-aurora-fex-rootfs.conf aurora-fex-provider-up 70-aurora-fex-provider.hook compatibilitytool.vdf)
+source+=(README.aurora fex-guest-rootfs.mount 50-aurora-fex-rootfs.conf aurora-fex-provider-up 70-aurora-fex-provider.hook compatibilitytool.vdf)
 sha256sums=("$_sha256"
             '68e6b500890270517d226abbc3610135de1600ddde29f44c9b68cca5e2a17f60'
             '3d3653841f81ea5be1a15cd4b458f048c1fffbcd97fcc808454a7fbe7cf1a555'
@@ -102,7 +102,8 @@ package_fex-emu() {
   install -Dm644 README.aurora "$pkgdir/usr/share/doc/fex-emu/README.aurora"
   # The stock guest root filesystem below mesa-aurora-fex-guest's Aurora Mesa
   # layer (the Steam FEX graphics provider); no package provided that tree.
-  install -Dm644 'usr-share-guestos-fex\x2dmesa.mount' "$pkgdir/usr/lib/systemd/system/usr-share-guestos-fex\x2dmesa.mount"
+  # makepkg mishandles the escaped unit name as a source file name.
+  install -Dm644 fex-guest-rootfs.mount "$pkgdir/usr/lib/systemd/system/usr-share-guestos-fex\x2dmesa.mount"
   install -Dm644 50-aurora-fex-rootfs.conf "$pkgdir/usr/lib/systemd/system/aurora-fex-mesa.service.d/50-aurora-fex-rootfs.conf"
   install -Dm755 aurora-fex-provider-up "$pkgdir/usr/lib/fex-emu/aurora-fex-provider-up"
   install -Dm644 70-aurora-fex-provider.hook "$pkgdir/usr/share/libalpm/hooks/70-aurora-fex-provider.hook"
