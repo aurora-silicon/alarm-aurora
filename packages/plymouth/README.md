@@ -21,6 +21,13 @@ a termios reset, a partial canonical line, a subsequent complete line,
 close/reopen cleanup, and the real keyboard event handler. No hardware
 console is required.
 
+`0001-systemd-units-Start-plymouthd-without-waiting-for-coldplug.patch` is
+copied unchanged from [Fedora carry #149](https://github.com/aurora-silicon/fedora-aurora/pull/149).
+It orders `plymouth-start.service` after `systemd-udevd.service` instead of
+after the whole coldplug trigger. `aurora-boot`'s `aurora-early-kms` initcpio
+hook coldplugs the Apple display before `systemd-udev-trigger`, so the splash
+starts on appledrm in the initramfs. Retire the patch with the Fedora one.
+
 Build with `bash scripts/build-package plymouth` on aarch64 ALARM, or use
 the repository's signed ALARM container build. Recipe discovery automatically
 adds this package to the native build matrix and complete signed repository
