@@ -38,7 +38,7 @@ sha256sums=("$_sha256"
             'df7a152381a7fdaf98e36de7716b8d6d6ead776764bc76d1a1aef9049d1bca89'
             '55804a95de0ac4741c9e52898e5bbfadafee2143f114fd9606d20b56970c6821'
             'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
-            '869bce092e096557646db74227d7c4d6aa00bf15799031a5855c170108bf80bd')
+            '6879e3eedd85db06ca0b69597ef9175d3a743b0119e57e004c437499ee3f970f')
 noextract=()
 for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
@@ -76,7 +76,6 @@ package_fex-emu() {
   optdepends=('aurora-userpages: run FEX in 4 KiB page process trees on 16 KiB kernels'
               'qt6-declarative: FEXConfig'
               'sdl2-compat: FEXConfig')
-  provides=("fex=$pkgver")
   conflicts=('FEX-Emu<2610')
   DESTDIR="$pkgdir" cmake --install build
   install -dm755 "$pkgdir/usr/share/fex-emu/RootFS" "$pkgdir/usr/share/fex-emu/overlays"

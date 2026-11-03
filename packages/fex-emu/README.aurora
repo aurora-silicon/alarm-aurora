@@ -1,9 +1,8 @@
 # FEX on Aurora
 
 This is FEX built from Aurora's fork (https://github.com/aurora-silicon/fex),
-packaged as fex-emu. It provides `fex` and replaces the FEX-Emu package from
-the Asahi ALARM repository, so `pacman -S fex`, `pacman -S fex-emu` and
-`pacman -S FEX-Emu` all install it.
+packaged as fex-emu. It replaces the FEX-Emu package from the Asahi ALARM
+repository, so `pacman -S fex-emu` and `pacman -S FEX-Emu` both install it.
 
 ## 4 KiB pages
 
