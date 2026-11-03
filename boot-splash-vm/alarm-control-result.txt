@@ -1,0 +1,1 @@
+alarm-control: unlock OK, login prompt OK, report 54.7 s after start, enter sent at 45.9 s

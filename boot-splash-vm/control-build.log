@@ -1,0 +1,137 @@
+plymouth: /w/pkgs-control/plymouth-26.134.222-4-aarch64.pkg.tar.xz
+error: failed retrieving file 'pam-1.7.3-1-aarch64.pkg.tar.xz' from mirror.archlinuxarm.org : Operation too slow. Less than 1 bytes/sec transferred the last 10 seconds
+error: failed retrieving file 'libelf-0.197-1-aarch64.pkg.tar.xz' from mirror.archlinuxarm.org : Operation too slow. Less than 1 bytes/sec transferred the last 10 seconds
+error: failed retrieving file 'libarchive-3.8.11-1-aarch64.pkg.tar.xz' from mirror.archlinuxarm.org : Operation too slow. Less than 1 bytes/sec transferred the last 10 seconds
+warning: too many errors from mirror.archlinuxarm.org, skipping for the remainder of this transaction
+error: failed retrieving file 'nano-9.3-1-aarch64.pkg.tar.xz.sig' from nj.us.mirror.archlinuxarm.org : Operation too slow. Less than 1 bytes/sec transferred the last 10 seconds
+error: failed retrieving file 'libgcrypt-1.12.4-1-aarch64.pkg.tar.xz.sig' from nj.us.mirror.archlinuxarm.org : Operation too slow. Less than 1 bytes/sec transferred the last 10 seconds
+warning: failed to retrieve some files
+error: failed to commit transaction (download library error)
+warning: /etc/tpm2-tss/fapi-profiles/P_ECCP384SHA384.json installed as /etc/tpm2-tss/fapi-profiles/P_ECCP384SHA384.json.pacnew
+warning: /etc/tpm2-tss/fapi-profiles/P_RSA3072SHA384.json installed as /etc/tpm2-tss/fapi-profiles/P_RSA3072SHA384.json.pacnew
+warning: binutils-2.46+r70+g155188ea10a7-1 is up to date -- skipping
+==> WARNING: Skipping dependency checks.
+    90-aurora.conf ... Passed
+    initialize-keyring ... Passed
+    aurora-alarm-keyring.service ... Passed
+    aurora-boot.hook ... Passed
+    80-aurora-image.preset ... Passed
+    aurora-usb4.install ... Passed
+aurora-boot: /mnt/alarm/var/tmp/aurora-boot/aurora-boot-20261018-8-any.pkg.tar.xz
+loading packages...
+looking for conflicting packages...
+
+Packages (1) aurora-boot-20261018-8
+
+Total Installed Size:  0.00 MiB
+
+:: Proceed with installation? [Y/n] 
+checking keyring...
+checking package integrity...
+loading package files...
+checking for file conflicts...
+checking available disk space...
+:: Processing package changes...
+installing aurora-boot...
+:: Running post-transaction hooks...
+(1/4) Reloading system manager configuration...
+  Skipped: Running in chroot.
+(2/4) Arming ConditionNeedsUpdate...
+(3/4) Updating linux initcpios...
+==> Building image from preset: /etc/mkinitcpio.d/linux-aarch64.preset: 'default'
+==> Using default configuration file: '/etc/mkinitcpio.conf'
+  -> -k 7.3.1-2-aarch64-ARCH -g /boot/initramfs-linux.img
+==> Using drop-in configuration file: '90-aurora.conf'
+==> Starting build: '7.3.1-2-aarch64-ARCH'
+  -> Running build hook: [base]
+  -> Running build hook: [systemd]
+  -> Running build hook: [autodetect]
+  -> Running build hook: [modconf]
+  -> Running build hook: [keyboard]
+  -> Running build hook: [sd-vconsole]
+==> WARNING: sd-vconsole: "/etc/vconsole.conf" not found, will use default values
+==> ERROR: Hook 'asahi' cannot be found
+  -> Running build hook: [aurora-usb4]
+==> ERROR: Hook 'aurora-vendor' cannot be found
+  -> Running build hook: [block]
+  -> Running build hook: [sd-encrypt]
+==> ERROR: Hook 'aurora-root' cannot be found
+  -> Running build hook: [filesystems]
+  -> Running build hook: [fsck]
+==> Generating module dependencies
+==> Creating zstd-compressed initcpio image: '/boot/initramfs-linux.img'
+==> WARNING: errors were encountered during the build. The image may not be complete.
+error: command failed to execute correctly
+(4/4) Updating the Aurora initramfs...
+==> Building image from preset: /etc/mkinitcpio.d/linux-aarch64.preset: 'default'
+==> Using default configuration file: '/etc/mkinitcpio.conf'
+  -> -k 7.3.1-2-aarch64-ARCH -g /boot/initramfs-linux.img
+==> Using drop-in configuration file: '90-aurora.conf'
+==> Starting build: '7.3.1-2-aarch64-ARCH'
+  -> Running build hook: [base]
+  -> Running build hook: [systemd]
+  -> Running build hook: [autodetect]
+  -> Running build hook: [modconf]
+  -> Running build hook: [keyboard]
+  -> Running build hook: [sd-vconsole]
+==> WARNING: sd-vconsole: "/etc/vconsole.conf" not found, will use default values
+==> ERROR: Hook 'asahi' cannot be found
+  -> Running build hook: [aurora-usb4]
+==> ERROR: Hook 'aurora-vendor' cannot be found
+  -> Running build hook: [block]
+  -> Running build hook: [sd-encrypt]
+==> ERROR: Hook 'aurora-root' cannot be found
+  -> Running build hook: [filesystems]
+  -> Running build hook: [fsck]
+==> Generating module dependencies
+==> Creating zstd-compressed initcpio image: '/boot/initramfs-linux.img'
+==> WARNING: errors were encountered during the build. The image may not be complete.
+error: command failed to execute correctly
+plymouth 26.134.222-4
+aurora-boot 20261018-8
+linux-aarch64 7.3.1-2
+grub 2:2.16-1
+mkinitcpio 42.2-1
+systemd 262.1-1
+HOOKS: base systemd plymouth autodetect modconf keyboard sd-vconsole vm-virtio block sd-encrypt filesystems fsck
+==> Building image from preset: /etc/mkinitcpio.d/linux-aarch64.preset: 'default'
+==> Using default configuration file: '/etc/mkinitcpio.conf'
+  -> -k /boot/vmlinuz-linux -g /boot/initramfs-linux.img -S autodetect
+==> Using drop-in configuration file: '90-aurora.conf'
+==> Using drop-in configuration file: '95-aurora-plymouth.conf'
+==> Using drop-in configuration file: '99-vm.conf'
+==> Starting build: '7.3.1-2-aarch64-ARCH'
+  -> Running build hook: [base]
+  -> Running build hook: [systemd]
+  -> Running build hook: [plymouth]
+  -> Running build hook: [modconf]
+  -> Running build hook: [keyboard]
+  -> Running build hook: [sd-vconsole]
+==> WARNING: sd-vconsole: "/etc/vconsole.conf" not found, will use default values
+  -> Running build hook: [vm-virtio]
+  -> Running build hook: [block]
+==> WARNING: Possibly missing firmware for module: 'qla1280'
+==> WARNING: Possibly missing firmware for module: 'wd719x'
+==> WARNING: Possibly missing firmware for module: 'qla2xxx'
+  -> Running build hook: [sd-encrypt]
+  -> Running build hook: [filesystems]
+  -> Running build hook: [fsck]
+==> Generating module dependencies
+==> Creating zstd-compressed initcpio image: '/boot/initramfs-linux.img'
+  -> Early uncompressed CPIO image generation successful
+==> Initcpio image generation successful
+Created symlink '/etc/systemd/system/multi-user.target.wants/aurora-unlock-ok.service' → '/etc/systemd/system/aurora-unlock-ok.service'.
+Installing for arm64-efi platform.
+Installation finished. No error reported.
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-linux
+Found initrd image: /boot/initramfs-linux.img
+Warning: os-prober will not be executed to detect other bootable partitions.
+Systems on them will not be added to the GRUB boot configuration.
+Check GRUB_DISABLE_OS_PROBER documentation entry.
+Adding boot menu entry for UEFI Firmware Settings ...
+Warning: EFI firmware detected but efibootmgr is missing. Skipping the creation of EFI bootnext menu entries.
+done
+	linux	/vmlinuz-linux root=UUID=222fc864-daff-4623-b947-81ef4660419a rw rd.luks.name=7a1c55e0-2026-4b03-9a11-0c0ffee0a1a1=alarmluks-control console=ttyAMA0 plymouth.ignore-serial-consoles quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto console=tty0 splash
+	initrd	/initramfs-linux.img
+IMAGE-OK control

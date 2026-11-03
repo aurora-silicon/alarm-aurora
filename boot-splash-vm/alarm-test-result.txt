@@ -1,0 +1,1 @@
+alarm-test: unlock OK, login prompt OK, report 55.2 s after start, enter sent at 45.9 s
