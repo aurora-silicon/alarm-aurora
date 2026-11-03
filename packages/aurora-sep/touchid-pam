@@ -1,0 +1,124 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Offer Touch ID to sudo and polkit, and only to them: the login screen, the
+# console login, su and ssh keep asking for the password. One line goes in
+# front of each stack's own auth lines:
+#
+#   -auth sufficient pam_fprintd.so
+#
+# "sufficient" means a fingerprint that is refused or not given falls through
+# to the password, and the leading "-" skips the line when fprintd is not
+# installed.
+#
+# sudo's /etc/pam.d/sudo belongs to the sudo package, so the line is added to
+# it once; pacman keeps the edit across sudo updates (a changed upstream file
+# arrives as sudo.pacnew). polkit's stack is in /usr/lib/pam.d, so
+# /etc/pam.d/polkit-1 is written from it with the line added, and rewritten
+# when polkit's changes, unless it was edited. A line or file the owner
+# removed or changed is left as it is. Run by a pacman hook; "--remove"
+# undoes what it did.
+set -eu
+
+pamd=${AURORA_PAM_DIR:-/etc/pam.d}
+vendor=${AURORA_PAM_VENDOR_DIR:-/usr/lib/pam.d}
+state=${AURORA_SEP_STATE_DIR:-/var/lib/aurora-sep}
+comment='# Touch ID (aurora-sep): a fingerprint, or else the password.'
+line='-auth      sufficient   pam_fprintd.so'
+
+log() {
+    echo "aurora-sep touchid-pam: $*" >&2
+}
+
+has_fprintd() {
+    grep -Eq '^[[:space:]]*-?auth[[:space:]].*pam_fprintd\.so' "$1"
+}
+
+# Copy $1 to $2 with the line in front of the first auth line.
+insert() {
+    awk -v comment="$comment" -v line="$line" '
+        !done && /^[[:space:]]*-?auth[[:space:]]/ { print comment; print line; done = 1 }
+        { print }
+        END { exit !done }
+    ' "$1" >"$2"
+}
+
+replace() {
+    tmp=$(mktemp "$2.XXXXXX")
+    if insert "$1" "$tmp"; then
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$2"
+    else
+        rm -f "$tmp"
+        log "$1 has no auth line; $2 left as it is"
+        return 1
+    fi
+}
+
+sum() {
+    sha256sum "$1" | cut -d' ' -f1
+}
+
+sudo_stack() {
+    f=$pamd/sudo
+    marker=$state/pam-sudo-offered
+    [ -f "$f" ] || return 0
+    if has_fprintd "$f"; then
+        : >"$marker"
+    elif [ -e "$marker" ]; then
+        :  # the owner took it out
+    elif replace "$f" "$f"; then
+        : >"$marker"
+        log "sudo offers Touch ID"
+    fi
+}
+
+polkit_stack() {
+    f=$pamd/polkit-1
+    src=$vendor/polkit-1
+    marker=$state/pam-polkit-1.sha256
+    [ -f "$src" ] || return 0
+    if [ -e "$f" ]; then
+        # Ours and unchanged: follow polkit's stack. Anything else is the owner's.
+        [ -e "$marker" ] && [ "$(sum "$f")" = "$(cat "$marker")" ] || return 0
+    elif [ -e "$marker" ]; then
+        return 0  # the owner removed it
+    fi
+    tmp=$(mktemp "$f.XXXXXX")
+    if insert "$src" "$tmp"; then
+        if [ -e "$f" ] && [ "$(sum "$tmp")" = "$(sum "$f")" ]; then
+            rm -f "$tmp"
+            return 0
+        fi
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$f"
+        sum "$f" >"$marker"
+        log "polkit offers Touch ID"
+    else
+        rm -f "$tmp"
+    fi
+}
+
+remove() {
+    f=$pamd/sudo
+    if [ -e "$state/pam-sudo-offered" ] && [ -f "$f" ]; then
+        tmp=$(mktemp "$f.XXXXXX")
+        awk -v comment="$comment" -v line="$line" '$0 != comment && $0 != line' "$f" >"$tmp"
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$f"
+    fi
+    f=$pamd/polkit-1
+    if [ -e "$state/pam-polkit-1.sha256" ] && [ -f "$f" ] &&
+        [ "$(sum "$f")" = "$(cat "$state/pam-polkit-1.sha256")" ]; then
+        rm -f "$f"
+    fi
+    rm -f "$state/pam-sudo-offered" "$state/pam-polkit-1.sha256"
+}
+
+mkdir -p "$state"
+if [ "${1:-}" = --remove ]; then
+    remove
+    exit 0
+fi
+sudo_stack || :
+polkit_stack || :
