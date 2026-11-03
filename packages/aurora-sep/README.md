@@ -66,7 +66,7 @@ The factory-record reader and the sealed-record rebuild are Erik Bourget's
 work. Read XART-SAFETY.md for persistent identity ownership constraints and
 OS-IDENTITY.md for running Linux beside macOS.
 
-## Readiness and choices
+## Readiness
 
 On a Mac with a reader, `aurora-sep-ready.service` opens `/dev/sep-bio` before
 fprintd starts, which restores the enrolled fingerprints. It reports Touch ID
@@ -76,21 +76,52 @@ blocked it logs the reason and the documented `xart_guard=0` opt-out and fails
 the unit; when that cannot be told yet it logs "matching UNVERIFIED".
 
 The Aurora libfprint build keeps the full upstream driver set and adds the SEP
-biometric interface. This package does not edit PAM, replace password login or
-change the power-button action; enable `pam_fprintd` in the PAM stacks that
-should accept a fingerprint. Use the desktop's fingerprint
-enrollment flow once hardware qualification is complete. Module reload cannot
-repeat the secure enclave handoff; driver updates take effect after a full
-reboot.
+biometric interface. Module reload cannot repeat the secure enclave handoff;
+driver updates take effect after a full reboot.
 
-Two choices are left to the owner. GNOME Shell offers fingerprint only on the
-lock screen; `sudo systemctl enable aurora-sep-greeter-fingerprint.service`
-also offers it at the login screen from the next boot (it needs `gresource`
-from glib2-devel, and a fingerprint login cannot unlock the keyring). The
-Touch ID sensor is the power button, and outside GNOME a short press powers
-off; to make it suspend instead, copy
-`/usr/share/doc/aurora-sep/logind-aurora-sep.conf` to
-`/etc/systemd/logind.conf.d/50-aurora-sep.conf`.
+## Where Touch ID is used
+
+Enrol a finger in GNOME Settings > Users or in KDE System Settings > Users
+(or with `fprintd-enroll`). Touch ID is then offered here:
+
+| Where | Accepts |
+|---|---|
+| Lock screen | a fingerprint or the password |
+| `sudo`, polkit authentication dialogs | a fingerprint or the password |
+| Login screen (GDM, Plasma Login) | the password |
+| Text console login, `su`, ssh | the password |
+
+The lock screens use GDM's `gdm-fingerprint` and Plasma's `kde-fingerprint`
+stacks as their packages ship them. The login screen asks for the password
+because a session started with a fingerprint cannot unlock the keyring or
+KWallet. GNOME can offer fingerprint there as well:
+`sudo systemctl enable aurora-sep-greeter-fingerprint.service` does it from
+the next boot (it needs `gresource` from glib2-devel).
+
+For `sudo` and polkit, a pacman hook runs `/usr/libexec/aurora/touchid-pam`,
+which puts `-auth sufficient pam_fprintd.so` in front of their own auth
+lines: a fingerprint that is refused or not given falls through to the
+password. `/etc/pam.d/sudo` belongs to the sudo package, so the line is
+added to it once, and pacman keeps it across sudo updates (a changed
+upstream file arrives as `sudo.pacnew`). polkit ships its stack in
+`/usr/lib/pam.d`, so `/etc/pam.d/polkit-1` is written from it with the line
+added, and rewritten when polkit's changes. A line you remove, or a file you
+edit or delete, is left as you made it. `system-auth`, `system-login`,
+`login`, `su` and `sshd` are not touched.
+
+## Power button
+
+The Touch ID sensor is the power button. A short press suspends and a 5 s
+press powers off, through `/usr/lib/systemd/logind.conf.d/50-aurora-sep.conf`
+at the console, on the login screens and on minimal installs. GNOME sessions
+handle the button themselves (power-button-action, suspend by default). In
+Plasma sessions PowerDevil handles it, and `/etc/xdg/powerdevilrc` makes a
+short press suspend; holding the button for a second opens the logout screen.
+To change logind's choice, add a file of the same name, or one that sorts
+after it, to `/etc/systemd/logind.conf.d/`; in Plasma, change it per user in
+System Settings > Power Management.
+
+## SELinux
 
 Arch Linux ARM does not ship SELinux, so this package carries no policy
 module. The Fedora package's `aurora-sep-selinux` labels `/dev/sep-bio` and
