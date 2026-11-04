@@ -1,0 +1,83 @@
+# speakerguardd 1.0 (the v2 branch), a new program packaged beside the 0.1
+# speakerguardd and speakersafetyd. See README.md.
+pkgbase=speakerguardd-v2
+pkgname=('speakerguardd-v2' 'speakerguardd-v2-replace-legacy')
+pkgver=1.0.0alpha.1
+pkgrel=1
+_commit=f06b9697e64843807cec9c09af9af13756c6ac3c
+_src=speakerguardd-$_commit
+pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview)'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/speakerguardd'
+# aurora-speaker-tuning is based on aurora-audio-dsp by saku, also MIT.
+license=('MIT')
+makedepends=('rust' 'cargo' 'python')
+source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
+        README.md)
+sha256sums=('97f7e2700ca56aeda69c4c6d51bd5b019363394c32931cc5a984ebbe1e652aa3'
+            '9537e7b1506eb1a47053262aec686e54e1743f27c21b0e593ac6c0eee757c014')
+# The crates this package ships; the rig and benchmark crates stay out.
+_crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
+
+prepare() {
+  cd "$_src"
+  # The upstream unit, under its own name and with the program where this
+  # package installs it.
+  python - <<'PYUNIT'
+from pathlib import Path
+s = Path('packaging/systemd/speakerguardd.service').read_text()
+old = 'ExecStart=/usr/bin/speakerguardd\n'
+if s.count(old) != 1:
+    raise SystemExit('Pinned speakerguardd unit changed: ' + old.strip())
+s = s.replace(old, 'ExecStart=/usr/lib/speakerguardd-v2/speakerguardd\n', 1)
+for line in s.splitlines():
+    if line.startswith(('OnFailure=', 'OnSuccess=')) or 'speakersafetyd' in line:
+        raise SystemExit('The speakerguardd 1.0 unit must not chain to another daemon: ' + line)
+Path('speakerguardd-v2.service').write_text(s)
+PYUNIT
+}
+
+build() {
+  cd "$_src"
+  cargo build --locked --release "${_crates[@]}"
+}
+
+check() {
+  cd "$_src"
+  cargo test --locked --release "${_crates[@]}"
+}
+
+package_speakerguardd-v2() {
+  depends=('glibc' 'gcc-libs')
+  optdepends=('pipewire: the filter-chain that hosts the sgv2 LV2 plugin')
+  cd "$_src"
+  install -Dm755 target/release/speakerguardd "$pkgdir/usr/lib/speakerguardd-v2/speakerguardd"
+  install -Dm755 target/release/aurora-speaker-tuning "$pkgdir/usr/bin/aurora-speaker-tuning"
+  install -d "$pkgdir/usr/lib/lv2/sgv2.lv2"
+  install -m644 crates/sgv2-lv2/lv2/sgv2.lv2/*.ttl "$pkgdir/usr/lib/lv2/sgv2.lv2/"
+  install -m755 target/release/libsgv2_lv2.so "$pkgdir/usr/lib/lv2/sgv2.lv2/libsgv2_lv2.so"
+  # Every plugin the bundle names must be the library installed beside it.
+  if grep -ho 'lv2:binary <[^>]*>' "$pkgdir"/usr/lib/lv2/sgv2.lv2/*.ttl | grep -v '<libsgv2_lv2.so>'; then
+    echo 'The sgv2 bundle names a library this package does not install' >&2; return 1
+  fi
+  install -Dm644 speakerguardd-v2.service "$pkgdir/usr/lib/systemd/system/speakerguardd-v2.service"
+  install -Dm644 README.md docs/DESIGN.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -Dm644 "$srcdir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.packaging.md"
+  install -Dm644 LICENSE crates/aurora-speaker-tuning/LICENSE-aurora-audio-dsp -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
+
+package_speakerguardd-v2-replace-legacy() {
+  pkgdesc='Opt in: make speakerguardd 1.0 the speaker protection, replacing 0.1 and speakersafetyd'
+  arch=('any')
+  depends=("speakerguardd-v2=$pkgver-$pkgrel")
+  # Installing this package is the switch: it takes the place of both older
+  # daemons, which must not hold the speaker interlock beside it. There is no
+  # replaces=: that would make every -Syu swap a machine over without asking,
+  # and a machine moves only once it qualifies.
+  conflicts=('speakerguardd' 'speakersafetyd')
+  provides=("speakerguardd=$pkgver" 'speakersafetyd')
+  # Enabled by the package itself, so removing it disables the unit again.
+  install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+  ln -s ../speakerguardd-v2.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/speakerguardd-v2.service"
+  install -Dm644 "$srcdir/$_src/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
