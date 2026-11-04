@@ -41,11 +41,11 @@
   },
   "speakerguardd-v2": {
     "repository": "https://github.com/aurora-silicon/speakerguardd",
-    "commit": "f06b9697e64843807cec9c09af9af13756c6ac3c",
+    "commit": "b1f60b81e975d9e79409b4f0295a5050beb4d93a",
     "version": "1.0.0-alpha.1",
-    "source_url": "https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/f06b9697e64843807cec9c09af9af13756c6ac3c",
-    "archive_root": "speakerguardd-f06b9697e64843807cec9c09af9af13756c6ac3c",
-    "sha256": "97f7e2700ca56aeda69c4c6d51bd5b019363394c32931cc5a984ebbe1e652aa3"
+    "source_url": "https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/b1f60b81e975d9e79409b4f0295a5050beb4d93a",
+    "archive_root": "speakerguardd-b1f60b81e975d9e79409b4f0295a5050beb4d93a",
+    "sha256": "9c8ba8829198cd6681e07a63f5781d0a223394c76c006cb167222e65ea58577d"
   },
   "aurora-camera-denoise": {
     "repository": "https://github.com/aurora-silicon/camera-denoise",

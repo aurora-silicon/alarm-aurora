@@ -29,6 +29,16 @@ class PinTests(unittest.TestCase):
         self.assertRegex(optin, r"(?m)^\s*conflicts=\('speakerguardd' 'speakersafetyd'\)$")
         self.assertNotRegex(text, r'(?m)^\s*replaces=')
         self.assertIn('multi-user.target.wants/speakerguardd-v2.service', optin)
+        # The self-check is a hard prerequisite of the supervisor, and the
+        # opt-in's units carry the board gate.
+        self.assertIn("'Requires=speakerguardd-v2-selfcheck.service'", text)
+        self.assertIn('speakerguardd-v2-selfcheck.service', main)
+        self.assertIn('50-qualified-board.conf', optin)
+        for u in ['system/speakerguardd-v2', 'system/speakerguardd-v2-selfcheck', 'user/speakerguardd-v2-session']:
+            self.assertIn(u, optin)
+        gate = (ROOT / 'packages/speakerguardd-v2/speakerguardd-v2-gate').read_text()
+        self.assertEqual(gate, (ROOT / 'packages/speakerguardd-v2/speakerguardd-v2-gate').read_text())
+        self.assertRegex(gate, r'(?m)^QUALIFIED="j616s"$')
     def test_base_image_is_signed_and_hash_pinned(self):
         lock = json.loads((ROOT / 'images/base.json').read_text())
         self.assertRegex(lock['sha256'], r'^[0-9a-f]{64}$')

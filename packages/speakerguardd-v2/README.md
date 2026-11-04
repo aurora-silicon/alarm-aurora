@@ -13,9 +13,30 @@ beside what machines run today.
 | `speakerguardd-v2.service` | The upstream unit, renamed. No `OnFailure=` and no other daemon in it |
 | `sgv2.lv2` in the distribution's LV2 directory | The protection unit (`sgv2-core` behind the `sgv2-lv2` host) for the PipeWire filter-chain |
 | `aurora-speaker-tuning` | Reader and validator for the Mac's own tuning bundle |
-| SELinux module `speakerguardd` (Fedora) | `speakerguardd_t`, with the program and `/run/speakerguardd` labelled |
+| `speakerguardd-v2-selfcheck.service` | The first-boot wiring self-check: it derives the speaker wiring from the device tree and the tuning, proves it with zero-sample streams only, and binds the result to board, kernel and blob. The supervisor `Requires=` it |
+| `speakerguardd-v2-session.service` (user unit) | The session helper: it links the amps into the graph only while the kernel grants protection |
+| `speakerguardd-selfcheck`, `speakerguardd-session`, `wiring.py`, `speakerguardd-v2-gate` beside the supervisor | The programs the units run |
+| `/usr/share/speakerguardd/` | `machines.json` and the per-machine PipeWire and WirePlumber graphs, as data only |
+| SELinux module `speakerguardd` (Fedora) | Upstream's policy (`packaging/selinux`): `speakerguardd_t`, with the program, `/run/speakerguardd` and `/var/lib/speakerguardd` labelled |
 
-Nothing is enabled. No graph loads the plugin, and the unit stays disabled.
+Nothing is enabled. No graph loads the plugin, and no unit is enabled.
+
+## The board gate
+
+The opt-in adds `ExecCondition=speakerguardd-v2-gate` to all three units. A
+unit starts only on a board that passed the 1.0 qualification, a passing
+audible hardware run on the shipped tree. It is J616s only for now, and the
+list is the same file in every distribution. On any other board the units do
+not start, the journal says why, and the kernel's safe level holds. Nothing
+changes silently. For qualification itself, an administrator can name the
+board in `/etc/speakerguardd/allow-unqualified`.
+
+Still to provision by hand, as `docs/NEW-PLATFORM.md` describes:
+- `/etc/speakerguardd/speakerguardd.conf` (from `speakerguardd.conf.example`);
+- the parameter blob compiled from the installer's tuning bundle;
+- the machine's graph from `/usr/share/speakerguardd`.
+
+These become automatic before 1.0 is the default.
 
 ## The opt-in
 
