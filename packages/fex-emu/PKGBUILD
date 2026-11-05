@@ -2,14 +2,14 @@
 # fork's submodules are pinned at its gitlinks (sources.json extra_sources).
 pkgbase=fex-emu
 pkgname=fex-emu
-pkgver=2610.r202611030240.3f4ee4277f1
-pkgrel=2
+pkgver=2610.r202611050907.c2c22c6a365
+pkgrel=1
 pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/fex'
 license=('MIT' 'Apache-2.0' 'BSL-1.0' 'BSD-3-Clause' 'GPL-2.0-only')
-_commit=3f4ee4277f11b1986a5edf8ecc9c2c4169830bd4
-_sha256=628d5c16526cdf3f505dcd51bf6b9ec37c02c4b82b492ae6d1a8eec70cf239b8
+_commit=c2c22c6a3654695ad436527ccaf95626b339ef11
+_sha256=48b6a8ea6b66fb6d625e0a29bde83ff942a78170648104e68a9791fb0d46fa3d
 _describe=FEX-${pkgver%%.r*}-aurora-g${_commit::7}
 makedepends=('cmake' 'ninja' 'clang' 'lld' 'llvm' 'python' 'python-setuptools' 'python-packaging'
              'fmt' 'xxhash' 'catch2' 'libepoxy' 'sdl2-compat' 'qt6-declarative' 'pkgconf')
@@ -18,9 +18,9 @@ _bundled=(
   'drm-headers FEX-Emu/drm-headers 3e49836995c1dcb3df709440ad2f270b569c6a5f External/drm-headers'
   'jemalloc FEX-Emu/jemalloc 8436195ad5e1bc347d9b39743af3d29abee59f06 External/jemalloc_glibc'
   'range-v3 ericniebler/range-v3 ca1388fb9da8e69314dda222dc7b139ca84e092f External/range-v3'
-  'rpmalloc FEX-Emu/rpmalloc 09142d726429416bfa7b459151515fe3ab7622dd External/rpmalloc'
+  'rpmalloc FEX-Emu/rpmalloc ed227446afce6ff505b312bae1e10a3daaeeea39 External/rpmalloc'
   'Vulkan-Headers KhronosGroup/Vulkan-Headers ee2ec5fd83dafce291024683b50dc89219333076 External/Vulkan-Headers'
-  'vixl FEX-Emu/vixl 585d860b12cdfc3a72f5fdad5e02e4d50a64c014 External/vixl'
+  'vixl FEX-Emu/vixl 6561d40650885ad24fbd0aa0cdb20ccb4808d444 External/vixl'
   'unordered_dense martinus/unordered_dense 3234af2c03549bc85656bfd3a86993bf1cd8aef1 External/unordered_dense'
 )
 source=("fex-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/fex/tar.gz/$_commit")
@@ -34,11 +34,11 @@ sha256sums=("$_sha256"
             '3d3653841f81ea5be1a15cd4b458f048c1fffbcd97fcc808454a7fbe7cf1a555'
             '800cc0653f5bc2f0ed2cc7bb383f8eeda1ff94b2e89eaee0ccc57bd5fb002fe4'
             '57a6fca5d60a85b84e8efecc62f0ca064e6b1f89b97b513284fe7f5bd43d49eb'
-            '3250fcc53532ed6161642b77f6179c7ba73173fb2130314aa7f019a574266ff6'
+            'f14761cc0c8976aed669475087021661f269699ef8297885b665eed4b764b087'
             'df7a152381a7fdaf98e36de7716b8d6d6ead776764bc76d1a1aef9049d1bca89'
-            '55804a95de0ac4741c9e52898e5bbfadafee2143f114fd9606d20b56970c6821'
+            '03caa03990ee02c6d48781368332c4b9019ec2101addab3aa29eb359bb7d7653'
             'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
-            '6879e3eedd85db06ca0b69597ef9175d3a743b0119e57e004c437499ee3f970f')
+            '3ed240d7d4e19a6e03191fb82c78d8a266ef15519c73a35473321f1469b82ab8')
 noextract=()
 for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
