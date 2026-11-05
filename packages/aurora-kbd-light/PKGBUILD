@@ -6,12 +6,12 @@ arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/kbd-light'
 license=('MIT')
-_commit=ba25746dc9ee5e38b7b9347bac2fd364a21e3d2e
+_commit=727076b83eb65b0162317a9e2fa0ba850df1f5ca
 depends=('glibc')
 makedepends=('gcc' 'make')
 install=aurora-kbd-light.install
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/kbd-light/tar.gz/$_commit")
-sha256sums=('fb08160a26743d9dc641c2d0a786a9b75370641964ea79c8a6478b34e9202550')
+sha256sums=('9419eea57c51fd4ccf83fe764bb85c18f9054d684d21415d189fa46fe568e88c')
 
 build() {
   make -C "kbd-light-$_commit" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
