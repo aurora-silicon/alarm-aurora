@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=17
+pkgrel=18
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -16,7 +16,11 @@ _sha256=e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
-_aura_version=0.1.0.r20261029
+# SN012776 amp settings come from the DT that aura 1.0.0b5 fills in
+# (https://github.com/aurora-silicon/linux/pull/981,
+# https://github.com/aurora-silicon/aura/pull/75); under an older Stage 2
+# the speakers stay off.
+_aura_version=1.0.0b5
 
 pkgbase=linux-aurora
 _srcname=linux-${_commit}
