@@ -25,7 +25,7 @@ Nothing is enabled. No graph loads the plugin, and no unit is enabled.
 
 The opt-in adds `ExecCondition=speakerguardd-v2-gate` to all three units. A
 unit starts only on a board that passed the 1.0 qualification, a passing
-audible hardware run on the shipped tree. It is J616s only for now, and the
+audible hardware run on the shipped tree. It is the J616s, J316s and J413 for now, and the
 list is the same file in every distribution. On any other board the units do
 not start, the journal says why, and the kernel's safe level holds. Nothing
 changes silently. For qualification itself, an administrator can name the
