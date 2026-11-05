@@ -16,8 +16,8 @@ source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/sp
         README.md
         speakerguardd-v2-gate)
 sha256sums=('e331d73ff053a97feef252967db2223f98cbc257c093d3cb9f0902355beac381'
-            'ac02dabdbd908aee776519e177d59fb196f432883d4a29081e225006f489fb48'
-            '9869d2d34a7c579ed2aa92b23dc9bdcfcd08cd4cbd73ff1307497f197b772eeb')
+            'b7e7c6013490c28b4078f78324289d166f2f6e5d62ec0c1c6148d4852f445e15'
+            '36a6104aaabad72b3f28b5b2d6447d015d936a8d0c8409bf313cd6c97f256e41')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 
