@@ -1,0 +1,14 @@
+# Apply the shipped preset, as Fedora's systemd_post does. A unit already
+# enabled or disabled stays as it is.
+post_install() {
+  systemctl --preset-mode=enable-only preset aurora-kbd-light.service >/dev/null 2>&1 || :
+  systemctl try-restart aurora-kbd-light.service >/dev/null 2>&1 || :
+}
+
+post_upgrade() {
+  systemctl try-restart aurora-kbd-light.service >/dev/null 2>&1 || :
+}
+
+pre_remove() {
+  systemctl disable --now aurora-kbd-light.service >/dev/null 2>&1 || :
+}
