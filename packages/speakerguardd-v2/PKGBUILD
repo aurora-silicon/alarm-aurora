@@ -1,10 +1,11 @@
-# speakerguardd 1.0 (the v2 branch), a new program packaged beside the 0.1
-# speakerguardd and speakersafetyd. See README.md.
+# speakerguardd 1.0 (the v2 branch), a new program installed on every Mac
+# beside the 0.1 speakerguardd and speakersafetyd; its fleet gate starts one
+# stack per boot. See README.md.
 pkgbase=speakerguardd-v2
-pkgname=('speakerguardd-v2' 'speakerguardd-v2-replace-legacy')
+pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=2
-_commit=3c18a3527055145bc8b98e82c00b5deb4ca9a42f
+pkgrel=3
+_commit=ebab1e0f7c4eeb0293b170690487f2f53bdd1481
 _src=speakerguardd-$_commit
 pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview)'
 arch=('aarch64')
@@ -13,48 +14,49 @@ url='https://github.com/aurora-silicon/speakerguardd'
 license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
-        README.md
-        speakerguardd-v2-gate)
-sha256sums=('e331d73ff053a97feef252967db2223f98cbc257c093d3cb9f0902355beac381'
-            'b7e7c6013490c28b4078f78324289d166f2f6e5d62ec0c1c6148d4852f445e15'
-            '36a6104aaabad72b3f28b5b2d6447d015d936a8d0c8409bf313cd6c97f256e41')
+        README.md)
+sha256sums=('ef05a03921efb81609062a29fe04202cca48873c2024647a9bbe3aea6f8ec6a4'
+            '3e0ddc3ef47e17adbb61aa629c14e4866a5200144bcc45db0930e63cd85bdfca')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 
 prepare() {
   cd "$_src"
   # The upstream units, under their own names, with the programs where this
-  # package installs them. The self-check is a hard prerequisite of the
-  # supervisor.
+  # package installs them. Provisioning and the self-check are hard
+  # prerequisites of the supervisor, and every system unit carries the gate.
   python - <<'PYUNIT'
+import re
 from pathlib import Path
 lx = '/usr/lib/speakerguardd-v2'
-def rewrite(src, dst, pairs, must):
-    s = Path(src).read_text()
-    for old, new in pairs:
-        if old not in s:
-            raise SystemExit(f'Pinned unit {src} changed: {old!r}')
-        s = s.replace(old, new)
-    for line in must:
-        if line not in s.splitlines():
-            raise SystemExit(f'{dst}: missing {line!r}')
+units = ['speakerguardd.service', 'speakerguardd-provision.service', 'speakerguardd-selfcheck.service',
+         'speakerguardd-seat.service', 'speakerguardd-seat.path', 'speakerguardd-session.service', 'speakerguardd-graph.service']
+for u in units:
+    s = Path('packaging/systemd', u).read_text()
+    s = s.replace('/usr/libexec/speakerguardd/', lx + '/').replace('ExecStart=/usr/bin/speakerguardd ', f'ExecStart={lx}/speakerguardd ')
+    s = re.sub(r'\bspeakerguardd(-[a-z]+)?\.(service|path)\b', r'speakerguardd-v2\1.\2', s)
     for line in s.splitlines():
-        if line.startswith(('OnFailure=', 'OnSuccess=')) or 'speakersafetyd' in line or line.endswith('=speakerguardd.service'):
-            raise SystemExit(f'A speakerguardd 1.0 unit chains to or names another daemon: {line}')
-    Path(dst).write_text(s)
-rewrite('packaging/systemd/speakerguardd.service', 'speakerguardd-v2.service',
-        [('ExecStart=/usr/bin/speakerguardd ', f'ExecStart={lx}/speakerguardd '),
-         ('speakerguardd-selfcheck.service', 'speakerguardd-v2-selfcheck.service')],
-        [f'ExecStart={lx}/speakerguardd $SGV2_ARGS', 'Requires=speakerguardd-v2-selfcheck.service'])
-rewrite('packaging/systemd/speakerguardd-selfcheck.service', 'speakerguardd-v2-selfcheck.service',
-        [('/usr/libexec/speakerguardd/speakerguardd-selfcheck', f'{lx}/speakerguardd-selfcheck'),
-         ('Before=speakerguardd.service', 'Before=speakerguardd-v2.service'),
-         ('RequiredBy=speakerguardd.service', 'RequiredBy=speakerguardd-v2.service')],
-        ['Before=speakerguardd-v2.service', 'RequiredBy=speakerguardd-v2.service'])
-rewrite('packaging/systemd/speakerguardd-session.service', 'speakerguardd-v2-session.service',
-        [('ExecStart=/usr/libexec/speakerguardd-session ', f'ExecStart={lx}/speakerguardd-session ')], [])
-if 'speakerguardd-v2-selfcheck.service' not in [w for l in Path('speakerguardd-v2.service').read_text().splitlines() if l.startswith('After=') for w in l.split('=', 1)[1].split()]:
-    raise SystemExit('the supervisor must start after the self-check')
+        if line.startswith(('OnFailure=', 'OnSuccess=')) or 'speakersafetyd' in line or line.endswith('=speakerguardd.service') \
+                or '/usr/libexec/' in line:
+            raise SystemExit(f'{u}: a speakerguardd 1.0 unit chains to or names another daemon, or a path was not moved: {line}')
+    Path(u.replace('speakerguardd', 'speakerguardd-v2', 1)).write_text(s)
+def must(f, *lines):
+    have = Path(f).read_text().splitlines()
+    for l in lines:
+        if l not in have:
+            raise SystemExit(f'{f}: missing {l!r}')
+must('speakerguardd-v2.service', f'ExecStart={lx}/speakerguardd $SGV2_ARGS',
+     'Requires=speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service', f'ExecCondition={lx}/speakerguardd-gate v2')
+must('speakerguardd-v2-selfcheck.service', 'Requires=speakerguardd-v2-provision.service', f'ExecCondition={lx}/speakerguardd-gate v2',
+     f'ExecStartPost={lx}/speakerguardd-provision activate --graph-unit speakerguardd-v2-graph.service')
+must('speakerguardd-v2-provision.service', 'Before=speakerguardd-v2-selfcheck.service speakerguardd-v2.service',
+     f'ExecStart={lx}/speakerguardd-provision run', f'ExecCondition={lx}/speakerguardd-gate v2')
+must('speakerguardd-v2-seat.service', f'ExecStart={lx}/speakerguardd-provision seat --unit speakerguardd-v2.service',
+     f'ExecCondition={lx}/speakerguardd-gate v2')
+must('speakerguardd-v2-seat.path', 'Unit=speakerguardd-v2-seat.service')
+must('speakerguardd-v2-session.service', f'ExecCondition={lx}/speakerguardd-provision is-seat')
+Path('legacy-gate.conf').write_text(Path('packaging/systemd/legacy-gate.conf').read_text().replace('/usr/libexec/speakerguardd/', lx + '/'))
+must('legacy-gate.conf', f'ExecCondition={lx}/speakerguardd-gate legacy')
 PYUNIT
 }
 
@@ -66,15 +68,16 @@ build() {
 check() {
   cd "$_src"
   cargo test --locked --release "${_crates[@]}"
+  python -I packaging/session/test_provision.py
 }
 
 package_speakerguardd-v2() {
-  # python, alsa-utils and pipewire (pw-link, pw-dump): the self-check and
-  # the session helper.
-  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire')
-  optdepends=('pipewire: the filter-chain that hosts the sgv2 LV2 plugin')
+  # python, alsa-utils, pipewire (pw-link, pw-dump) and systemd (loginctl):
+  # provisioning, the gate, the self-check and the session helper.
+  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire' 'systemd')
   cd "$_src"
-  install -Dm755 target/release/speakerguardd "$pkgdir/usr/lib/speakerguardd-v2/speakerguardd"
+  local lx=/usr/lib/speakerguardd-v2 f u
+  install -Dm755 target/release/speakerguardd "$pkgdir$lx/speakerguardd"
   install -Dm755 target/release/aurora-speaker-tuning "$pkgdir/usr/bin/aurora-speaker-tuning"
   install -d "$pkgdir/usr/lib/lv2/sgv2.lv2"
   install -m644 crates/sgv2-lv2/lv2/sgv2.lv2/*.ttl "$pkgdir/usr/lib/lv2/sgv2.lv2/"
@@ -83,45 +86,34 @@ package_speakerguardd-v2() {
   if grep -ho 'lv2:binary <[^>]*>' "$pkgdir"/usr/lib/lv2/sgv2.lv2/*.ttl | grep -v '<libsgv2_lv2.so>'; then
     echo 'The sgv2 bundle names a library this package does not install' >&2; return 1
   fi
-  install -Dm755 packaging/session/speakerguardd-selfcheck "$pkgdir/usr/lib/speakerguardd-v2/speakerguardd-selfcheck"
-  install -Dm755 packaging/session/speakerguardd-session "$pkgdir/usr/lib/speakerguardd-v2/speakerguardd-session"
-  install -Dm644 packaging/session/wiring.py "$pkgdir/usr/lib/speakerguardd-v2/wiring.py"
-  install -Dm755 "$srcdir/speakerguardd-v2-gate" "$pkgdir/usr/lib/speakerguardd-v2/speakerguardd-v2-gate"
-  install -Dm644 packaging/session/machines.json "$pkgdir/usr/share/speakerguardd/machines.json"
-  # The per-machine graphs, as data: the opt-in's provisioning activates one.
+  for f in speakerguardd-provision speakerguardd-gate speakerguardd-selfcheck speakerguardd-session; do
+    install -Dm755 "packaging/session/$f" "$pkgdir$lx/$f"
+  done
+  install -Dm644 packaging/session/wiring.py packaging/session/gen.py -t "$pkgdir$lx/"
+  # The machine description and the fleet gate's data, unchanged from upstream.
+  install -Dm644 packaging/session/machines.json packaging/session/gate.json -t "$pkgdir/usr/share/speakerguardd/"
+  # The per-machine graphs, as reference data: provisioning generates the
+  # machine's own from the self-check's record.
   install -Dm644 packaging/pipewire/sgv2-*.conf -t "$pkgdir/usr/share/speakerguardd/pipewire/"
   install -Dm644 packaging/wireplumber/60-sgv2-*.conf -t "$pkgdir/usr/share/speakerguardd/wireplumber/"
-  install -Dm644 speakerguardd-v2.service speakerguardd-v2-selfcheck.service -t "$pkgdir/usr/lib/systemd/system/"
-  install -Dm644 speakerguardd-v2-session.service "$pkgdir/usr/lib/systemd/user/speakerguardd-v2-session.service"
+  install -Dm644 speakerguardd-v2.service speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service \
+    speakerguardd-v2-seat.service speakerguardd-v2-seat.path -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 speakerguardd-v2-session.service speakerguardd-v2-graph.service -t "$pkgdir/usr/lib/systemd/user/"
+  # Enabled by the package itself (pacman applies no presets); the gate in
+  # every unit decides whether anything runs.
+  install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants" "$pkgdir/usr/lib/systemd/user/pipewire.service.wants"
+  for u in speakerguardd-v2.service speakerguardd-v2-seat.path; do
+    ln -s "../$u" "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/$u"
+  done
+  for u in speakerguardd-v2-graph.service speakerguardd-v2-session.service; do
+    ln -s "../$u" "$pkgdir/usr/lib/systemd/user/pipewire.service.wants/$u"
+  done
+  # The older daemons start only where v2 does not run and the kernel has no
+  # v2 interface: exactly one stack holds the speakers on each boot.
+  for u in speakersafetyd speakerguardd; do
+    install -Dm644 legacy-gate.conf "$pkgdir/usr/lib/systemd/system/$u.service.d/60-speakerguardd-v2-gate.conf"
+  done
   install -Dm644 README.md docs/DESIGN.md docs/NEW-PLATFORM.md packaging/etc/speakerguardd.conf.example -t "$pkgdir/usr/share/doc/$pkgname/"
   install -Dm644 "$srcdir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.packaging.md"
   install -Dm644 LICENSE crates/aurora-speaker-tuning/LICENSE-aurora-audio-dsp -t "$pkgdir/usr/share/licenses/$pkgname/"
-}
-
-package_speakerguardd-v2-replace-legacy() {
-  pkgdesc='Opt in: make speakerguardd 1.0 the speaker protection, replacing 0.1 and speakersafetyd'
-  arch=('any')
-  depends=("speakerguardd-v2=$pkgver-$pkgrel")
-  # Installing this package is the switch: it takes the place of both older
-  # daemons, which must not hold the speaker interlock beside it. There is no
-  # replaces=: that would make every -Syu swap a machine over without asking,
-  # and a machine moves only once it qualifies.
-  conflicts=('speakerguardd' 'speakersafetyd')
-  provides=("speakerguardd=$pkgver" 'speakersafetyd')
-  # Enabled by the package itself, so removing it disables the unit again.
-  install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-  ln -s ../speakerguardd-v2.service "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/speakerguardd-v2.service"
-  install -d "$pkgdir/usr/lib/systemd/system/speakerguardd-v2.service.requires"
-  ln -s ../speakerguardd-v2-selfcheck.service "$pkgdir/usr/lib/systemd/system/speakerguardd-v2.service.requires/speakerguardd-v2-selfcheck.service"
-  install -d "$pkgdir/usr/lib/systemd/user/pipewire.service.wants"
-  ln -s ../speakerguardd-v2-session.service "$pkgdir/usr/lib/systemd/user/pipewire.service.wants/speakerguardd-v2-session.service"
-  # The board gate: on a board that has not qualified on 1.0 the units do
-  # not start, and the journal says why.
-  local u
-  for u in system/speakerguardd-v2 system/speakerguardd-v2-selfcheck user/speakerguardd-v2-session; do
-    install -d "$pkgdir/usr/lib/systemd/$u.service.d"
-    printf '[Service]\nExecCondition=/usr/lib/speakerguardd-v2/speakerguardd-v2-gate\n' \
-      > "$pkgdir/usr/lib/systemd/$u.service.d/50-qualified-board.conf"
-  done
-  install -Dm644 "$srcdir/$_src/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

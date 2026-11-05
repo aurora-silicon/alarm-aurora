@@ -3,71 +3,81 @@
 speakerguardd 1.0 (`1.0.0-alpha`), the in-graph speaker protection from the
 `v2` branch of aurora-silicon/speakerguardd. It is a new program, not an
 upgrade of the 0.1 daemon, so it is packaged under its own name and installs
-beside what machines run today.
+beside the older daemons, speakerguardd 0.1 and speakersafetyd.
+
+## Install everywhere, gate by board
+
+Every Mac carries both stacks: aurora-platform and aurora-audio require
+speakerguardd-v2 beside the older daemons. Nothing replaces or obsoletes
+anything. At every boot the fleet gate (`speakerguardd-gate`, the
+`ExecCondition=` of every unit of both stacks) starts exactly one of them:
+
+- **v2** on a board whose protection unit is at parity and that passed an
+  audible run on the shipped tree, when the kernel has the v2 interface (the
+  "Speaker Protection" control);
+- **the older daemons** everywhere else, as long as the kernel has no v2
+  interface. On a v2 kernel they have nothing to own, so a board outside
+  the gate then runs neither, and the kernel holds its speakers at its
+  floor.
+
+The kernel is the switch. Every fleet kernel today lacks the v2 interface,
+so every Mac stays on the older daemons. The kernel that brings the
+interface moves every gated Mac at once (option A: it lands once lsm2 and
+atsp reach parity). The gate's data is speakerguardd's own
+(`/usr/share/speakerguardd/gate.json`, and `unit` and `qualified` in
+`machines.json`), so it is the same in every distribution and never edited
+here. The cutover adds lsm2 and atsp to `units_at_parity` and drops the
+per-board run, which makes the gate every board with a parity unit.
+
+`speakerguardd-gate explain` (beside the supervisor) prints the decision.
+For qualification itself, an administrator can name an unqualified board in
+`/etc/speakerguardd/allow-unqualified`.
+
+## No manual steps
+
+On a gated board, `speakerguardd-v2-provision.service` runs before the
+self-check and the supervisor, which both require it:
+
+- it compiles the installer's tuning bundle (`/lib/firmware/vendor/apple/audio-tuning`,
+  or the ESP's vendorfw archive) into `/var/lib/speakerguardd/params.bin`;
+- it binds the blob to the board, kernel, bundle, macOS build and compiler,
+  and recompiles when one changes;
+- it resolves the seat user by name, never by a fixed uid;
+- it writes `/etc/speakerguardd/speakerguardd.conf`.
+
+After the self-check passes, the machine's PipeWire and WirePlumber files are
+generated into `/run/speakerguardd-graph`. The user unit
+`speakerguardd-v2-graph.service` links them for the seat user only.
+`speakerguardd-v2-seat.path` provisions again when another user takes
+seat0. Any failure fails closed: the supervisor does not start, the kernel's
+floor holds, and the journal says why.
+
+Overrides, all optional, go in `/etc/speakerguardd/provision.conf`:
+`SGV2_SEAT_USER=<name>` and `SGV2_BUNDLE=<path>`.
 
 ## What it installs
 
 | Path | What |
 |---|---|
-| `speakerguardd-v2/speakerguardd` under `/usr/libexec` (Fedora) or `/usr/lib` (Arch) | The supervisor (`sgv2-supervisor`) |
-| `speakerguardd-v2.service` | The upstream unit, renamed. No `OnFailure=` and no other daemon in it |
-| `sgv2.lv2` in the distribution's LV2 directory | The protection unit (`sgv2-core` behind the `sgv2-lv2` host) for the PipeWire filter-chain |
-| `aurora-speaker-tuning` | Reader and validator for the Mac's own tuning bundle |
-| `speakerguardd-v2-selfcheck.service` | The first-boot wiring self-check: it derives the speaker wiring from the device tree and the tuning, proves it with zero-sample streams only, and binds the result to board, kernel and blob. The supervisor `Requires=` it |
-| `speakerguardd-v2-session.service` (user unit) | The session helper: it links the amps into the graph only while the kernel grants protection |
-| `speakerguardd-selfcheck`, `speakerguardd-session`, `wiring.py`, `speakerguardd-v2-gate` beside the supervisor | The programs the units run |
-| `/usr/share/speakerguardd/` | `machines.json` and the per-machine PipeWire and WirePlumber graphs, as data only |
-| SELinux module `speakerguardd` (Fedora) | Upstream's policy (`packaging/selinux`): `speakerguardd_t`, with the program, `/run/speakerguardd` and `/var/lib/speakerguardd` labelled |
+| `speakerguardd-v2/` under `/usr/libexec` (Fedora), `/usr/lib` (Arch) or `libexec` (Nix) | The supervisor, `speakerguardd-provision`, `speakerguardd-gate`, `speakerguardd-selfcheck`, `speakerguardd-session` |
+| `speakerguardd-v2{,-provision,-selfcheck,-seat}.service`, `speakerguardd-v2-seat.path` | The upstream units, renamed and enabled, each one gated |
+| `speakerguardd-v2-session.service`, `speakerguardd-v2-graph.service` (user units) | The session helper, and the seat user's graph links |
+| `60-speakerguardd-v2-gate.conf` in `speakersafetyd.service.d` and `speakerguardd.service.d` | The gate on the older daemons' units |
+| `sgv2.lv2` in the distribution's LV2 directory | The protection unit for the PipeWire filter-chain |
+| `aurora-speaker-tuning` | Reader, validator and compiler for the Mac's own tuning bundle |
+| `/usr/share/speakerguardd/` | `machines.json`, `gate.json` and the reference graphs |
+| SELinux module `speakerguardd` (Fedora) | Upstream's policy: `speakerguardd_t`, with the program, `/run/speakerguardd` and `/var/lib/speakerguardd` labelled |
 
-Nothing is enabled. No graph loads the plugin, and no unit is enabled.
+## Rollback
 
-## The board gate
-
-The opt-in adds `ExecCondition=speakerguardd-v2-gate` to all three units. A
-unit starts only on a board that passed the 1.0 qualification, a passing
-audible hardware run on the shipped tree. It is the J616s and J316s for now, and the
-list is the same file in every distribution. On any other board the units do
-not start, the journal says why, and the kernel's safe level holds. Nothing
-changes silently. For qualification itself, an administrator can name the
-board in `/etc/speakerguardd/allow-unqualified`.
-
-Still to provision by hand, as `docs/NEW-PLATFORM.md` describes:
-- `/etc/speakerguardd/speakerguardd.conf` (from `speakerguardd.conf.example`);
-- the parameter blob compiled from the installer's tuning bundle;
-- the machine's graph from `/usr/share/speakerguardd`.
-
-These become automatic before 1.0 is the default.
-
-## The opt-in
-
-The switch is a separate, clearly named package or option:
-
-| Distribution | Opt-in |
+| | Back to the older daemons |
 |---|---|
-| Fedora | `dnf install --allowerasing speakerguardd-v2-replace-legacy` |
-| Arch Linux ARM | `pacman -S speakerguardd-v2-replace-legacy` (answer yes to remove the conflicting packages) |
-| NixOS | `aurora.speakerguardd.v2.replaceLegacy = true;` |
+| Any distribution | Boot a kernel without the v2 interface. The gate starts the older daemons again, with no package change |
+| One Mac, without a kernel change | `systemctl disable speakerguardd-v2.service`. On a v2 kernel this leaves the speakers at the kernel's floor, because the older daemons cannot drive that kernel |
+| NixOS | `aurora.speakerguardd.v2.enable = false;` removes v2 and its gate, and the older daemons run as before |
 
-It conflicts with speakerguardd 0.1 and speakersafetyd and enables
-`speakerguardd-v2.service`, and the audio packages that need a speaker
-protection stay installed. It never uses `Obsoletes:` or `replaces=`: those
-make an ordinary upgrade swap the daemon without being asked, and a machine
-moves only after it passes the 1.0 qualification (parity with macOS, fault
-injection, zero SELinux denials in enforcing mode, a clean boot log, and
-loudness and clarity against macOS).
-
-- Fedora: the opt-in provides neither old name, because dnf would then pick
-  it for a plain `Requires: speakersafetyd` on a fresh install.
-  aurora-audio and aurora-platform require `(speakersafetyd or
-  speakerguardd-v2-replace-legacy)` (and the same for speakerguardd) and
-  recommend the real daemons, which dnf then prefers.
-- Arch Linux ARM: the opt-in provides both names. pacman takes a package by
-  its exact name before any provider, so nothing pulls it in unasked.
-
-To go back, install the older daemons again, which removes the opt-in and
-disables the unit: `dnf install --allowerasing speakerguardd speakersafetyd`
-or `pacman -S speakerguardd speakersafetyd`, or set `replaceLegacy = false`
-on NixOS.
+The older daemons stay installed throughout, so the rollback needs no
+download.
 
 ## Source
 
