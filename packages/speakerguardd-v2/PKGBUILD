@@ -4,7 +4,7 @@ pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2' 'speakerguardd-v2-replace-legacy')
 pkgver=1.0.0alpha.1
 pkgrel=2
-_commit=c9dcc8ce7bf1560d000f46a1f5c057a5be44e3bf
+_commit=3c18a3527055145bc8b98e82c00b5deb4ca9a42f
 _src=speakerguardd-$_commit
 pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview)'
 arch=('aarch64')
@@ -15,7 +15,7 @@ makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md
         speakerguardd-v2-gate)
-sha256sums=('ed4ca76deaf19d04017abeb55d6216ba9ad8de6153d0fe739f7efe2fb83519a9'
+sha256sums=('e331d73ff053a97feef252967db2223f98cbc257c093d3cb9f0902355beac381'
             'ac02dabdbd908aee776519e177d59fb196f432883d4a29081e225006f489fb48'
             '9869d2d34a7c579ed2aa92b23dc9bdcfcd08cd4cbd73ff1307497f197b772eeb')
 # The crates this package ships; the rig and benchmark crates stay out.
