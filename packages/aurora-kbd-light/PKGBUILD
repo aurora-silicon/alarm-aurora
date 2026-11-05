@@ -1,0 +1,27 @@
+pkgname=aurora-kbd-light
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Keyboard backlight that follows the ambient light sensor on Apple silicon MacBooks, like macOS'
+arch=('aarch64')
+groups=('aurora-platform-apple-silicon')
+url='https://github.com/aurora-silicon/kbd-light'
+license=('MIT')
+_commit=ba25746dc9ee5e38b7b9347bac2fd364a21e3d2e
+depends=('glibc')
+makedepends=('gcc' 'make')
+install=aurora-kbd-light.install
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/kbd-light/tar.gz/$_commit")
+sha256sums=('fb08160a26743d9dc641c2d0a786a9b75370641964ea79c8a6478b34e9202550')
+
+build() {
+  make -C "kbd-light-$_commit" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+}
+
+package() {
+  make -C "kbd-light-$_commit" install DESTDIR="$pkgdir" PREFIX=/usr UNITDIR=/usr/lib/systemd/system
+  # On for every Mac, like the keyboard backlight on macOS.
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/80-aurora-kbd-light.preset" <<'PRESET'
+enable aurora-kbd-light.service
+PRESET
+  install -Dm644 "kbd-light-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
