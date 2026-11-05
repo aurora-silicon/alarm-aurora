@@ -36,6 +36,9 @@ class PinTests(unittest.TestCase):
         # The gate and its data are upstream's: no distribution copy.
         self.assertFalse((ROOT / 'packages/speakerguardd-v2/speakerguardd-v2-gate').exists())
         self.assertIn('packaging/session/gate.json', main)
+        # Every per-board value is derived on the Mac (wiring.py): no machine table.
+        self.assertNotIn('machines.json', main)
+        self.assertIn('packaging/session/wiring.py', main)
         self.assertIn('python -I packaging/session/test_provision.py', text)
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
         self.assertIn("'speakersafetyd' 'speakerguardd' 'speakerguardd-v2'", audio)

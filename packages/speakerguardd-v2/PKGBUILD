@@ -4,8 +4,8 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=3
-_commit=ebab1e0f7c4eeb0293b170690487f2f53bdd1481
+pkgrel=4
+_commit=4cffd19b102df19530af60500e2b9e90fe5c07c9
 _src=speakerguardd-$_commit
 pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview)'
 arch=('aarch64')
@@ -15,8 +15,8 @@ license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
-sha256sums=('ef05a03921efb81609062a29fe04202cca48873c2024647a9bbe3aea6f8ec6a4'
-            '3e0ddc3ef47e17adbb61aa629c14e4866a5200144bcc45db0930e63cd85bdfca')
+sha256sums=('6c82efd531df944e857e65339b572aec2cfb2dbf197ebd14132760cb29144015'
+            'e37f544be1001efda5df7b960113fde7f8697a2e9ceec3f1e953f64c2538b3d0')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 
@@ -90,8 +90,9 @@ package_speakerguardd-v2() {
     install -Dm755 "packaging/session/$f" "$pkgdir$lx/$f"
   done
   install -Dm644 packaging/session/wiring.py packaging/session/gen.py -t "$pkgdir$lx/"
-  # The machine description and the fleet gate's data, unchanged from upstream.
-  install -Dm644 packaging/session/machines.json packaging/session/gate.json -t "$pkgdir/usr/share/speakerguardd/"
+  # The fleet gate's data, unchanged from upstream. Every per-board value is
+  # derived from the Mac's device tree and tuning at run time (wiring.py).
+  install -Dm644 packaging/session/gate.json -t "$pkgdir/usr/share/speakerguardd/"
   # The per-machine graphs, as reference data: provisioning generates the
   # machine's own from the self-check's record.
   install -Dm644 packaging/pipewire/sgv2-*.conf -t "$pkgdir/usr/share/speakerguardd/pipewire/"

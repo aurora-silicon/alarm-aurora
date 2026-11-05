@@ -24,9 +24,12 @@ The kernel is the switch. Every fleet kernel today lacks the v2 interface,
 so every Mac stays on the older daemons. The kernel that brings the
 interface moves every gated Mac at once (option A: it lands once lsm2 and
 atsp reach parity). The gate's data is speakerguardd's own
-(`/usr/share/speakerguardd/gate.json`, and `unit` and `qualified` in
-`machines.json`), so it is the same in every distribution and never edited
-here. The cutover adds lsm2 and atsp to `units_at_parity` and drops the
+(`/usr/share/speakerguardd/gate.json`: the units at parity and the qualified
+boards per unit), so it is the same in every distribution and never edited
+here. Nothing about a board is entered by hand: the protection unit is the
+one the Mac's own tuning names, and the channel map, card, amplifiers and
+sense lanes are derived from its device tree and tuning at run time
+(`wiring.py`), so a new Mac needs no table entry. The cutover adds lsm2 and atsp to `units_at_parity` and drops the
 per-board run, which makes the gate every board with a parity unit.
 
 `speakerguardd-gate explain` (beside the supervisor) prints the decision.
@@ -65,7 +68,7 @@ Overrides, all optional, go in `/etc/speakerguardd/provision.conf`:
 | `60-speakerguardd-v2-gate.conf` in `speakersafetyd.service.d` and `speakerguardd.service.d` | The gate on the older daemons' units |
 | `sgv2.lv2` in the distribution's LV2 directory | The protection unit for the PipeWire filter-chain |
 | `aurora-speaker-tuning` | Reader, validator and compiler for the Mac's own tuning bundle |
-| `/usr/share/speakerguardd/` | `machines.json`, `gate.json` and the reference graphs |
+| `/usr/share/speakerguardd/` | `gate.json` and the reference graphs |
 | SELinux module `speakerguardd` (Fedora) | Upstream's policy: `speakerguardd_t`, with the program, `/run/speakerguardd` and `/var/lib/speakerguardd` labelled |
 
 ## Rollback
