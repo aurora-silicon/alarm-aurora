@@ -100,7 +100,6 @@ class UpdateM1n1(unittest.TestCase):
         self.script.write_text(text)
         self.script.chmod(0o755)
         self.compatible = root / 'compatible'
-        self.window = root / 'window'
         self.marker = root / 'monitor-free'
 
     def run_update(self, *args, shell='sh', **env):
@@ -108,7 +107,6 @@ class UpdateM1n1(unittest.TestCase):
                            SOURCE=str(self.root), DTBS=f'{self.dtbs}/*.dtb',
                            CONFIG=str(self.root / 'm1n1.conf'),
                            AURORA_DEVICE_TREE_COMPATIBLE=str(self.compatible),
-                           AURORA_DEVICE_TREE_WINDOW=str(self.window),
                            AURORA_MONITOR_FREE_MARKER=str(self.marker))
         environment.update(env)
         return subprocess.run([shell, str(self.script), *args], env=environment,
@@ -163,20 +161,9 @@ class UpdateM1n1(unittest.TestCase):
                 self.assert_frozen()
                 self.assertTrue(self.ctxr.is_file())
 
-    def test_a_mac_still_booting_the_frozen_file_is_told_what_to_do(self):
+    def test_macho_with_the_marker_says_where_the_update_went_and_warns_nothing(self):
         self.monitor_free()
         self.on('j700', 't8140')
-        result = self.run_update()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn('m1n1 updated', result.stdout)
-        self.assertIn('still boots m1n1/boot.bin', result.stderr)
-        self.assertIn('Utilities > Enroll Expanded Code Window', result.stderr)
-        self.assertIn('#enroll-expanded-code-window', result.stderr)
-
-    def test_a_mac_booting_the_ctxr_file_gets_no_warning(self):
-        self.monitor_free()
-        self.on('j700', 't8140')
-        self.window.write_bytes(b'\0' * 16)
         result = self.run_update()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, '')

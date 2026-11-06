@@ -20,7 +20,6 @@ fi
 : ${DTBS:=$(/bin/ls -d /lib/modules/*-ARCH | sort -rV | head -1)/dtbs/*.dtb}
 : ${CONFIG:=/etc/m1n1.conf}
 : ${AURORA_DEVICE_TREE_COMPATIBLE:=/proc/device-tree/compatible}
-: ${AURORA_DEVICE_TREE_WINDOW:=/proc/device-tree/chosen/aurora,ctxr-exec-window}
 : ${AURORA_MONITOR_FREE_MARKER:=/usr/share/aura/monitor-free}
 
 # The board of a Mac that boots a Mach-O Stage 1, nothing on any other machine.
@@ -103,15 +102,12 @@ if [ -z "$TARGET" ]; then
     umount=true
 fi
 
-# An older Stage 1 chainloads boot.bin and can't run this aura, so boot.bin must
-# stay as it is. Only an aura booted from boot-ctxr.bin publishes the window, so
-# a Mac without one is still booting the frozen file.
-frozen=false
+# A Mach-O Mac's Stage 1 is padded and chainloads boot-ctxr.bin, so the update
+# goes there and boot.bin stays as it is.
 if [ -n "$board" ]; then
     case "$TARGET" in
         boot.bin|*/boot.bin)
             TARGET="${TARGET%boot.bin}boot-ctxr.bin"
-            [ -e "$AURORA_DEVICE_TREE_WINDOW" ] || frozen=true
             ;;
     esac
 fi
@@ -130,13 +126,6 @@ fi
 
 mv -f "${TARGET}.new" "$TARGET"
 
-if $frozen; then
-    warn "WARNING: This Mac still boots m1n1/boot.bin, which stays on its last aura, device trees and U-Boot."
-    warn "WARNING: This update is in m1n1/boot-ctxr.bin, and nothing boots that yet. New kernels run on the old device trees."
-    warn "WARNING: To move to it, start this installation's Recovery, open Aurora Installer and choose Utilities > Enroll Expanded Code Window."
-    warn "WARNING: Steps: https://github.com/aurora-silicon/aurora-installer/blob/main/macOS/Recovery/README.md#enroll-expanded-code-window"
-else
-    echo "m1n1 updated at ${TARGET}"
-fi
+echo "m1n1 updated at ${TARGET}"
 $umount && umount /run/.system-efi
 true

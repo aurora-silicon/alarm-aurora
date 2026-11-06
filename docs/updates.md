@@ -24,14 +24,8 @@ then every Mac updates `boot.bin`.
 With the marker, a Mac that boots a Mach-O Stage 1 (`/proc/device-tree/compatible` names one of the chips
 in the installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and later) gets
 `m1n1/boot-ctxr.bin` instead, keeping `boot-ctxr.bin.old`, with only this board's DTBs. It never touches
-`m1n1/boot.bin`: a Stage 1 with the CTXR window chainloads `boot-ctxr.bin`, and an older one keeps
-chainloading its frozen `boot.bin`, because it can't run an aura without the monitor. M1 to M3 Macs only
-ever use `boot.bin`.
-
-Only an aura booted from `boot-ctxr.bin` publishes `/chosen/aurora,ctxr-exec-window`. When that property
-is missing, the Mac is still booting the frozen `boot.bin`, so `update-m1n1` warns the owner on every run
-and names the Recovery step, Utilities > Enroll Expanded Code Window. Until then new kernels run on the old
-device trees.
+`m1n1/boot.bin`, because the padded Stage 1 these Macs enroll chainloads `boot-ctxr.bin`. M1 to M3 Macs
+only ever use `boot.bin`.
 
 Image builds set `AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent`, so `update-m1n1` writes `boot.bin` as before
 whichever Mac builds the image. `scripts/prepare-ctxr-stage2.py` then adds `boot-ctxr.bin`, a copy of it, to
