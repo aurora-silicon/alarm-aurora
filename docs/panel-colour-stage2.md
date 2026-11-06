@@ -9,6 +9,12 @@ leaves the panel without its target colour space.
 
 `packages/linux-aurora/PKGBUILD` installs the kernel-built Apple DTBs under `/usr/lib/modules/<release>/dtbs/`. The kernel release keeps its `-ARCH` suffix so `asahi-scripts` can discover that DTB set when `update-m1n1` assembles the ESP payload.
 
+The distribution assembly path defaults to `m1n1/boot.bin`. If Stage 1 is
+configured to load `aurora/stage2.bin` instead, refresh that selected image
+through the reviewed deployment mechanism as well: writing an unused legacy
+path does not update the booted device tree. Confirm the Stage 1 selection
+before deployment; the presence of an ESP directory is not sufficient.
+
 `sources.json` pins the kernel through the merge of #1021,
 `e5ed737692b0ad07e212d210b568914b4fc01aca`. The kernel build checks the
 `apple,color-gamut` property in each of the three generated DTBs before
