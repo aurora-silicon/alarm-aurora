@@ -105,9 +105,12 @@ def attests(root, commit):
 
 
 def verify_attestation(path, repository, commit):
+    # Every snapshot re-attests the packages it carries, so a long-lived package
+    # collects more attestations than gh's default 30, and the build's own one,
+    # the oldest, would be left out of the search.
     subprocess.run(['gh', 'attestation', 'verify', str(path), '--repo', repository,
                     '--signer-workflow', f'{repository}/.github/workflows/packages.yml',
-                    '--source-digest', commit, '--deny-self-hosted-runners'],
+                    '--source-digest', commit, '--deny-self-hosted-runners', '--limit', '1000'],
                    check=True, stdout=subprocess.DEVNULL)
 
 

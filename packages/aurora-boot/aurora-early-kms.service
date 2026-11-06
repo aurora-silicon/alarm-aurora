@@ -1,0 +1,11 @@
+[Unit]
+Description=Coldplug the Apple display before the other devices
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+Wants=systemd-udevd.service
+After=systemd-udevd.service
+Before=systemd-udev-trigger.service plymouth-start.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aurora/aurora-early-kms

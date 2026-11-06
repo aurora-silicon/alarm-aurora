@@ -1,0 +1,75 @@
+"""The splash comes up early and GRUB leaves the boot logo on screen (Fedora #148, #149, #151)."""
+from pathlib import Path
+import subprocess
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+BOOT = ROOT/'packages/aurora-boot'
+PLYMOUTH = ROOT/'packages/plymouth'
+DROPIN = BOOT/'40-aurora-console.cfg'
+
+
+def grub(defaults):
+    """grub-mkconfig sources /etc/default/grub, then each grub.d drop-in."""
+    script = (defaults + '\n. "$1"\nprintf "%s|%s|%s" "${GRUB_TERMINAL_OUTPUT-}" '
+              '"${GRUB_TIMEOUT_STYLE-}" "${GRUB_TIMEOUT-}"')
+    return subprocess.run(['sh', '-c', script, 'sh', str(DROPIN)], check=True,
+                          capture_output=True, text=True).stdout.split('|')
+
+
+class BootSplashTests(unittest.TestCase):
+    def test_initramfs_coldplugs_the_display_before_the_other_devices(self):
+        hooks = subprocess.run(['bash', '-c', 'source "$1"; printf "%s\\n" "${HOOKS[@]}"', 'test',
+                                str(BOOT/'90-aurora.conf')], check=True, capture_output=True, text=True).stdout.split()
+        self.assertIn('aurora-early-kms', hooks)
+        install = (BOOT/'aurora-early-kms.install').read_text()
+        for line in ('add_module appledrm?', 'add_binary bash', 'add_binary udevadm',
+                     'add_file /usr/libexec/aurora/aurora-early-kms',
+                     'add_file /usr/lib/aurora/initrd/aurora-early-kms.service /usr/lib/systemd/system/aurora-early-kms.service',
+                     'add_symlink /usr/lib/systemd/system/sysinit.target.wants/aurora-early-kms.service ../aurora-early-kms.service'):
+            self.assertIn('\n  ' + line + '\n', install)
+        unit = (BOOT/'aurora-early-kms.service').read_text()
+        self.assertIn('\nDefaultDependencies=no\n', unit)
+        self.assertIn('\nAfter=systemd-udevd.service\n', unit)
+        self.assertIn('\nBefore=systemd-udev-trigger.service plymouth-start.service\n', unit)
+        self.assertIn('\nExecStart=/usr/libexec/aurora/aurora-early-kms\n', unit)
+        script = (BOOT/'aurora-early-kms').read_text()
+        self.assertIn('*Capple,display-subsystem*|*Capple,dcp*)', script)
+        self.assertIn('"$dev"/supplier:*', script)
+        self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm --settle'))
+        subprocess.run(['bash', '-n', str(BOOT/'aurora-early-kms')], check=True)
+        pkgbuild = (BOOT/'PKGBUILD').read_text()
+        for line in ('install -Dm644 aurora-early-kms.install "$pkgdir/usr/lib/initcpio/install/aurora-early-kms"',
+                     'install -Dm755 aurora-early-kms "$pkgdir/usr/libexec/aurora/aurora-early-kms"',
+                     'install -Dm644 aurora-early-kms.service "$pkgdir/usr/lib/aurora/initrd/aurora-early-kms.service"'):
+            self.assertIn(line, pkgbuild)
+        hook = (BOOT/'aurora-boot.hook').read_text().splitlines()
+        for target in ('usr/lib/initcpio/install/aurora-early-kms', 'usr/libexec/aurora/aurora-early-kms',
+                       'usr/lib/aurora/initrd/aurora-early-kms.service'):
+            self.assertIn('Target = ' + target, hook)
+
+    def test_plymouth_starts_without_waiting_for_the_coldplug(self):
+        patch = (PLYMOUTH/'0001-systemd-units-Start-plymouthd-without-waiting-for-coldplug.patch').read_text()
+        self.assertIn('\n+After=systemd-vconsole-setup.service systemd-udevd.service dracut-pre-trigger.service\n', patch)
+        self.assertIn('patch -Np1 -i "$srcdir/0001-systemd-units-Start-plymouthd-without-waiting-for-coldplug.patch"',
+                      (PLYMOUTH/'PKGBUILD').read_text())
+
+    def test_grub_stays_on_the_console_unless_the_owner_chose(self):
+        arch = 'GRUB_TIMEOUT=5\nGRUB_TIMEOUT_STYLE=menu\n#GRUB_TERMINAL_OUTPUT=console'
+        self.assertEqual(grub(arch), ['console', 'hidden', '1'])
+        # The owner's own choices win.
+        self.assertEqual(grub(arch + '\nGRUB_TERMINAL_OUTPUT=gfxterm'), ['gfxterm', 'hidden', '1'])
+        self.assertEqual(grub('GRUB_TIMEOUT=5\nGRUB_TIMEOUT_STYLE=countdown'), ['console', 'countdown', '5'])
+        self.assertEqual(grub('GRUB_TIMEOUT=10\nGRUB_TIMEOUT_STYLE=menu'), ['console', 'menu', '10'])
+        self.assertEqual(grub('GRUB_TIMEOUT=0\nGRUB_TIMEOUT_STYLE=hidden'), ['console', 'hidden', '0'])
+        pkgbuild = (BOOT/'PKGBUILD').read_text()
+        self.assertIn('install -Dm644 40-aurora-console.cfg "$pkgdir/etc/default/grub.d/40-aurora-console.cfg"', pkgbuild)
+        self.assertIn('install -Dm644 aurora-grub.hook "$pkgdir/usr/share/libalpm/hooks/90-aurora-grub.hook"', pkgbuild)
+        hook = (BOOT/'aurora-grub.hook').read_text()
+        self.assertIn('\nTarget = etc/default/grub.d/40-aurora-console.cfg\n', hook)
+        self.assertIn("[ -f /boot/grub/grub.cfg ] && [ -x /usr/bin/grub-mkconfig ] || exit 0; "
+                      "exec /usr/bin/grub-mkconfig -o /boot/grub/grub.cfg'", hook)
+
+
+if __name__ == '__main__':
+    unittest.main()
