@@ -1,7 +1,7 @@
 # Aurora bootloader; ordinary updates refresh ESP Stage 2, never enroll Stage 1.
 pkgname=aura
 pkgver=1.0.0b5
-pkgrel=1
+pkgrel=2
 pkgdesc='Aurora Silicon bootloader for Apple Silicon'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -32,8 +32,9 @@ build() {
   make -j"${OMARCHY_BUILD_JOBS:-10}" RELEASE=1 CHAINLOADING=1 ESP_STAGE2=1 USE_CLANG=1 BUILTIN_LOGO=aurora
 }
 package() {
-  # Required on the installed system, not to build the bootloader.
-  depends=('asahi-scripts>=20260127.1' 'uboot-aurora')
+  # Required on the installed system, not to build the bootloader. A Mach-O Mac
+  # needs the update-m1n1 that leaves boot.bin alone, or this aura could overwrite it.
+  depends=('asahi-scripts>=20261023-3' 'uboot-aurora')
   # Building a PR candidate does not assert release/hardware qualification.
   install -Dm644 aura/build/aura.bin "$pkgdir/usr/lib/asahi-boot/m1n1.bin"
   install -d "$pkgdir/usr/lib/m1n1-neo"

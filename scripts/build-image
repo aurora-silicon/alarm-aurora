@@ -250,6 +250,8 @@ if ! bash "$root/out/finalizer/$revision/images/finalize-image" "$image" "$profi
   python3 "$root/scripts/diagnose-image-mounts.py" /tmp
   exit 1
 fi
+# A Stage 1 with the CTXR window chainloads these, on Mach-O Macs.
+python3 "$root/scripts/prepare-ctxr-stage2.py" "$root/out/$profile-installer/esp/m1n1"
 # GRUB finds /boot by UUID on the startup disk only, in the files the
 # installer writes.
 python3 "$root/scripts/check-basics.py" --profile "${profile#arch-}" --esp "$root/out/$profile-installer/esp" \

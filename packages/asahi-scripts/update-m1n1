@@ -1,0 +1,122 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+
+set -e
+
+[ -e /etc/default/update-m1n1 ] && . /etc/default/update-m1n1
+
+[ -n "$M1N1_UPDATE_DISABLED" ] && exit 0
+
+if [ -e "$(dirname "$0")"/functions.sh ]; then
+    . "$(dirname "$0")"/functions.sh
+else
+    . /usr/share/asahi-scripts/functions.sh
+fi
+
+: ${SOURCE:="/usr/lib/asahi-boot/"}
+: ${M1N1:="$SOURCE/m1n1.bin"}
+: ${U_BOOT:="$SOURCE/u-boot-nodtb.bin"}
+: ${TARGET:="$1"}
+: ${DTBS:=$(/bin/ls -d /lib/modules/*-ARCH | sort -rV | head -1)/dtbs/*.dtb}
+: ${CONFIG:=/etc/m1n1.conf}
+: ${AURORA_DEVICE_TREE_COMPATIBLE:=/proc/device-tree/compatible}
+
+# The board of a Mac that boots a Mach-O Stage 1, nothing on any other machine.
+# The chips are the installer's: AuraStage1Format.usesMachO.
+macho_board() {
+    [ -r "$AURORA_DEVICE_TREE_COMPATIBLE" ] || return 0
+    first=
+    for entry in $(tr '\000' ' ' <"$AURORA_DEVICE_TREE_COMPATIBLE"); do
+        [ -n "$first" ] || first=${entry#apple,}
+        case "$entry" in
+            apple,t81[3-9a-f]?|apple,t8[2-9a-f]??|apple,t60[4-9a-f]?|apple,t6[1-9a-f]??)
+                echo "$first"
+                return 0
+                ;;
+        esac
+    done
+}
+
+if [ -z "$DTBS" ]; then
+    warn "ERROR: DTBS config unset or empty, see `/etc/default/update-m1n1`"
+    exit 1
+fi
+
+# If ${DTBS} is a directory expand it to include dtbs from all Apple silicon
+# macs.
+if [ -d "$DTBS" ]; then
+    DTBS="${DTBS}/apple/t6*.dtb ${DTBS}/apple/t81*.dtb"
+fi
+
+board=$(macho_board)
+
+# These Macs get only their own device trees, in byte order so aura settles on
+# the board's main tree: a Stage 2 with every board's trees is too large.
+if [ -n "$board" ]; then
+    LC_ALL=C
+    board_dtbs=
+    for dtb in $DTBS; do
+        case "${dtb##*/}" in
+            *-"$board".dtb|*-"$board"-*.dtb) board_dtbs="$board_dtbs $dtb" ;;
+        esac
+    done
+    if [ -z "$board_dtbs" ]; then
+        warn "ERROR: no device tree for $board in $DTBS"
+        exit 1
+    fi
+    DTBS=$board_dtbs
+fi
+
+umount=false
+
+m1n1config=/run/m1n1.conf
+>"$m1n1config"
+
+if [ -e "$CONFIG" ]; then
+    info "Reading m1n1 config from $CONFIG:"
+    while read line; do
+        case "$line" in
+            "") ;;
+            \#*) ;;
+            chosen.*=*|display=*|mitigations=*)
+                echo "$line" >> "$m1n1config"
+                info "  Option: $line"
+                ;;
+            *)
+                warn "  Ignoring unknown option: $line"
+                ;;
+        esac
+    done <$CONFIG
+fi
+
+if [ -z "$TARGET" ]; then
+    mount_sys_esp /run/.system-efi
+    TARGET="/run/.system-efi/m1n1/boot.bin"
+    umount=true
+fi
+
+# A Stage 1 enrolled with the CTXR window chainloads boot-ctxr.bin. An older one
+# chainloads boot.bin, which must stay as it is: its Stage 1 can't run this aura.
+if [ -n "$board" ]; then
+    case "$TARGET" in
+        boot.bin|*/boot.bin) TARGET="${TARGET%boot.bin}boot-ctxr.bin" ;;
+    esac
+fi
+
+cat "$M1N1" $DTBS >"${TARGET}.new"
+gzip -c "$U_BOOT" >>"${TARGET}.new"
+cat "$m1n1config" >>"${TARGET}.new"
+
+if [ -e "$TARGET" ]; then
+    # clobber "${TARGET}.old" only if "$TARGET" changes, use sha512sum to
+    # avoid dependency on diffutils
+    SHA512_CUR=$(sha512sum "$TARGET"     | cut -d' ' -f1)
+    SHA512_NEW=$(sha512sum "$TARGET.new" | cut -d' ' -f1)
+    [ "$SHA512_CUR" != "$SHA512_NEW" ] && cp --preserve=timestamps -f "$TARGET" "${TARGET}.old"
+fi
+
+mv -f "${TARGET}.new" "$TARGET"
+
+echo "m1n1 updated at ${TARGET}"
+$umount && umount /run/.system-efi
+true

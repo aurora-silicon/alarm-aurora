@@ -2,28 +2,33 @@
 # Maintainer: Matthias Kurz <m.kurz@irregular.at>
 
 # asahi-alarm's recipe (asahi-alarm/PKGBUILDs 8648855) with the unit mode fix
-# from AsahiLinux/asahi-scripts#75. Drop this copy once asahi-alarm ships it:
-# the aurora repository is listed first, so it shadows asahi-alarm's updates.
+# from AsahiLinux/asahi-scripts#75 and Aurora's update-m1n1, which replaces the
+# tag's copy: on Mach-O Macs it writes boot-ctxr.bin and never touches boot.bin.
+# The aurora repository is listed first, so this shadows asahi-alarm's updates.
 pkgname=asahi-scripts
 pkgver=20261023
-pkgrel=2
+pkgrel=3
 pkgdesc='Asahi Linux maintenance scripts'
 arch=('any')
 url='http://asahilinux.org'
 license=('MIT')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/asahi-alarm/${pkgname}/archive/refs/tags/${pkgver}.tar.gz"
-        0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch)
+        0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch
+        update-m1n1)
 install=asahi-scripts.install
 sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
-            '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9')
+            '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9'
+            '4196008e6283ca0e5ef6b356b304208bcac29ceba5f4b526ac2f522807bda0ee')
 b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641bdf60357411b2c14caf96eb19a4a23bd258d3a00127e70679a7ca8770'
-        '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93')
+        '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93'
+        'f48b9347fd68bb283a83a7900d283df44a80b076df647012ddea6daf5e59638fa53e732966222ff3d0103236a54dc8e52673ea6b5a5aaf4af331436d1fc6f605')
 
 prepare() {
   cd "${srcdir}/${pkgname}-${pkgver}"
 
   # systemd warns on every boot about unit files marked executable.
   patch -p1 < "${srcdir}/0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch"
+  install -m755 "${srcdir}/update-m1n1" update-m1n1
 }
 
 build() {
@@ -36,8 +41,6 @@ package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
 
   make PREFIX=/usr DESTDIR=${pkgdir} install-arch
-  # re-add DTBS variable
-  sed -i -e '/${CONFIG/i : ${DTBS:=$(/bin/ls -d /lib/modules/*-ARCH | sort -rV | head -1)/dtbs/*.dtb}' "$pkgdir/usr/bin/update-m1n1"
   install -Dm644 "$srcdir/${pkgname}-${pkgver}/LICENSE" \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
