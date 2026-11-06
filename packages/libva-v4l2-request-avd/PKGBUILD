@@ -12,7 +12,7 @@ makedepends=('meson' 'ninja' 'pkgconf' 'linux-api-headers')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/omacom/libva-v4l2_request/tar.gz/$_commit"
         '0001-offline-test-portability.patch')
 sha256sums=('826fda7396374daea1c39c08e2057dd2b4775cf0205c59bce2d30ce2bfd212a4'
-            'adee95a7b6b35f844d05da70cf36ba2e9fd171fc122b8bb3c802c0f156b7d25c')
+            '8fbf69cf1d3d6275f4594f8b7212800be75cf7014116eb460017992b4b22b51e')
 
 prepare() {
   patch -d "libva-v4l2_request-$_commit" -Np1 -i "$srcdir/0001-offline-test-portability.patch"
