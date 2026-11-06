@@ -27,6 +27,13 @@ TSO emulation. Check with:
 
     FEXGetConfig --tso-emulation-info
 
+## x86 parity and adjust flags
+
+Apple cores can compute the x86 parity and adjust flags, PF and AF, in
+hardware. When the kernel advertises this extension, called APFLG, FEX turns
+it on at startup and keeps PF and AF in the host flags instead of computing
+them in software. `FEX_HOSTFEATURES=disableapflg` turns it off.
+
 ## Root filesystem
 
 FEX reads x86 root filesystems from /usr/share/fex-emu/RootFS and
