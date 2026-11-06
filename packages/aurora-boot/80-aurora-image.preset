@@ -1,0 +1,18 @@
+# Units Aurora images keep off, some of which systemd's own presets enable.
+# Every preset applies on an install's first boot; build-image fails if
+# that would still change a unit.
+
+# NetworkManager runs the network, with systemd-resolved for DNS.
+disable systemd-networkd*
+disable systemd-network-generator.service
+
+# GRUB boots Aurora; there is no systemd-boot to update.
+disable systemd-boot-update.service
+disable systemd-boot-clear-sysfail.service
+
+# No audit daemon runs; with this socket journald turns kernel auditing on
+# and the kernel logs every audit record.
+disable systemd-journald-audit.socket
+
+# Remote login is the owner's choice.
+disable sshd.service

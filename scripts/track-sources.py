@@ -17,11 +17,14 @@ import trackerlib as tl  # noqa: E402
 import updatelib as lib  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-RECIPES = {'kernel-aurora': 'linux-aurora', 'aura': 'aura', 'mesa-aurora': 'mesa-aurora'}
+RECIPES = {'kernel-aurora': 'linux-aurora', 'aura': 'aura', 'mesa-aurora': 'mesa-aurora',
+           'fex-emu': 'fex-emu', 'aurora-steam-native': 'aurora-steam-native'}
 KINDS = {'kernel-aurora': 'kernel', 'mesa-aurora': 'mesa'}
 CI_WORKFLOWS = ['packages.yml']
 # The only files a tracker proposal may change.
-PATCH_PATHS = [r'sources\.json', r'packages/(linux-aurora|aura|mesa-aurora|mesa-aurora-fex-guest|aurora-flatpak-gl)/[^/]+']
+PATCH_PATHS = [r'sources\.json', r'packages/(linux-aurora|aura|mesa-aurora|mesa-aurora-fex-guest|aurora-flatpak-gl|fex-emu|aurora-steam-native)/[^/]+']
+# fex-emu tracks by hand (merge: manual): the fork's submodules are pinned at
+# its gitlinks in sources.json and PKGBUILD, and a reviewer moves them with it.
 
 
 def sync_mesa_consumers(root, pin=None):
@@ -103,6 +106,14 @@ def update_recipe(root, item, today):
         text, old_ver, new_ver = tl.bump_assignment(text, '_auroraver', lambda _: tl.pacman_version(item['version']))
         if old_ver != new_ver:
             notes.append(f'kernel version {old_ver} -> {new_ver}: review the configuration fragments')
+    elif key in ('fex-emu', 'aurora-steam-native'):
+        # <base>.r<upstream commit time>.<commit>: 2610.r202611030240.3f4ee4277f1.
+        pin = json.loads((root / 'sources.json').read_text())[key]
+        old_sha = re.search(r'^_sha256=(.*)$', text, re.M)[1]
+        text = text.replace(old_sha, pin['sha256'])
+        stamp = ''.join(ch for ch in item['new_date'] if ch.isdigit())[:12]
+        text, _, _ = tl.bump_assignment(
+            text, 'pkgver', lambda value: f'{value.split(".r")[0]}.r{stamp}.{item["new"][:11]}')
     else:
         raise ValueError(f'no recipe adapter for {key}')
     reset = full_version(text).rsplit('-', 1)[0] != previous.rsplit('-', 1)[0]

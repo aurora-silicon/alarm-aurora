@@ -1,0 +1,9 @@
+#!/bin/bash
+# The asahi hook carries the Type-C port controllers; carry their
+# USB4/Thunderbolt router too, so the ports find it when they probe. udev
+# loads it. MODULES can't hold it: the systemd hook copies MODULES into
+# modules-load.d verbatim, "?" suffix included.
+build() {
+  add_module thunderbolt_apple?
+}
+help() { echo 'Add the Apple USB4/Thunderbolt router next to the Type-C port controllers.'; }

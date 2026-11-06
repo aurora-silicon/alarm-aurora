@@ -81,6 +81,65 @@ class PeripheralAdmissionTests(unittest.TestCase):
             self.assertIn(b'handoff failed; admitting peripherals without it', result.stderr)
             self.assertEqual(calls.read_text().splitlines(), ['1'])
 
+            # The initrd leaves the verdict to the real root's retry: a failed
+            # initrd unit would stay listed as failed after switch-root.
+            calls.unlink()
+            result = subprocess.run(['bash', str(script)], env=env, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(b'handoff failed; the real root will retry it', result.stderr)
+            self.assertEqual(calls.read_text().splitlines(), ['0'])
+
+    def runtime_handoff(self, root, esp):
+        """The real-root retry, with the ESP already mounted at esp."""
+        tools = root / 'bin'
+        tools.mkdir()
+        for name, body in (('udevadm', 'exit 0'), ('findmnt', f'echo "{esp}"'),
+                           ('mount', 'echo "mount $*" >> "$AURORA_TEST_CALLS"; exit 32'),
+                           ('cpio', 'echo "cpio $*" >> "$AURORA_TEST_CALLS"; mkdir -p vendorfw; '
+                                    'cat > vendorfw/.vendorfw.manifest')):
+            (tools / name).write_text(f'#!/bin/sh\n{body}\n')
+            (tools / name).chmod(0o755)
+        admission = root / 'admission'
+        admission.write_text('#!/bin/sh\necho "admit $AURORA_ADMIT_BLUETOOTH" >> "$AURORA_TEST_CALLS"\n')
+        admission.chmod(0o755)
+        (root / 'property').write_bytes(b'5A1E0001-0000-4000-8000-00000000E5B0\0')
+        env = dict(
+            os.environ,
+            PATH=f'{tools}:{os.environ["PATH"]}',
+            AURORA_ESP_PROPERTY=str(root / 'property'),
+            AURORA_PERIPHERAL_ADMISSION=str(admission),
+            AURORA_FIRMWARE_DESTINATION=str(root / 'destination'),
+            AURORA_FIRMWARE_SEARCH_PATH=str(root / 'search-path'),
+            AURORA_TEST_CALLS=str(root / 'calls'),
+        )
+        result = subprocess.run(['bash', str(PACKAGE / 'load-vendor-firmware'), 'runtime'], env=env,
+                                capture_output=True)
+        return result, (root / 'calls').read_text().splitlines()
+
+    def test_runtime_retry_reads_the_mounted_esp(self):
+        # The real root has the ESP mounted read-write; mounting it again
+        # read-only is refused, so the retry must read it in place.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'esp/vendorfw').mkdir(parents=True)
+            (root / 'esp/vendorfw/firmware.cpio').write_bytes(b'fixture')
+            result, calls = self.runtime_handoff(root, root / 'esp')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(calls, ['cpio --quiet --extract --unconditional --no-absolute-filenames', 'admit 1'])
+            self.assertEqual((root / 'destination/vendorfw/.vendorfw.manifest').read_bytes(), b'fixture')
+            self.assertEqual((root / 'search-path').read_text(), str(root / 'destination/vendorfw'))
+
+    def test_esp_without_vendor_firmware_admits_cleanly(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'esp').mkdir()
+            result, calls = self.runtime_handoff(root, root / 'esp')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(b'the ESP has no vendor firmware; admitting peripherals without it', result.stderr)
+            self.assertNotIn(b'handoff failed', result.stderr)
+            self.assertEqual(calls, ['admit 1'])
+            self.assertFalse((root / 'search-path').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

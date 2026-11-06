@@ -1,0 +1,15 @@
+#!/bin/bash
+# The display comes up in the initramfs, ahead of the coldplug, as on Fedora
+# (91aurora-early-kms): the coldplug queues thousands of uevents and the
+# root is ready long before udev reaches the display, so appledrm used to
+# load only on the real root and the splash came late.
+build() {
+  add_module appledrm?
+  add_module mux-apple-display-crossbar?
+  add_binary bash
+  add_binary udevadm
+  add_file /usr/libexec/aurora/aurora-early-kms
+  add_file /usr/lib/aurora/initrd/aurora-early-kms.service /usr/lib/systemd/system/aurora-early-kms.service
+  add_symlink /usr/lib/systemd/system/sysinit.target.wants/aurora-early-kms.service ../aurora-early-kms.service
+}
+help() { echo 'Coldplug the Apple display and its DRM cards before the other devices in the systemd initrd.'; }

@@ -4,7 +4,7 @@
 pkgname=plasma-setup
 pkgver=6.8.1
 _dirver=$(echo $pkgver | cut -d. -f1-3)
-pkgrel=1
+pkgrel=2
 pkgdesc='First-run setup wizard for KDE Plasma that creates the initial user account'
 arch=(aarch64)
 url='https://invent.kde.org/plasma/plasma-setup'
@@ -43,8 +43,16 @@ backup=(etc/xdg/plasmasetuprc)
 # The release signature is from Bhushan Shah's KDE release key
 # 0AAC775BB6437A8D9AF7A3ACFE0784117FBCE11D (signing subkey
 # B3CB366552540BE06EE9AD9711968C44928CAEFC); the digest pins those bytes.
-source=(https://download.kde.org/stable/plasma/$_dirver/$pkgname-$pkgver.tar.xz)
-sha256sums=('58087cecf651dfa4cbb43f96dfa0866cdf36f23fc25c88ab94574a577f90d28c')
+source=(https://download.kde.org/stable/plasma/$_dirver/$pkgname-$pkgver.tar.xz
+        0001-tmpfiles-keep-the-setup-user-s-files-non-executable.patch)
+sha256sums=('58087cecf651dfa4cbb43f96dfa0866cdf36f23fc25c88ab94574a577f90d28c'
+            '226e8b0506beef413abf5d8847adad44123793e097dbc6d0a1c2685c13158ea8')
+
+prepare() {
+  # The setup user's autostart entry must not be executable: systemd's
+  # autostart generator warns about it on every boot until setup completes.
+  patch -d $pkgname-$pkgver -p1 < 0001-tmpfiles-keep-the-setup-user-s-files-non-executable.patch
+}
 
 build() {
   cmake -B build -S $pkgname-$pkgver \

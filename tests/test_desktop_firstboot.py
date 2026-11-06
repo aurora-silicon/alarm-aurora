@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import re
 import subprocess
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +36,7 @@ class DesktopFirstBootTests(unittest.TestCase):
             self.assertIn('plymouth-theme-aurora', profile_packages(profile))
         self.assertEqual(profile_packages('arch-minimal'), [])
         self.assertNotIn('plymouth', re.search(r'(?s)^packages=\((.*?)\)\n', BUILD_IMAGE, re.M).group(1).split())
-        self.assertRegex(BUILD_IMAGE, r'(?m)^  arch-kde\) chroot "\$mountroot" systemctl enable sddm plasma-setup\.service;')
+        self.assertRegex(BUILD_IMAGE, r'(?m)^  arch-kde\) chroot "\$mountroot" systemctl enable plasmalogin\.service plasma-setup\.service;')
         self.assertNotRegex(BUILD_IMAGE, r'(?m)^  arch-gnome\).*plasma-setup')
 
     def test_splash_and_hook_are_configured_before_the_initramfs(self):
@@ -76,16 +77,46 @@ class DesktopFirstBootTests(unittest.TestCase):
             self.assertEqual('splash' in words, profile != 'arch-minimal', profile)
         self.assertIn('printf \'GRUB_CMDLINE_LINUX_DEFAULT="%s"\\n\' "$cmdline" >> "$mountroot/etc/default/grub"', BUILD_IMAGE)
 
-    def test_kde_ships_plasma_wallpapers_and_the_breeze_greeter(self):
-        kde = re.search(r'(?m)^  arch-kde\) packages\+=\((.*)\);;$', BUILD_IMAGE).group(1).split()
+    def test_kde_ships_plasma_wallpapers_and_signs_in_with_plasma_login(self):
+        kde = profile_packages('arch-kde')
         self.assertIn('plasma-workspace-wallpapers', kde)
-        self.assertIn("printf '[Theme]\\nCurrent=breeze\\n' > \"$mountroot/etc/sddm.conf.d/10-aurora-theme.conf\"", BUILD_IMAGE)
+        # Plasma Login's greeter runs on KWin Wayland at the display's scale;
+        # SDDM's runs on Xorg at 96 DPI and drew the login screen at 1x.
+        self.assertIn('plasma-login-manager', kde)
+        self.assertNotIn('sddm', kde)
+        self.assertNotIn('sddm.conf.d', BUILD_IMAGE)
+        self.assertNotIn('sddm.service.d', BUILD_IMAGE)
 
     def test_every_profile_draws_on_the_display_console(self):
         self.assertRegex(BUILD_IMAGE, r"(?m)^cmdline='[^']*\bconsole=tty0\b[^']*'$")
 
-    def test_sddm_keeps_the_splash_until_the_greeter_like_gdm(self):
-        unit = heredoc('etc/systemd/system/sddm.service.d/10-aurora-plymouth.conf')
+    def test_kde_display_manager_checks_fail_the_build(self):
+        # Run build-image's own KDE checks against stub roots: chroot answers
+        # for systemctl as an image with the given units would.
+        block = re.search(r'(?ms)^if \[\[ \$profile == arch-kde \]\]; then\n  # Plasma Setup writes.*?^fi\n',
+                          BUILD_IMAGE).group(0)
+        stub = '''chroot() { shift; case "$*" in
+          "systemctl is-enabled plasmalogin.service") echo "$PLASMALOGIN"; [[ $PLASMALOGIN == enabled ]];;
+          "systemctl is-enabled --quiet sddm.service") [[ $SDDM == enabled ]];;
+          *) return 2;; esac; }
+        '''
+        def run(plasmalogin, sddm, alias):
+            with tempfile.TemporaryDirectory() as mountroot:
+                units = Path(mountroot, 'etc/systemd/system')
+                units.mkdir(parents=True)
+                (units / 'display-manager.service').symlink_to(f'/usr/lib/systemd/system/{alias}')
+                # The build carries on after the block, as build-image does.
+                return subprocess.run(['bash', '-c', 'set -euo pipefail; profile=arch-kde; mountroot=$1; ' + stub + block
+                                       + 'true\n',
+                                       'test', mountroot], text=True, capture_output=True,
+                                      env={**os.environ, 'PLASMALOGIN': plasmalogin, 'SDDM': sddm}).returncode
+        self.assertEqual(run('enabled', 'disabled', 'plasmalogin.service'), 0)
+        self.assertNotEqual(run('enabled', 'enabled', 'plasmalogin.service'), 0)
+        self.assertNotEqual(run('disabled', 'disabled', 'plasmalogin.service'), 0)
+        self.assertNotEqual(run('enabled', 'disabled', 'sddm.service'), 0)
+
+    def test_plasma_login_keeps_the_splash_until_the_greeter_like_gdm(self):
+        unit = heredoc('etc/systemd/system/plasmalogin.service.d/10-aurora-plymouth.conf')
         self.assertIn('Conflicts=plymouth-quit.service\n', unit)
         self.assertIn('OnFailure=plymouth-quit.service\n', unit)
         self.assertIn('\nExecStartPre=-/usr/bin/timeout --kill-after=2 20 /usr/bin/plymouth quit\n', unit)
@@ -103,10 +134,23 @@ class PlasmaSetupRecipeTests(unittest.TestCase):
 
     def test_release_tarball_is_digest_pinned(self):
         version, = self.recipe('printf "%s\\n" "$pkgver"')
-        source, = self.recipe('printf "%s\\n" "${source[@]}"')
-        digest, = self.recipe('printf "%s\\n" "${sha256sums[@]}"')
+        source, *patches = self.recipe('printf "%s\\n" "${source[@]}"')
+        digests = self.recipe('printf "%s\\n" "${sha256sums[@]}"')
         self.assertEqual(source, f'https://download.kde.org/stable/plasma/{version}/plasma-setup-{version}.tar.xz')
-        self.assertRegex(digest, r'^[0-9a-f]{64}$')
+        self.assertEqual(len(digests), 1 + len(patches))
+        for digest in digests:
+            self.assertRegex(digest, r'^[0-9a-f]{64}$')
+        for patch in patches:
+            self.assertTrue((ROOT/'packages/plasma-setup'/patch).is_file(), patch)
+
+    def test_setup_user_files_stay_non_executable(self):
+        # A recursive mode of 0750 made the setup user's autostart entry
+        # executable, and systemd's autostart generator warns about that.
+        patch = (ROOT/'packages/plasma-setup/0001-tmpfiles-keep-the-setup-user-s-files-non-executable.patch').read_text()
+        self.assertIn('-Z /run/plasma-setup 0750 plasma-setup plasma-setup - -\n', patch)
+        self.assertIn('+Z /run/plasma-setup ~0750 plasma-setup plasma-setup - -\n', patch)
+        self.assertIn('0001-tmpfiles-keep-the-setup-user-s-files-non-executable.patch',
+                      (ROOT/'packages/plasma-setup/PKGBUILD').read_text())
 
     def test_runtime_dependencies_cover_the_wizard_modules(self):
         depends = set(self.recipe('printf "%s\\n" "${depends[@]}"'))

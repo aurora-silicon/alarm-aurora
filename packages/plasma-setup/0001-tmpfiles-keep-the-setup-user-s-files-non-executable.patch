@@ -1,0 +1,31 @@
+From: DjDeveloperr <hey@djdev.me>
+Date: Mon, 2 Nov 2026 18:59:44 -0500
+Subject: [PATCH] tmpfiles: keep the setup user's files non-executable
+
+The recursive Z line set every file under /run/plasma-setup to 0750, so
+the autostart entry copied there became executable and
+systemd-xdg-autostart-generator warned on every login of the setup user:
+
+  Configuration file /run/plasma-setup/.config/autostart/plasma-setup.desktop
+  is marked executable. Please remove executable permission bits.
+
+Mask the existing modes with ~0750 instead: directories still end up
+0750, files keep their own non-executable mode.
+---
+ files/plasma-setup-tmpfiles.conf.in | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/files/plasma-setup-tmpfiles.conf.in b/files/plasma-setup-tmpfiles.conf.in
+index 8ea1989..daf57ae 100644
+--- a/files/plasma-setup-tmpfiles.conf.in
++++ b/files/plasma-setup-tmpfiles.conf.in
+@@ -40,5 +40,7 @@ f /run/plasma-setup/.config/plasma-org.kde.plasma.desktop-appletsrc - - - - [Con
+ # Install the customized global shortcuts config
+ C+ /run/plasma-setup/.config/kglobalaccelrc - - - - ${CMAKE_INSTALL_FULL_DATADIR}/plasma-setup/kglobalaccelrc
+ 
+-# Recursively set the ownership of the home directory
+-Z /run/plasma-setup 0750 plasma-setup plasma-setup - -
++# Recursively set the ownership of the home directory. The "~" masks each
++# file's own mode, so files keep it without gaining execute bits:
++# systemd-xdg-autostart-generator warns about an executable .desktop file.
++Z /run/plasma-setup ~0750 plasma-setup plasma-setup - -

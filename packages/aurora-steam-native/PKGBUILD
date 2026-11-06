@@ -1,0 +1,70 @@
+# Aurora's Steam: the aurora-steam-native launcher for Valve's native ARM64
+# Linux client. `steam` replaces the Asahi ALARM muvm wrapper of that name;
+# Valve's client is downloaded per user on the first start.
+pkgbase=aurora-steam-native
+pkgname=(aurora-steam-native steam)
+epoch=1
+pkgver=0.r202610301134.c06f610e360
+pkgrel=1
+pkgdesc="Valve's native ARM64 Steam client in a 4 KiB page process tree"
+arch=('any')
+url='https://github.com/aurora-silicon/aurora-steam-native'
+license=('MIT')
+_commit=c06f610e3604c3f2b1b8466dff60d6878d0cd0da
+_sha256=c81a8425164322d77155e8c24eb9a73a379637873948cd85cfc5531ba58f25c0
+_lib=/usr/lib/aurora-steam-native
+checkdepends=('python' 'desktop-file-utils')
+source=("aurora-steam-native-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-steam-native/tar.gz/$_commit"
+        steam steam.desktop)
+sha256sums=("$_sha256"
+            '5f9e6cfcf026f3a81a6a968dc6857232578a23098276c4d6b8a0c6edffeb23f6'
+            '1e2f858be0c8d365131cd1fc7072df68f3a1a8b990a2ba479aa82b1f8e692b6b')
+
+prepare() {
+  cd "aurora-steam-native-$_commit"
+  find . -name __pycache__ -prune -exec rm -rf {} +
+  sed -e "s,@LIBDIR@,$_lib," -e 's,@USERPAGES@,/usr/bin/userpages,' \
+    -e 's|@USER4K_HINT@|aurora-userpages adds user4k=on to GRUB_CMDLINE_LINUX unless /etc/default/grub sets user4k=; remove user4k=off there, run sudo grub-mkconfig -o /boot/grub/grub.cfg and reboot|' \
+    "$srcdir/steam" > "$srcdir/steam.aurora"
+}
+
+check() {
+  cd "aurora-steam-native-$_commit"
+  desktop-file-validate "$srcdir/steam.desktop" share/applications/org.aurorasilicon.Play.desktop
+  bash -n "$srcdir/steam.aurora"
+  if grep -n '@[A-Z0-9_]*@' "$srcdir/steam.aurora"; then return 1; fi
+  grep -qx 'userpages=${AURORA_USERPAGES_LAUNCHER:-/usr/bin/userpages}' "$srcdir/steam.aurora"
+  local t
+  for t in tests/test-steam-native4k-launch-env.py tests/test-offline-installer.py tests/test-aurora-play-settings.py; do
+    python3 -I "$t"
+  done
+}
+
+package_aurora-steam-native() {
+  depends=('aurora-userpages' 'python' 'gtk2' 'fex-emu')
+  optdepends=('mesa-aurora-fex-guest: Aurora Mesa for x86 titles run by FEX'
+              'vulkan-aurora: Vulkan for Steam and native titles'
+              'python-gobject: Aurora Play' 'gtk4: Aurora Play' 'libadwaita: Aurora Play'
+              'libnotify: start-up errors as desktop notifications')
+  cd "aurora-steam-native-$_commit"
+  install -Dm755 install-steam-arm64.py "$pkgdir$_lib/install-steam-arm64.py"
+  install -Dm755 bin/steam-native4k "$pkgdir$_lib/bin/steam-native4k"
+  install -Dm755 bin/aurora-play "$pkgdir$_lib/bin/aurora-play"
+  install -Dm755 libexec/steam-native4k-launch-loop.sh "$pkgdir$_lib/libexec/steam-native4k-launch-loop.sh"
+  install -Dm644 share/applications/steam-native-arm64.desktop "$pkgdir$_lib/share/applications/steam-native-arm64.desktop"
+  install -Dm644 share/applications/org.aurorasilicon.Play.desktop "$pkgdir$_lib/share/applications/org.aurorasilicon.Play.desktop"
+  install -Dm644 share/icons/hicolor/scalable/apps/org.aurorasilicon.Play.svg "$pkgdir$_lib/share/icons/hicolor/scalable/apps/org.aurorasilicon.Play.svg"
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s ../lib/aurora-steam-native/bin/aurora-play "$pkgdir/usr/bin/aurora-play"
+  install -Dm644 share/applications/org.aurorasilicon.Play.desktop "$pkgdir/usr/share/applications/org.aurorasilicon.Play.desktop"
+  install -Dm644 share/icons/hicolor/scalable/apps/org.aurorasilicon.Play.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/org.aurorasilicon.Play.svg"
+  install -Dm644 LICENSES/MIT.txt "$pkgdir/usr/share/licenses/$pkgname/MIT.txt"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+
+package_steam() {
+  pkgdesc='Steam for Aurora (native ARM64 client)'
+  depends=("aurora-steam-native=$epoch:$pkgver-$pkgrel")
+  install -Dm755 "$srcdir/steam.aurora" "$pkgdir/usr/bin/steam"
+  install -Dm644 "$srcdir/steam.desktop" "$pkgdir/usr/share/applications/steam.desktop"
+}
