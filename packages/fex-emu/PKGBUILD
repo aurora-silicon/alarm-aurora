@@ -1,0 +1,90 @@
+# FEX from Aurora's fork. Replaces the Asahi ALARM FEX-Emu package; the
+# fork's submodules are pinned at its gitlinks (sources.json extra_sources).
+pkgbase=fex-emu
+pkgname=fex-emu
+pkgver=2610.r202611050907.c2c22c6a365
+pkgrel=1
+pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/fex'
+license=('MIT' 'Apache-2.0' 'BSL-1.0' 'BSD-3-Clause' 'GPL-2.0-only')
+_commit=c2c22c6a3654695ad436527ccaf95626b339ef11
+_sha256=48b6a8ea6b66fb6d625e0a29bde83ff942a78170648104e68a9791fb0d46fa3d
+_describe=FEX-${pkgver%%.r*}-aurora-g${_commit::7}
+makedepends=('cmake' 'ninja' 'clang' 'lld' 'llvm' 'python' 'python-setuptools' 'python-packaging'
+             'fmt' 'xxhash' 'catch2' 'libepoxy' 'sdl2-compat' 'qt6-declarative' 'pkgconf')
+_bundled=(
+  'cpp-optparse Sonicadvance1/cpp-optparse 9f94388a339fcbb0bc95c17768eb786c85988f6e Source/Common/cpp-optparse'
+  'drm-headers FEX-Emu/drm-headers 3e49836995c1dcb3df709440ad2f270b569c6a5f External/drm-headers'
+  'jemalloc FEX-Emu/jemalloc 8436195ad5e1bc347d9b39743af3d29abee59f06 External/jemalloc_glibc'
+  'range-v3 ericniebler/range-v3 ca1388fb9da8e69314dda222dc7b139ca84e092f External/range-v3'
+  'rpmalloc FEX-Emu/rpmalloc ed227446afce6ff505b312bae1e10a3daaeeea39 External/rpmalloc'
+  'Vulkan-Headers KhronosGroup/Vulkan-Headers ee2ec5fd83dafce291024683b50dc89219333076 External/Vulkan-Headers'
+  'vixl FEX-Emu/vixl 6561d40650885ad24fbd0aa0cdb20ccb4808d444 External/vixl'
+  'unordered_dense martinus/unordered_dense 3234af2c03549bc85656bfd3a86993bf1cd8aef1 External/unordered_dense'
+)
+source=("fex-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/fex/tar.gz/$_commit")
+for _b in "${_bundled[@]}"; do
+  read -r _n _r _c _p <<<"$_b"
+  source+=("$_n-$_c.tar.gz::https://codeload.github.com/$_r/tar.gz/$_c")
+done
+source+=(README.aurora)
+sha256sums=("$_sha256"
+            '68e6b500890270517d226abbc3610135de1600ddde29f44c9b68cca5e2a17f60'
+            '3d3653841f81ea5be1a15cd4b458f048c1fffbcd97fcc808454a7fbe7cf1a555'
+            '800cc0653f5bc2f0ed2cc7bb383f8eeda1ff94b2e89eaee0ccc57bd5fb002fe4'
+            '57a6fca5d60a85b84e8efecc62f0ca064e6b1f89b97b513284fe7f5bd43d49eb'
+            'f14761cc0c8976aed669475087021661f269699ef8297885b665eed4b764b087'
+            'df7a152381a7fdaf98e36de7716b8d6d6ead776764bc76d1a1aef9049d1bca89'
+            '03caa03990ee02c6d48781368332c4b9019ec2101addab3aa29eb359bb7d7653'
+            'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
+            '3ed240d7d4e19a6e03191fb82c78d8a266ef15519c73a35473321f1469b82ab8')
+noextract=()
+for _b in "${_bundled[@]}"; do
+  read -r _n _r _c _p <<<"$_b"
+  noextract+=("$_n-$_c.tar.gz")
+done
+
+prepare() {
+  cd "fex-$_commit"
+  local _b _n _r _c _p
+  for _b in "${_bundled[@]}"; do
+    read -r _n _r _c _p <<<"$_b"
+    mkdir -p "$_p"
+    tar -xzf "$srcdir/$_n-$_c.tar.gz" --strip-components=1 -C "$_p"
+  done
+}
+
+build() {
+  # FEX tunes for the build machine by default (-mcpu from its /proc/cpuinfo),
+  # which crashes with SIGILL on Apple CPUs when CI builds on Neoverse.
+  cmake -S "fex-$_commit" -B build -G Ninja \
+    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_LINKER=lld -DENABLE_LTO=ON -DENABLE_CCACHE=OFF -DTUNE_CPU=none \
+    -DENABLE_OFFLINE_TELEMETRY=OFF -DBUILD_TESTING=OFF -DBUILD_THUNKS=OFF \
+    -DOVERRIDE_VERSION="$_describe" -DOVERRIDE_HASH="$_commit"
+  cmake --build build
+}
+
+check() {
+  [[ $(build/Bin/FEXGetConfig --version) == "$_describe" ]]
+}
+
+package_fex-emu() {
+  depends=('glibc' 'gcc-libs' 'fmt' 'xxhash' 'squashfuse' 'squashfs-tools' 'erofs-utils')
+  optdepends=('aurora-userpages: run FEX in 4 KiB page process trees on 16 KiB kernels'
+              'qt6-declarative: FEXConfig'
+              'sdl2-compat: FEXConfig')
+  # Takes over the Asahi ALARM FEX-Emu package: pacman -Syu replaces it, and
+  # anything that asks for FEX-Emu gets this build. No transitional FEX-Emu
+  # package: its file name differs from fex-emu's only in case, and release
+  # assets are case-insensitive, so the testing snapshot cannot carry both.
+  provides=("FEX-Emu=$pkgver-$pkgrel")
+  conflicts=('FEX-Emu')
+  replaces=('FEX-Emu')
+  DESTDIR="$pkgdir" cmake --install build
+  install -dm755 "$pkgdir/usr/share/fex-emu/RootFS" "$pkgdir/usr/share/fex-emu/overlays"
+  install -Dm644 "fex-$_commit/LICENSE" "$pkgdir/usr/share/licenses/fex-emu/LICENSE"
+  install -Dm644 README.aurora "$pkgdir/usr/share/doc/fex-emu/README.aurora"
+}
