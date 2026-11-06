@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=18
+pkgrel=19
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=2661d71e16bf538156001bd9e93bafcd60855c85
-_sha256=e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0
+_commit=e5ed737692b0ad07e212d210b568914b4fc01aca
+_sha256=b91e805594e08ce95ee72f74bedee1a5a03ffdbd88f83a7bcab66827d7d28233
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
@@ -40,7 +40,7 @@ options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            'e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0'
+            'b91e805594e08ce95ee72f74bedee1a5a03ffdbd88f83a7bcab66827d7d28233'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
             'a5210516ac9f4d68e988c4ebf07b6899defeb5f55bca10b5620e65b7c02d8a98'
@@ -134,6 +134,11 @@ build() {
   export LLVM="${AURORA_LLVM:-1}" RUSTUP_TOOLCHAIN=1.99.0
   export AURORA_BINDGEN_REAL="$srcdir/private-bindgen/rust-bindgen-0.73.2/target/release/bindgen"
   _make O="$PWD/build/base" -j"${OMARCHY_BUILD_JOBS:-10}" Image modules dtbs
+  # Stage 2 takes its DTBs from this kernel, not from the aura binary.
+  local board
+  for board in t6040-j614s t6040-j616s t6041-j616c; do
+    [[ $(fdtget -t s "build/base/arch/arm64/boot/dts/apple/$board.dtb" /dcp@402e00000/panel apple,color-gamut) == display-p3 ]] || return 1
+  done
   # The launcher includes this tree's prctl.h, so its numbers match the kernel.
   make -C tools/aurora-userpages
 }
