@@ -208,7 +208,9 @@ chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
 # aurora-userpages' GRUB drop-in turns per-process 4K userspace pages on.
 grep -Eq '^\s*linux\s.*\suser4k=on(\s|$)' "$mountroot/boot/grub/grub.cfg"
 mkdir -p "$mountroot/boot/efi/m1n1"
-chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
+# In the C locale t6040-j616s-tether.dtb sorts before t6040-j616s.dtb, and aura
+# boots the last tree of a board, so the board's main tree has to come last.
+LC_ALL=C chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
 # The image gets boot-ctxr.bin only with an aura that has no monitor, the rule
 # update-m1n1 follows on an installed Mac. Look for the marker while the root is mounted.
 monitor_free=false

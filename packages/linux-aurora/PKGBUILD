@@ -14,6 +14,14 @@ pkgrel=18
 _commit=2661d71e16bf538156001bd9e93bafcd60855c85
 _sha256=e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0
 
+# 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
+# (aurora-silicon/linux#985), which keeps every kernel code page inside the
+# CTXR window an aura without the monitor moves the kernel into. The package
+# then provides aurora-ctxr-execmem, which that aura requires. prepare() checks it.
+_ctxr_execmem=0
+_ctxr_provides=()
+if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
+
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
 # SN012776 amp settings come from the DT that aura 1.0.0b5 fills in
@@ -43,7 +51,7 @@ sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             'e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'a5210516ac9f4d68e988c4ebf07b6899defeb5f55bca10b5620e65b7c02d8a98'
+            '3a871cb5edcf02562a8e733aeff65c7aa35a76c7ef58ce715035bc8199a9c580'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6')
 
@@ -110,6 +118,12 @@ prepare() {
   scripts/config --file build/base/.config --set-str LOCALVERSION '-ARCH' --disable LOCALVERSION_AUTO
   _make O="$PWD/build/base" olddefconfig
   python3 ../validate-config.py arch/arm64/configs/asahi.config build/base/.config
+  local ctxr=0
+  if grep -qx 'CONFIG_ARM64_CTXR_EXECMEM=y' build/base/.config; then ctxr=1; fi
+  if (( ctxr != _ctxr_execmem )); then
+    echo "linux-aurora: set _ctxr_execmem=$ctxr, which this pin's configuration resolves to" >&2
+    return 1
+  fi
   grep -qx 'CONFIG_RUST=y' build/base/.config || {
     echo 'linux-aurora requires Rust drivers; toolchain/configuration disabled CONFIG_RUST' >&2; return 1;
   }
@@ -146,7 +160,7 @@ _package_kernel() {
               'linux-firmware: firmware images needed for some devices')
   # No generic linux provide: on a shared aarch64 repository it would compete
   # with linux-aarch64 for any dependency on linux.
-  provides=(WIREGUARD-MODULE linux-asahi=${pkgver})
+  provides=(WIREGUARD-MODULE linux-asahi=${pkgver} "${_ctxr_provides[@]}")
   conflicts=(linux-asahi)
 
   local kernver="$(<$O/version)"

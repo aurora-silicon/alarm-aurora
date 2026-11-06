@@ -67,9 +67,10 @@ if [ -n "$board" ]; then
             *-"$board".dtb|*-"$board"-*.dtb) board_dtbs="$board_dtbs $dtb" ;;
         esac
     done
+    # A kernel install must not fail over this, so the last boot-ctxr.bin stays.
     if [ -z "$board_dtbs" ]; then
-        warn "ERROR: no device tree for $board in $DTBS"
-        exit 1
+        warn "WARNING: no device tree for $board in $DTBS, so m1n1/boot-ctxr.bin was left as it is"
+        exit 0
     fi
     DTBS=$board_dtbs
 fi
@@ -115,6 +116,14 @@ fi
 cat "$M1N1" $DTBS >"${TARGET}.new"
 gzip -c "$U_BOOT" >>"${TARGET}.new"
 cat "$m1n1config" >>"${TARGET}.new"
+
+# aura keeps 16 MiB for the Stage 2 a padded Stage 1 loads; a larger one can't load.
+if [ -n "$board" ] && [ "$(wc -c <"${TARGET}.new")" -gt 16777216 ]; then
+    rm -f "${TARGET}.new"
+    warn "WARNING: ${TARGET##*/} would be over the 16 MiB aura keeps for it, so it was left as it is"
+    $umount && umount /run/.system-efi
+    exit 0
+fi
 
 if [ -e "$TARGET" ]; then
     # clobber "${TARGET}.old" only if "$TARGET" changes, use sha512sum to

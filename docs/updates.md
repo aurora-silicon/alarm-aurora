@@ -17,9 +17,17 @@ every DTB of the newest `*-ARCH` kernel and U-Boot into the ESP Stage 2 (keeping
 mkinitcpio rebuilds the initramfs with the `asahi` and `aurora-vendor` hooks, which read this Mac's
 firmware from the ESP at boot.
 
-The aura package ships `/usr/share/aura/monitor-free` once its pinned source has no monitor. Its recipe
-checks for `src/ctxr_exec.c` or a missing `src/monitor.c`, so the aura#77 pin turns it on by itself. Until
-then every Mac updates `boot.bin`.
+The aura package ships `/usr/share/aura/monitor-free` once its pinned source has no monitor. The recipe
+declares that in `_monitor_free`, and `prepare()` refuses a source that disagrees (`src/ctxr_exec.c`, or no
+`src/monitor.c`), so the aura#77 pin has to set it. Until then every Mac updates `boot.bin`.
+
+Such an aura moves the kernel into the CTXR window, which only a kernel built with
+`CONFIG_ARM64_CTXR_EXECMEM` keeps its code inside. With `_monitor_free=1`, aura depends on
+`aurora-ctxr-execmem`, which `linux-aurora` provides when its `_ctxr_execmem=1`. Its `prepare()` checks
+that flag against the resolved configuration, so it can be set only with a kernel pin that has
+aurora-silicon/linux#985. `tests/test_update_m1n1.py` fails if `_monitor_free` is set without it.
+`packages/linux-aurora/config` already carries `CONFIG_ARM64_CTXR_EXECMEM=y`; until the pin has the
+option, Kconfig drops it.
 
 With the marker, a Mac that boots a Mach-O Stage 1 (`/proc/device-tree/compatible` names one of the chips
 in the installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and later) gets
