@@ -6,17 +6,21 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=8
+pkgrel=18
 
-# Immutable pin on aurora-silicon/linux aurora-wip. Every bump is a
+# Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=052924773992f3fd51ce2861f0e8202cd46619a6
-_sha256=6fa1baf19d8e3212c08ef9c6e4a49dc4e49a091b12b66daf4270582e95bc5cdd
+_commit=2661d71e16bf538156001bd9e93bafcd60855c85
+_sha256=e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
-_aura_version=0.1.0.r20261029
+# SN012776 amp settings come from the DT that aura 1.0.0b5 fills in
+# (https://github.com/aurora-silicon/linux/pull/981,
+# https://github.com/aurora-silicon/aura/pull/75); under an older Stage 2
+# the speakers stay off.
+_aura_version=1.0.0b5
 
 pkgbase=linux-aurora
 _srcname=linux-${_commit}
@@ -34,12 +38,14 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config)
+        rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '6fa1baf19d8e3212c08ef9c6e4a49dc4e49a091b12b66daf4270582e95bc5cdd'
+            'e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'e57f43671a863440359e1a9eb092f7b84f8e93cfc1e9de68a9ab138af3f37d61')
+            'a5210516ac9f4d68e988c4ebf07b6899defeb5f55bca10b5620e65b7c02d8a98'
+            '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
+            '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -128,11 +134,14 @@ build() {
   export LLVM="${AURORA_LLVM:-1}" RUSTUP_TOOLCHAIN=1.99.0
   export AURORA_BINDGEN_REAL="$srcdir/private-bindgen/rust-bindgen-0.73.2/target/release/bindgen"
   _make O="$PWD/build/base" -j"${OMARCHY_BUILD_JOBS:-10}" Image modules dtbs
+  # The launcher includes this tree's prctl.h, so its numbers match the kernel.
+  make -C tools/aurora-userpages
 }
 
 _package_kernel() {
   pkgdesc="The $pkgdesc kernel and modules"
-  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version")
+  # aurora-userpages: an ordinary upgrade brings the launcher and user4k=on.
+  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" aurora-userpages)
   optdepends=('crda: to set the correct wireless channels of your country'
               'linux-firmware: firmware images needed for some devices')
   # No generic linux provide: on a shared aarch64 repository it would compete
@@ -268,8 +277,22 @@ _package-headers() {
 
 }
 
-pkgname=("$pkgbase" "$pkgbase-headers")
-for _p in "${pkgname[@]}"; do
+package_aurora-userpages() {
+  pkgdesc='Run programs with 4K userspace pages on the Aurora kernel'
+  depends=(glibc)
+  options=(strip)
+
+  cd $_srcname
+  install -Dm755 tools/aurora-userpages/userpages "$pkgdir/usr/bin/userpages"
+  install -Dm644 tools/aurora-userpages/README.rst "$pkgdir/usr/share/doc/aurora-userpages/README.rst"
+  # Arch's GRUB reads /etc/default/grub.d after /etc/default/grub; the hook
+  # regenerates grub.cfg so an installed system boots with user4k=on.
+  install -Dm644 "$srcdir/50-aurora-user4k.cfg" "$pkgdir/etc/default/grub.d/50-aurora-user4k.cfg"
+  install -Dm644 "$srcdir/aurora-userpages.hook" "$pkgdir/usr/share/libalpm/hooks/90-aurora-userpages.hook"
+}
+
+pkgname=("$pkgbase" "$pkgbase-headers" aurora-userpages)
+for _p in "$pkgbase" "$pkgbase-headers"; do
   eval "package_$_p() {
     $(declare -f "_package${_p#$pkgbase}")
     _package${_p#$pkgbase}

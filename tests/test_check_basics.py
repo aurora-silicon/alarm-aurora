@@ -33,10 +33,44 @@ def logos(usr):
     write(usr / 'share/pixmaps/system-logo-white.png', b'\x89PNG\r\n\x1a\n')
 
 
+# Touch ID as Aurora ships it: fingerprint for sudo, polkit and the lock
+# screen, the password everywhere else; a short power-button press suspends.
+FPRINTD = '-auth sufficient pam_fprintd.so\n'
+SYSTEM_AUTH = 'auth [success=1 default=bad] pam_unix.so try_first_pass nullok\nauth optional pam_permit.so\n'
+STACK = 'auth include system-auth\naccount include system-auth\n'
+LOCK = 'auth required pam_shells.so\n-auth required pam_fprintd.so\nauth optional pam_permit.so\n'
+LOGIND = '[Login]\nHandlePowerKey=suspend\nHandlePowerKeyLongPress=poweroff\n'
+POWERDEVIL = ''.join(f'[{group}][SuspendAndShutdown]\nPowerButtonAction=1\n'
+                     for group in ('AC', 'Battery', 'LowBattery'))
+
+
+def touchid_files(etc, profile):
+    pam = etc / 'pam.d'
+    write(pam / 'system-auth', SYSTEM_AUTH)
+    write(pam / 'system-login', 'auth required pam_shells.so\nauth include system-auth\n')
+    write(pam / 'sudo', FPRINTD + STACK)
+    write(pam / 'polkit-1', FPRINTD + STACK)
+    write(pam / 'login', 'auth include system-login\n')
+    write(pam / 'su', 'auth sufficient pam_rootok.so\nauth required pam_unix.so\n')
+    write(pam / 'sshd', 'auth include system-login\n')
+    services = {'gnome': {'gdm-fingerprint': LOCK, 'gdm-password': 'auth include system-login\n'},
+                'kde': {'kde-fingerprint': LOCK, 'kde': 'auth include system-login\n',
+                        'plasmalogin': 'auth include system-login\n'}}
+    for name, text in services.get(profile, {}).items():
+        write(pam / name, text)
+    write(etc / 'systemd/logind.conf.d/50-aurora-sep.conf', LOGIND)
+    if profile == 'kde':
+        write(etc / 'xdg/powerdevilrc', POWERDEVIL)
+
+
 class CheckBasicsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.base = Path(self.temporary.name)
+
+    def fresh(self):
+        self.temporary.cleanup()
+        self.setUp()
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -52,6 +86,7 @@ class CheckBasicsTests(unittest.TestCase):
         write(root / 'usr/lib/locale/locale-archive', b'\0en_US.utf8\0')
         link(e / 'systemd/system/multi-user.target.wants/NetworkManager.service',
              '/usr/lib/systemd/system/NetworkManager.service')
+        touchid_files(e, profile)
         if profile != 'minimal':
             logos(u)
         if profile == 'gnome':
@@ -67,6 +102,9 @@ class CheckBasicsTests(unittest.TestCase):
             write(u / 'share/applications/kcm_networkmanagement.desktop')
             for name in ('Next', 'Air', 'Horos', 'Altai', 'Kokkini', 'Canopee', 'Cluster', 'Flow', 'Mountain'):
                 write(u / f'share/wallpapers/{name}/contents/images/1920x1080.png')
+            # systemctl enable plasmalogin.service links its Alias=.
+            write(root / 'usr/lib/systemd/system/plasmalogin.service', '[Service]\nExecStart=/usr/bin/plasmalogin\n')
+            link(e / 'systemd/system/display-manager.service', '/usr/lib/systemd/system/plasmalogin.service')
         return root
 
     def boot(self):
@@ -178,6 +216,52 @@ class CheckBasicsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('ssh: ok', result.stdout)
 
+    def test_executable_unit_or_drop_in_fails(self):
+        for name in ('usr/lib/systemd/system/macsmc-battery-charge-control-end-threshold.path',
+                     'usr/lib/systemd/user/drkonqi-sentry-postman.path.d/50-aurora-ordering.conf',
+                     'etc/systemd/system/example.service'):
+            with self.subTest(name=name):
+                self.assert_fails('minimal', lambda root: write(root / name, '[Unit]\n', mode=0o755),
+                                  f'/{name} is marked executable')
+                self.temporary.cleanup()
+                self.temporary = tempfile.TemporaryDirectory()
+                self.base = Path(self.temporary.name)
+
+    def test_plain_units_and_drop_ins_pass(self):
+        root = self.desktop_root('minimal')
+        write(root / 'usr/lib/systemd/system/example.service', '[Service]\n', mode=0o644)
+        write(root / 'usr/lib/systemd/system/example.service.d/50-example.conf', '[Unit]\n', mode=0o644)
+        result = self.check('--profile', 'minimal', '--root', str(root))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('units: ok', result.stdout)
+
+    def test_kde_signs_in_with_plasma_login(self):
+        root = self.desktop_root('kde')
+        result = self.check('--profile', 'kde', '--root', str(root))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('greeter: ok', result.stdout)
+
+    def test_kde_with_sddm_fails(self):
+        def mutate(root):
+            write(root / 'usr/lib/systemd/system/sddm.service', '[Service]\nExecStart=/usr/bin/sddm\n')
+            (root / 'etc/systemd/system/display-manager.service').unlink()
+            link(root / 'etc/systemd/system/display-manager.service', '/usr/lib/systemd/system/sddm.service')
+        self.assert_fails('kde', mutate, 'the display manager is sddm.service, not Plasma Login')
+
+    def test_kde_without_a_display_manager_fails(self):
+        self.assert_fails('kde', lambda root: (root / 'etc/systemd/system/display-manager.service').unlink(),
+                          'no display manager is enabled')
+
+    def test_gnome_and_minimal_have_no_greeter_requirement(self):
+        for profile in ('gnome', 'minimal'):
+            with self.subTest(profile=profile):
+                result = self.check('--profile', profile, '--root', str(self.desktop_root(profile)))
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertIn('greeter: ok', result.stdout)
+                self.temporary.cleanup()
+                self.temporary = tempfile.TemporaryDirectory()
+                self.base = Path(self.temporary.name)
+
     def test_core_with_an_early_uuid_search_fails(self):
         self.assert_fails('minimal', lambda root: write(self.base / 'esp/EFI/BOOT/BOOTAA64.EFI',
                                                          f'MZ\0/EFI/BOOT\0search.fs_uuid {BOOT} root\0'.encode()),
@@ -195,6 +279,45 @@ class CheckBasicsTests(unittest.TestCase):
     def test_stub_must_name_the_boot_uuid(self):
         self.assert_fails('minimal', lambda root: write(self.base / 'esp/EFI/BOOT/grub.cfg', PREAMBLE),
                           'by UUID on the startup disk')
+
+    def test_fingerprint_at_the_console_login_fails(self):
+        self.assert_fails('minimal', lambda root: write(root / 'etc/pam.d/system-login',
+                          FPRINTD + 'auth include system-auth\n'), 'login offers a fingerprint')
+
+    def test_sudo_and_polkit_without_fingerprint_fail(self):
+        def mutate(root):
+            write(root / 'etc/pam.d/sudo', STACK)
+            write(root / 'etc/pam.d/polkit-1', STACK)
+        self.assert_fails('gnome', mutate, 'sudo does not offer a fingerprint; polkit-1 does not offer a fingerprint')
+
+    def test_fingerprint_that_replaces_the_password_fails(self):
+        self.assert_fails('minimal', lambda root: write(root / 'etc/pam.d/sudo',
+                          'auth required pam_fprintd.so\n' + STACK), 'sudo has no password after the fingerprint')
+
+    def test_fingerprint_at_the_login_screen_fails(self):
+        self.assert_fails('kde', lambda root: write(root / 'etc/pam.d/plasmalogin', FPRINTD + STACK),
+                          'plasmalogin offers a fingerprint')
+
+    def test_lock_screen_without_fingerprint_fails(self):
+        self.assert_fails('kde', lambda root: write(root / 'etc/pam.d/kde-fingerprint', 'auth required pam_deny.so\n'),
+                          'kde-fingerprint does not offer a fingerprint')
+
+    def test_vendor_pam_directory_is_read(self):
+        def mutate(root):
+            (root / 'etc/pam.d/polkit-1').unlink()
+            write(root / 'usr/lib/pam.d/polkit-1', STACK)
+        self.assert_fails('minimal', mutate, 'polkit-1 does not offer a fingerprint')
+
+    def test_power_key_that_powers_off_fails(self):
+        self.assert_fails('minimal', lambda root: (root / 'etc/systemd/logind.conf.d/50-aurora-sep.conf').unlink(),
+                          'logind HandlePowerKey=(default), not suspend')
+        self.fresh()
+        self.assert_fails('gnome', lambda root: write(root / 'etc/systemd/logind.conf.d/90-local.conf',
+                          '[Login]\nHandlePowerKey=poweroff\n'), 'logind HandlePowerKey=poweroff, not suspend')
+
+    def test_plasma_power_button_must_suspend(self):
+        self.assert_fails('kde', lambda root: (root / 'etc/xdg/powerdevilrc').unlink(),
+                          'Plasma AC power button action is the logout screen, not suspend')
 
     def test_nixos_system_closure_is_read_through_store_links(self):
         root = self.base / 'root'
@@ -218,6 +341,7 @@ class CheckBasicsTests(unittest.TestCase):
         logos(root / 'nix/store/ffff-aurora-logos')
         link(root / sw.lstrip('/') / 'share/icons/hicolor', logo_path)
         link(root / sw.lstrip('/') / 'share/pixmaps', '/nix/store/ffff-aurora-logos/share/pixmaps')
+        touchid_files(root / etc.lstrip('/'), 'gnome')
         result = self.check('--profile', 'gnome', '--root', str(root), '--system', system, *self.boot())
         self.assertEqual(result.returncode, 0, result.stdout)
         write(root / etc.lstrip('/') / 'locale.conf', 'LANG=C\n')

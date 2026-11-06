@@ -1,12 +1,12 @@
 pkgname=aurora-bless
-pkgver=0.4.4.aurora2
+pkgver=0.4.4.aurora3
 pkgrel=1
 pkgdesc='Aurora Apple Silicon startup-volume selector with Neo NVRAM support'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-bless'
 license=('MIT')
-_commit=727b5895db67bd40aa66c41485c6a8f482d2a917
+_commit=903a6304fd1b0ad40ef81956f4c9abfbfbac4d5a
 provides=("asahi-bless=$pkgver")
 conflicts=('asahi-bless')
 makedepends=('git' 'rust' 'cargo')

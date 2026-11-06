@@ -33,7 +33,7 @@ class AlarmRecipeTests(unittest.TestCase):
         # tracker may already have moved in this checkout.
         item = {'key': key, 'old': self.pins[key]['commit'], 'new': NEW,
                 'new_date': '2099-10-23T02:20:18Z', **extra}
-        if key in ('mesa-aurora', 'kernel-aurora'):
+        if key in ('mesa-aurora', 'kernel-aurora', 'fex-emu', 'aurora-steam-native'):
             pins = json.loads((self.root / 'sources.json').read_text())
             pins[key].update(commit=item['new'], sha256='d' * 64)
             (self.root / 'sources.json').write_text(json.dumps(pins))
@@ -126,6 +126,18 @@ class AlarmRecipeTests(unittest.TestCase):
         same['new'] = 'd' * 40
         module.update_recipe(self.root, same, TODAY)
         self.assertEqual(self.field('linux-aurora', 'pkgrel'), '2')
+
+    def test_fex_and_steam_versions_carry_the_commit_time_and_commit(self):
+        for key, base, epoch in (('fex-emu', '2610', ''), ('aurora-steam-native', '0', '1:')):
+            with self.subTest(package=key):
+                item = self.item(key)
+                module.update_recipe(self.root, item, TODAY)
+                text = (self.root / 'packages' / key / 'PKGBUILD').read_text()
+                self.assertEqual(self.field(key, '_commit'), NEW)
+                self.assertEqual(self.field(key, '_sha256'), 'd' * 64)
+                self.assertEqual(self.field(key, 'pkgver'), f'{base}.r209910230220.{NEW[:11]}')
+                self.assertEqual(item['package_version'], f'{epoch}{base}.r209910230220.{NEW[:11]}-1')
+                self.assertNotIn(self.pins[key]['commit'], text)
 
     def test_tracked_sources_have_recipes(self):
         tracking = json.loads((ROOT / 'tracking.json').read_text())
