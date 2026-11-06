@@ -1,0 +1,123 @@
+From 5d7dc1b86d3c69e8884925dd34f4c3452aa6cc5b Mon Sep 17 00:00:00 2001
+From: Ryan Murray <ryan@aurorasilicon.org>
+Date: Mon, 2 Nov 2026 01:16:33 +1100
+Subject: [PATCH 2/2] netdev: support OWE on FullMAC devices that offload it
+
+A FullMAC device that cannot run SME in the host has no way to join an
+OWE network today: iwd only runs OWE through its own state machine,
+which needs the authenticate and associate commands that such devices
+do not provide. Drivers for devices whose firmware performs the OWE
+Diffie-Hellman exchange and the 4-way handshake advertise
+NL80211_EXT_FEATURE_OWE_OFFLOAD.
+
+When the AKM is OWE, the device is not SoftMAC and it advertises the
+feature, use a new CONNECTION_TYPE_OWE_OFFLOAD: connect with
+CMD_CONNECT as for the other offloads, without creating the OWE state
+machine, and treat the connection as offloaded so the port is reported
+authorized by the driver. wiphy_can_offload() now also reports this
+feature.
+
+The PSK case used to fall through into the OWE case to reach its
+SoftMAC and FullMAC choice; it now makes that choice itself so that a
+PSK network is never sent down the OWE offload path.
+
+Tested on a MediaTek MT7932 (mt7932-fullmac) joining an OWE network
+served by hostapd 2.12, and with WPA2 and WPA3 networks on the same
+device to check the PSK and SAE paths are unchanged.
+---
+ src/netdev.c | 25 +++++++++++++++++++++++--
+ src/wiphy.c  |  3 ++-
+ 2 files changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/src/netdev.c b/src/netdev.c
+index e639a1f8..978973c9 100644
+--- a/src/netdev.c
++++ b/src/netdev.c
+@@ -78,6 +78,7 @@ enum connection_type {
+ 	CONNECTION_TYPE_SAE_OFFLOAD,
+ 	CONNECTION_TYPE_PSK_OFFLOAD,
+ 	CONNECTION_TYPE_8021X_OFFLOAD,
++	CONNECTION_TYPE_OWE_OFFLOAD,
+ };
+ 
+ static uint32_t unicast_watch;
+@@ -281,6 +282,7 @@ static inline bool is_offload(struct handshake_state *hs)
+ 		return false;
+ 	case CONNECTION_TYPE_SAE_OFFLOAD:
+ 	case CONNECTION_TYPE_PSK_OFFLOAD:
++	case CONNECTION_TYPE_OWE_OFFLOAD:
+ 		return true;
+ 	}
+ 
+@@ -2636,6 +2638,9 @@ static struct l_genl_msg *netdev_build_cmd_connect(struct netdev *netdev,
+ 	case CONNECTION_TYPE_8021X_OFFLOAD:
+ 		l_genl_msg_append_attr(msg, NL80211_ATTR_WANT_1X_4WAY_HS,
+ 					0, NULL);
++		break;
++	case CONNECTION_TYPE_OWE_OFFLOAD:
++		break;
+ 	}
+ 
+ 	if (prev_bssid)
+@@ -4091,11 +4096,22 @@ static int netdev_handshake_state_setup_connection_type(
+ 				NL80211_EXT_FEATURE_4WAY_HANDSHAKE_STA_PSK))
+ 			goto psk_offload;
+ 
+-	/* fall through */
++		if (softmac)
++			goto softmac;
++
++		goto fullmac;
+ 	case IE_RSN_AKM_SUITE_OWE:
+ 		if (softmac)
+ 			goto softmac;
+ 
++		/*
++		 * FullMAC devices that offload OWE perform the DH exchange
++		 * and the 4-way handshake in the driver or firmware.
++		 */
++		if (wiphy_has_ext_feature(wiphy,
++					NL80211_EXT_FEATURE_OWE_OFFLOAD))
++			goto owe_offload;
++
+ 		goto fullmac;
+ 	case IE_RSN_AKM_SUITE_8021X:
+ 	case IE_RSN_AKM_SUITE_FT_OVER_8021X:
+@@ -4158,6 +4174,9 @@ psk_offload:
+ offload_1x:
+ 	nhs->type = CONNECTION_TYPE_8021X_OFFLOAD;
+ 	return 0;
++owe_offload:
++	nhs->type = CONNECTION_TYPE_OWE_OFFLOAD;
++	return 0;
+ }
+ 
+ static void netdev_connect_common(struct netdev *netdev,
+@@ -4183,7 +4202,9 @@ static void netdev_connect_common(struct netdev *netdev,
+ 
+ 	/* For OWE, always use the CMD_CONNECT path */
+ 	if (IE_AKM_IS_OWE(hs->akm_suite)) {
+-		netdev->owe_sm = owe_sm_new(hs);
++		if (nhs->type != CONNECTION_TYPE_OWE_OFFLOAD)
++			netdev->owe_sm = owe_sm_new(hs);
++
+ 		goto build_cmd_connect;
+ 	}
+ 
+diff --git a/src/wiphy.c b/src/wiphy.c
+index b6774f69..a20c0be5 100644
+--- a/src/wiphy.c
++++ b/src/wiphy.c
+@@ -629,7 +629,8 @@ bool wiphy_can_offload(struct wiphy *wiphy)
+ 				NL80211_EXT_FEATURE_4WAY_HANDSHAKE_STA_PSK) ||
+ 		wiphy_has_ext_feature(wiphy,
+ 				NL80211_EXT_FEATURE_4WAY_HANDSHAKE_STA_1X) ||
+-		wiphy_has_ext_feature(wiphy, NL80211_EXT_FEATURE_SAE_OFFLOAD);
++		wiphy_has_ext_feature(wiphy, NL80211_EXT_FEATURE_SAE_OFFLOAD) ||
++		wiphy_has_ext_feature(wiphy, NL80211_EXT_FEATURE_OWE_OFFLOAD);
+ }
+ 
+ bool wiphy_supports_ext_key_id(struct wiphy *wiphy)
+-- 
+2.50.1 (Apple Git-155)
+
