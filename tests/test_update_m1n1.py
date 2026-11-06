@@ -404,5 +404,14 @@ class Recipes(unittest.TestCase):
         self.assertLess(ctxr, archive)
 
 
+    def test_image_build_adds_the_ctxr_files_only_with_the_marker(self):
+        text = (ROOT / 'scripts/build-image').read_text()
+        check = text.index('if [[ -e $mountroot/usr/share/aura/monitor-free ]]; then monitor_free=true; fi')
+        unmount = text.rindex("for path in dev proc sys run boot/efi boot ''")
+        guarded = text.index('if $monitor_free; then\n  python3 "$root/scripts/prepare-ctxr-stage2.py"')
+        self.assertLess(check, unmount)
+        self.assertLess(unmount, guarded)
+        self.assertEqual(text.count('prepare-ctxr-stage2.py'), 1)
+
 if __name__ == '__main__':
     unittest.main()

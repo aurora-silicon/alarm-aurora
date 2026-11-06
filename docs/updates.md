@@ -28,10 +28,11 @@ in the installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and late
 only ever use `boot.bin`.
 
 Image builds set `AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent`, so `update-m1n1` writes `boot.bin` as before
-whichever Mac builds the image. `scripts/prepare-ctxr-stage2.py` then adds `boot-ctxr.bin`, a copy of it, to
-the image's ESP, and `boot-ctxr-<board>.bin`, a copy of `boot-<board>.bin`, for each Mach-O board. The
-installer picks the board's file over the combined one. The script fails the image if any of them is over
-16 MiB.
+whichever Mac builds the image. If the image's aura has the marker, `scripts/prepare-ctxr-stage2.py` then
+adds `boot-ctxr.bin`, a copy of it, to the image's ESP, and `boot-ctxr-<board>.bin`, a copy of
+`boot-<board>.bin`, for each Mach-O board. The installer picks the board's file over the combined one. The
+script fails the image if any of them is over 16 MiB. Without the marker the image has no `boot-ctxr.bin`,
+and the installer refuses it on Mach-O Macs, so no Mac gets a `boot-ctxr.bin` that updates don't refresh.
 
 ## Workflows
 
