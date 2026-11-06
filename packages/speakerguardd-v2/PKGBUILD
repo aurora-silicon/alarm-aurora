@@ -55,6 +55,9 @@ must('speakerguardd-v2-seat.service', f'ExecStart={lx}/speakerguardd-provision s
      f'ExecCondition={lx}/speakerguardd-gate v2')
 must('speakerguardd-v2-seat.path', 'Unit=speakerguardd-v2-seat.service')
 must('speakerguardd-v2-session.service', f'ExecCondition={lx}/speakerguardd-provision is-seat')
+# The kernel's "Speaker Protection" lock and lease writes need CAP_SYS_ADMIN.
+if not re.search(r'^CapabilityBoundingSet=.*\bCAP_SYS_ADMIN\b', Path('speakerguardd-v2.service').read_text(), re.M):
+    raise SystemExit('speakerguardd-v2.service: CapabilityBoundingSet lacks CAP_SYS_ADMIN')
 Path('legacy-gate.conf').write_text(Path('packaging/systemd/legacy-gate.conf').read_text().replace('/usr/libexec/speakerguardd/', lx + '/'))
 must('legacy-gate.conf', f'ExecCondition={lx}/speakerguardd-gate legacy')
 PYUNIT
