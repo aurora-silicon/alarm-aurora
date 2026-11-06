@@ -12,16 +12,19 @@ pkgdesc='Asahi Linux maintenance scripts'
 arch=('any')
 url='http://asahilinux.org'
 license=('MIT')
+# aura requires this: an aura without the monitor must never reach boot.bin
+# through a stock update-m1n1, whatever its version.
+provides=('aurora-stage2-ctxr-slot=1')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/asahi-alarm/${pkgname}/archive/refs/tags/${pkgver}.tar.gz"
         0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch
         update-m1n1)
 install=asahi-scripts.install
 sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
             '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9'
-            '4196008e6283ca0e5ef6b356b304208bcac29ceba5f4b526ac2f522807bda0ee')
+            '522f14602f84f785a108d82a403f16cf012bf201b893136998af4424d25f9e0a')
 b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641bdf60357411b2c14caf96eb19a4a23bd258d3a00127e70679a7ca8770'
         '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93'
-        'f48b9347fd68bb283a83a7900d283df44a80b076df647012ddea6daf5e59638fa53e732966222ff3d0103236a54dc8e52673ea6b5a5aaf4af331436d1fc6f605')
+        '661bb1cb38fe2d808571421be543cab0fe8d0275d23536f968c86a04d6b11febe15e50937bbd89dc741b6261f1f47d9c131a8f19a23f044820a3696328276af9')
 
 prepare() {
   cd "${srcdir}/${pkgname}-${pkgver}"

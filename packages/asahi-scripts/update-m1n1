@@ -20,6 +20,8 @@ fi
 : ${DTBS:=$(/bin/ls -d /lib/modules/*-ARCH | sort -rV | head -1)/dtbs/*.dtb}
 : ${CONFIG:=/etc/m1n1.conf}
 : ${AURORA_DEVICE_TREE_COMPATIBLE:=/proc/device-tree/compatible}
+: ${AURORA_DEVICE_TREE_WINDOW:=/proc/device-tree/chosen/aurora,ctxr-exec-window}
+: ${AURORA_MONITOR_FREE_MARKER:=/usr/share/aura/monitor-free}
 
 # The board of a Mac that boots a Mach-O Stage 1, nothing on any other machine.
 # The chips are the installer's: AuraStage1Format.usesMachO.
@@ -48,7 +50,13 @@ if [ -d "$DTBS" ]; then
     DTBS="${DTBS}/apple/t6*.dtb ${DTBS}/apple/t81*.dtb"
 fi
 
-board=$(macho_board)
+# The aura package ships this marker once it has no monitor. Until then every
+# Mac updates boot.bin. After that a Mac that boots a Mach-O Stage 1 updates
+# boot-ctxr.bin, which only a Stage 1 with the CTXR window chainloads.
+board=
+if [ -e "$AURORA_MONITOR_FREE_MARKER" ]; then
+    board=$(macho_board)
+fi
 
 # These Macs get only their own device trees, in byte order so aura settles on
 # the board's main tree: a Stage 2 with every board's trees is too large.
@@ -95,11 +103,16 @@ if [ -z "$TARGET" ]; then
     umount=true
 fi
 
-# A Stage 1 enrolled with the CTXR window chainloads boot-ctxr.bin. An older one
-# chainloads boot.bin, which must stay as it is: its Stage 1 can't run this aura.
+# An older Stage 1 chainloads boot.bin and can't run this aura, so boot.bin must
+# stay as it is. Only an aura booted from boot-ctxr.bin publishes the window, so
+# a Mac without one is still booting the frozen file.
+frozen=false
 if [ -n "$board" ]; then
     case "$TARGET" in
-        boot.bin|*/boot.bin) TARGET="${TARGET%boot.bin}boot-ctxr.bin" ;;
+        boot.bin|*/boot.bin)
+            TARGET="${TARGET%boot.bin}boot-ctxr.bin"
+            [ -e "$AURORA_DEVICE_TREE_WINDOW" ] || frozen=true
+            ;;
     esac
 fi
 
@@ -117,6 +130,13 @@ fi
 
 mv -f "${TARGET}.new" "$TARGET"
 
-echo "m1n1 updated at ${TARGET}"
+if $frozen; then
+    warn "WARNING: This Mac still boots m1n1/boot.bin, which stays on its last aura, device trees and U-Boot."
+    warn "WARNING: This update is in m1n1/boot-ctxr.bin, and nothing boots that yet. New kernels run on the old device trees."
+    warn "WARNING: To move to it, start this installation's Recovery, open Aurora Installer and choose Utilities > Enroll Expanded Code Window."
+    warn "WARNING: Steps: https://github.com/aurora-silicon/aurora-installer/blob/main/macOS/Recovery/README.md#enroll-expanded-code-window"
+else
+    echo "m1n1 updated at ${TARGET}"
+fi
 $umount && umount /run/.system-efi
 true

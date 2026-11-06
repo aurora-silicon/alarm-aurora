@@ -34,11 +34,15 @@ build() {
 package() {
   # Required on the installed system, not to build the bootloader. A Mach-O Mac
   # needs the update-m1n1 that leaves boot.bin alone, or this aura could overwrite it.
-  depends=('asahi-scripts>=20261023-3' 'uboot-aurora')
+  depends=('asahi-scripts>=20260127.1' 'aurora-stage2-ctxr-slot' 'uboot-aurora')
   # Building a PR candidate does not assert release/hardware qualification.
   install -Dm644 aura/build/aura.bin "$pkgdir/usr/lib/asahi-boot/m1n1.bin"
   install -d "$pkgdir/usr/lib/m1n1-neo"
   ln -s ../asahi-boot/m1n1.bin "$pkgdir/usr/lib/m1n1-neo/m1n1.bin"
+  # An aura without the monitor: update-m1n1 then stops writing boot.bin on Mach-O Macs.
+  if [[ -f aura/src/ctxr_exec.c || ! -f aura/src/monitor.c ]]; then
+    install -Dm644 /dev/null "$pkgdir/usr/share/aura/monitor-free"
+  fi
   install -Dm644 stage1/aura-raw.bin "$pkgdir/usr/share/aura/stage1/aura-raw.bin"
   install -Dm644 stage1/aura-boot.macho "$pkgdir/usr/share/aura/stage1/aura-boot.macho"
   install -Dm644 stage1/aura.macho "$pkgdir/usr/share/aura/stage1/aura.macho"

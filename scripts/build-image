@@ -2,6 +2,8 @@
 set -euo pipefail
 trap 'status=$?; echo "Aurora image failed ($status) at line $LINENO: $BASH_COMMAND" >&2; exit "$status"' ERR
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# An image serves every Mac, whichever one builds it.
+export AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent
 profile=${1:?arch-kde, arch-gnome or arch-minimal required}
 tag=${2:?immutable signed Aurora testing snapshot required}
 # The update channel the installed system follows afterwards.

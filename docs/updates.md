@@ -17,18 +17,27 @@ every DTB of the newest `*-ARCH` kernel and U-Boot into the ESP Stage 2 (keeping
 mkinitcpio rebuilds the initramfs with the `asahi` and `aurora-vendor` hooks, which read this Mac's
 firmware from the ESP at boot.
 
-On a Mac that boots a Mach-O Stage 1 (`/proc/device-tree/compatible` names one of the chips in the
-installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and later), `update-m1n1` writes
-`m1n1/boot-ctxr.bin` instead, keeping `boot-ctxr.bin.old`, with only this board's DTBs. It never
-touches `m1n1/boot.bin`: a Stage 1 with the CTXR window chainloads `boot-ctxr.bin`, and an older one
-keeps chainloading its frozen `boot.bin`, because it can't run an aura without the monitor. A frozen
-`boot.bin` also keeps its device trees, so such a Mac runs new kernels on old trees until it is
-re-enrolled. M1 to M3 Macs only ever use `boot.bin`.
+The aura package ships `/usr/share/aura/monitor-free` once its pinned source has no monitor. Its recipe
+checks for `src/ctxr_exec.c` or a missing `src/monitor.c`, so the aura#77 pin turns it on by itself. Until
+then every Mac updates `boot.bin`.
 
-Without a device tree to read, as in an image build, `update-m1n1` writes `boot.bin` as before.
-`scripts/prepare-ctxr-stage2.py` then adds `boot-ctxr.bin`, a copy of it, to the image's ESP, and
-`boot-ctxr-<board>.bin`, a copy of `boot-<board>.bin`, for each Mach-O board. The installer picks the
-board's file over the combined one.
+With the marker, a Mac that boots a Mach-O Stage 1 (`/proc/device-tree/compatible` names one of the chips
+in the installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and later) gets
+`m1n1/boot-ctxr.bin` instead, keeping `boot-ctxr.bin.old`, with only this board's DTBs. It never touches
+`m1n1/boot.bin`: a Stage 1 with the CTXR window chainloads `boot-ctxr.bin`, and an older one keeps
+chainloading its frozen `boot.bin`, because it can't run an aura without the monitor. M1 to M3 Macs only
+ever use `boot.bin`.
+
+Only an aura booted from `boot-ctxr.bin` publishes `/chosen/aurora,ctxr-exec-window`. When that property
+is missing, the Mac is still booting the frozen `boot.bin`, so `update-m1n1` warns the owner on every run
+and names the Recovery step, Utilities > Enroll Expanded Code Window. Until then new kernels run on the old
+device trees.
+
+Image builds set `AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent`, so `update-m1n1` writes `boot.bin` as before
+whichever Mac builds the image. `scripts/prepare-ctxr-stage2.py` then adds `boot-ctxr.bin`, a copy of it, to
+the image's ESP, and `boot-ctxr-<board>.bin`, a copy of `boot-<board>.bin`, for each Mach-O board. The
+installer picks the board's file over the combined one. The script fails the image if any of them is over
+16 MiB.
 
 ## Workflows
 
