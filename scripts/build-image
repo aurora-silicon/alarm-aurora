@@ -75,7 +75,7 @@ PY
 packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez bluez-utils wireless-regdb linux-firmware
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-userpages aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes aurora-logos
-  aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-camera-denoise tiny-dfr pipewire-pulse pipewire-alsa openssh)
+  aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-camera-denoise aurora-kbd-light tiny-dfr pipewire-pulse pipewire-alsa openssh)
 case $profile in
   arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
   arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
@@ -98,6 +98,9 @@ chroot "$mountroot" pacman -Q alsa-utils-aurora aurora-system-fixes aurora-flatp
 # The camera filter is on for every user; its install script applies the
 # package's user preset.
 [[ -L $mountroot/etc/systemd/user/pipewire.service.wants/aurora-camera-denoise.service ]]
+# The keyboard backlight follows the light sensor; its install script applies
+# the package's system preset.
+[[ -L $mountroot/etc/systemd/system/multi-user.target.wants/aurora-kbd-light.service ]]
 # Fail the image if any graphics package has escaped the host Mesa version.
 mesa_version=$(chroot "$mountroot" pacman -Q mesa-aurora | awk '{print $2}')
 for package in vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl; do
