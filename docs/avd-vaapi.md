@@ -7,11 +7,12 @@
 ```text
 /usr/lib/dri/v4l2_request_drv_video.so
 /usr/lib/dri/asahi_drv_video.so -> v4l2_request_drv_video.so
+/usr/lib/dri/aurora_drv_video.so -> v4l2_request_drv_video.so
 ```
 
-The alias makes libva's normal render-node discovery select the driver. No
-global `LIBVA_DRIVER_NAME`, browser preference, firmware, permission change, or
-sandbox exception is installed.
+The aliases cover the older and current render-node driver names, so libva's
+normal discovery selects the driver. No global `LIBVA_DRIVER_NAME`, browser
+preference, firmware, permission change, or sandbox exception is installed.
 
 Validate the installed package with `env -u LIBVA_DRIVER_NAME vainfo --display
 drm`, then compare `ffmpeg -hwaccel vaapi` frame MD5 output with software for

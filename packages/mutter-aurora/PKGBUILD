@@ -1,11 +1,12 @@
 # Arch's mutter 51.1-1 recipe (Jan Alexander Steffens, Fabian Bornschein) with
-# two Aurora patches: a VRR-capable output defaults to variable refresh rate,
-# and a panel that scales PQ with its backlight (PQ_REFERENCE_LUMINANCE) keeps
-# its backlight and gets its reference white in BT.2100 mode. The same
+# three Aurora patches: a VRR-capable output defaults to variable refresh rate,
+# a panel that scales PQ with its backlight (PQ_REFERENCE_LUMINANCE) keeps
+# its backlight and gets its reference white in BT.2100 mode, and a built-in
+# panel in a variable refresh rate mode uses it on its whole desktop. The same
 # patches are in fedora-aurora's mutter package.
 pkgname=mutter-aurora
 _tag=51.1
-pkgver=51.1.aurora2
+pkgver=51.1.aurora3
 pkgrel=1
 pkgdesc="Window manager and compositor for GNOME, defaulting VRR-capable displays to variable refresh rate"
 url="https://gitlab.gnome.org/GNOME/mutter"
@@ -88,16 +89,19 @@ source=(
   "git+https://gitlab.gnome.org/GNOME/gvdb.git#commit=b54bc5da25127ef416858a3ad92e57159ff565b3"
   0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch
   0002-backends-Take-the-PQ-reference-white-from-PQ_REFERENCE_LUMINANCE.patch
+  0003-onscreen-native-Use-variable-refresh-rate-on-the-whole-desktop-of-built-in-panels.patch
 )
 b2sums=('0064caf6a85d9cb42d9544ad2dab31ef158a957d20d5a99aabe27f40986f128714f97a5cbe970c1aba1cb9c86f0b94f2f279a22072bbfefb9c0c7e715d7a411f'
         'f989bc2ceb52aad3c6a23c439df3bbc672bc11d561a247d19971d30cc85ed5d42295de40f8e55b13404ed32aa44f12307c9f5b470f2e288d1c9c8329255c43bf'
         '4502d8a6b390148adb70bbf9d75c95f2516c47e262a1434525cd670f25f1455edd31048ff00bc847daf6230a4135615db2f34b173c0bb6a14d59bc25fb8d205b'
-        '013e2963c21fd0719b434b05e1d2e5fb8d1ae83adbc095a68975b2dcc7760326150ccd85fb5bb71edfe7b19bf505b60a1461b10ef27b1480b4b941a13767efc3')
+        '013e2963c21fd0719b434b05e1d2e5fb8d1ae83adbc095a68975b2dcc7760326150ccd85fb5bb71edfe7b19bf505b60a1461b10ef27b1480b4b941a13767efc3'
+        '8f754a629e8c31db7938f09e9ff2f0779433f833c772cae84236fe5ea883fbcee70b12eb1ba4770bfaf8bd28858df5f63c839efbf8146641620f9cf952eda36d')
 
 prepare() {
   cd mutter
   git apply -v "../0001-native-output-kms-Prefer-variable-refresh-rate-on-VRR-capable-outputs.patch"
   git apply -v "../0002-backends-Take-the-PQ-reference-white-from-PQ_REFERENCE_LUMINANCE.patch"
+  git apply -v "../0003-onscreen-native-Use-variable-refresh-rate-on-the-whole-desktop-of-built-in-panels.patch"
 }
 
 build() {
