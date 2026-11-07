@@ -1,0 +1,29 @@
+pkgname=aurora-sep-luks
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Unlock LUKS2 volumes with the Apple Secure Enclave (aurora-sep-cryptenroll + cryptsetup token)'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/aurora-sep-userspace'
+license=('MIT')
+_commit=63a51a73377dafc1aafdbe86d398d505fa939ff7
+depends=('cryptsetup' 'json-c' 'aurora-sep')
+makedepends=('gcc' 'make' 'pkgconf')
+source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
+sha256sums=('426152b4504a4f98c141344387c3ddbabf6beac0c129d3cb7d482af057d1ecef')
+
+build() {
+  make -C "aurora-sep-userspace-$_commit/luks" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+}
+
+check() {
+  # 77: the build root blocks the kernel keyring (seccomp), skipped.
+  make -C "aurora-sep-userspace-$_commit/luks" test/test-seal CFLAGS="$CFLAGS"
+  "aurora-sep-userspace-$_commit/luks/test/test-seal" || [ $? = 77 ]
+}
+
+package() {
+  # Nothing is enrolled by installing: aurora-sep-cryptenroll is run per volume.
+  make -C "aurora-sep-userspace-$_commit/luks" install DESTDIR="$pkgdir" PREFIX=/usr TOKENDIR=/usr/lib/cryptsetup
+  install -Dm644 "aurora-sep-userspace-$_commit/docs/luks-sep.md" "$pkgdir/usr/share/doc/$pkgname/luks-sep.md"
+  install -Dm644 "aurora-sep-userspace-$_commit/LICENSES/MIT.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
