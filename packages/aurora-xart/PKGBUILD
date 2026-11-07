@@ -6,13 +6,13 @@ arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-xart'
 license=('MIT')
-_commit=aab11591fec7723b58db9386da031f67cd74f13c
+_commit=83ae1899d0a70e84cb464b8443a3458408b2d28e
 depends=('python')
 # reset-touchid opens the sensor through fprintd-list.
 optdepends=('fprintd-aurora: open the Touch ID sensor before judging a stored keybag')
 makedepends=('make')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-xart/tar.gz/$_commit")
-sha256sums=('a1537edd53b7250723a14ce25805eb486612a6446c14ba3a768ff42dacba2c20')
+sha256sums=('1d91de60345f0c0633d00402aaec60de3ab52c8c560ae5d7a1ffc82909d7bdda')
 
 check() {
   make -C "aurora-xart-$_commit" check
