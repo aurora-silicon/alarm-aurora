@@ -1,6 +1,6 @@
 pkgname=libfprint-aurora
 pkgver=1.94.100
-pkgrel=3
+pkgrel=4
 pkgdesc='Fingerprint reader library with the Aurora SEP driver'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -17,6 +17,7 @@ source=("libfprint-$_commit.tar.gz::https://gitlab.freedesktop.org/api/v4/projec
   '0003-hide-lid-covered-readers-while-the-lid-is-closed.patch'
   '0004-aurora-refuse-unbound-enrollment.patch'
   '0005-aurora-support-v4-and-v5.patch'
+  '0006-aurora-report-finger-lift-and-lockout.patch'
   'test_interface.py'
   'apple-sep.h'
   'fprintd-lid-switch.conf'
@@ -27,8 +28,9 @@ sha256sums=('94ff7f3689d14da28389a4d9cad5fb523065bbed3e6c8e3694522fde1316e780'
             '58b3ec841207942bd48819a8e91a8cc7992e5ffae34285b7e9d3617c2750043f'
             '55793f885982b140beb5fc1b2ade65190a5bc73762369935327155eb7190c6b8'
             '8024015e227ad9172dd5eec2fbe128e6c32f7621571c49f869386123cc08585d'
+            'ab7883751d087e11f192a18f8744500eb271de6b7737837c7da398ddb11da246'
             '73b95e4c39a2fe8c5496cd38545cc67df20c89cc1a88fc3aedf216e997b41da4'
-            'f8c03ce145578ce2a28c97c872d4b748f97ab60bf8242445127fc91f0078a8be'
+            '798c6e41a158453f5acff901c3e36d7d4ee29f43ffe3f72aac046e8b252ee62c'
             'dd53832d8da285112742d1f8a4726236e724293c6f96af0f1309c01c45b065a4'
             '55aef4a2019568a13aea48064ed83858a7ce4902636f8e85e46877ce9d8ef172')
 
@@ -39,6 +41,7 @@ prepare() {
   patch -Np1 -i "$srcdir/0003-hide-lid-covered-readers-while-the-lid-is-closed.patch"
   patch -Np1 -i "$srcdir/0004-aurora-refuse-unbound-enrollment.patch"
   patch -Np1 -i "$srcdir/0005-aurora-support-v4-and-v5.patch"
+  patch -Np1 -i "$srcdir/0006-aurora-report-finger-lift-and-lockout.patch"
   install -Dm644 "$srcdir/apple-sep.h" aurora-uapi/linux/apple-sep.h
 }
 
