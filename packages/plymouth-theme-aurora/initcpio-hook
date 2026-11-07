@@ -1,0 +1,5 @@
+#!/usr/bin/ash
+# SPDX-License-Identifier: MIT
+run_hook() {
+    /usr/libexec/aurora-plymouth
+}

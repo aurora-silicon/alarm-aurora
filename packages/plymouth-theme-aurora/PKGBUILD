@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: MIT
+pkgname=plymouth-theme-aurora
+pkgver=1
+pkgrel=4
+pkgdesc='Aurora boot splash: the bootloader logo, kept in place, with the distribution branding'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('plymouth' 'plymouth-script-keyboard-lifetime>=1' 'cantarell-fonts' 'coreutils')
+makedepends=('python')
+install=plymouth-theme-aurora.install
+source=(aurora.plymouth aurora.script aurora-logo-128.png aurora-logo-256.png LICENSE aurora-plymouth aurora-plymouth.conf initcpio-install initcpio-hook mkinitcpio.conf test_geometry.py)
+sha256sums=('cd63992c49351e91b71aee8d49202b1b127be05cfc34f017476969c81b92550d'
+            'f5a7f29f1c529e6cc6ca6b06996019abb4d7635875a67179dd278c66cf7696df'
+            '11fbf034968b516aa410aa30d66f06dcf4998b39b1ec192ec1b25ea762fb1b1d'
+            'fa5d7331716eca34b7f6e4613f6a2b42a18134fdd65eb6c8dcf21fd6bed6f630'
+            'd74b21234e71d54dec84a84c255644ec63a209f564296d5903b1607779697175'
+            '19517b71055f61c6a6e1f1951fb6f01d9f8153f7d22095ff69bb392feec74d01'
+            '59da8fbd979a30dbafa511caa6a408338597b94a68eb7b09a6c6d128d9ba637b'
+            '6d64ab9bc197fda7cf09bca9ca9d7123ebaadc0955652379fa29f92bf41f193c'
+            '2b34db2421bd9ae7b701a5b78f0172f56bb4a767f428303c290f67372808e49e'
+            '4f73d007f6421ba63f4fd602cc7794978970697f7f9025229e649afbd011d290'
+            'c604f2bd7db789d955ff832a2c549e33676a6d118b9b29633d6a18635b6e71c6')
+
+check() {
+  python3 test_geometry.py .
+}
+
+package() {
+  local d="$pkgdir/usr/share/plymouth/themes/aurora"
+  install -Dm644 aurora.plymouth "$d/aurora.plymouth"
+  install -Dm644 aurora.script "$d/aurora.script"
+  # Byte-identical to aura's data/aurora_128.png and aurora_256.png. The spinner,
+  # password entry and watermark come from the plymouth package's spinner theme,
+  # the theme's ImageDir, which the plymouth initcpio hook copies with it.
+  install -Dm644 aurora-logo-128.png "$d/aurora-logo-128.png"
+  install -Dm644 aurora-logo-256.png "$d/aurora-logo-256.png"
+  install -Dm755 aurora-plymouth "$pkgdir/usr/libexec/aurora-plymouth"
+  install -Dm644 aurora-plymouth.conf "$pkgdir/usr/lib/systemd/system/plymouth-start.service.d/aurora-plymouth.conf"
+  install -Dm755 initcpio-install "$pkgdir/usr/lib/initcpio/install/aurora-plymouth"
+  install -Dm755 initcpio-hook "$pkgdir/usr/lib/initcpio/hooks/aurora-plymouth"
+  install -Dm644 mkinitcpio.conf "$pkgdir/etc/mkinitcpio.conf.d/96-aurora-plymouth.conf"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

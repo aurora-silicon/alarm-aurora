@@ -77,8 +77,8 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez blue
   avd-fw libva-v4l2-request-avd upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes aurora-logos
   aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-camera-denoise aurora-kbd-light tiny-dfr pipewire-pulse pipewire-alsa openssh)
 case $profile in
-  arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
-  arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
+  arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth plymouth-theme-aurora);;
+  arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora);;
 esac
 chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
 # A fresh Arch root generates no locale, so sessions ran in the C locale and
@@ -171,7 +171,8 @@ EOF
 fi
 if [[ $profile != arch-minimal ]]; then
   # The splash theme and hook are set before the initramfs is generated below.
-  chroot "$mountroot" plymouth-set-default-theme spinner
+  # The Aurora theme draws aura's logo where aura left it, with the spinner below.
+  chroot "$mountroot" plymouth-set-default-theme aurora
   # Read after aurora-boot's 90-aurora.conf, whose hook order it extends, so
   # later changes to that order still reach installed desktops.
   install -d -m 0755 "$mountroot/etc/mkinitcpio.conf.d"
