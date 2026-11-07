@@ -1,0 +1,10 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+lib=@LIBDIR@
+export AURORA_STEAM_LAUNCHER=/usr/bin/steam
+case "${1-}" in
+  --help*) ;;
+  *) source "$lib/proton-env" ;;
+esac
+exec "$lib/bin/aurora-play" "$@"
