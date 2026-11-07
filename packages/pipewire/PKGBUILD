@@ -8,7 +8,7 @@
 # Arch Linux ARM's PipeWire recipe (archlinuxarm/PKGBUILDs extra/pipewire at
 # 1b902bd4b08f37ae3798a70ec597646a0c370b84, 1:1.6.10-1) for aarch64 with the
 # Aurora patches that fedora-aurora carries on 1.6.9; they apply to 1.6.10
-# unchanged. pkgrel 1.1 sorts above ALARM's 1 and [aurora] precedes [core] and
+# unchanged. pkgrel 1.2 sorts above ALARM's 1 and [aurora] precedes [core] and
 # [extra] in pacman.conf, so pacman keeps these packages even after ALARM moves
 # to a newer PipeWire. Rebase the patches when this recipe moves to a new
 # upstream release; drop each one when upstream carries it.
@@ -41,7 +41,7 @@ pkgname=(
   pulse-native-provider
 )
 pkgver=1.6.10
-pkgrel=1.1
+pkgrel=1.2
 epoch=1
 pkgdesc="Low-latency audio/video router and processor"
 url="https://pipewire.org"
@@ -119,6 +119,10 @@ source=(
   # re-sending the slider, an unmute of an unmuted sink), so speakers dropped
   # by the volume again (-31 dB at a 30 % slider) until the next real change.
   1006-filter-graph-keep-the-software-volume-at-unity-on-ev.patch
+  # A refused snd_pcm_start (macaudio while speaker protection is not granted,
+  # right after a resume) was retried and logged on every write, ~700 in
+  # 30 ms: wait one period between attempts, report at most once per 5 s.
+  1007-alsa-back-off-a-refused-snd_pcm_start-and-rate-limit.patch
 )
 b2sums=('3c4645252b9affb46852be4d3103fc94664f76df1a1b64b7a8aee011f26b38f10d5bd189fdef65b239c9e13e016dbd25070b791c7ec4e2870777231aac3a8bbd'
         'ea19c2cd60b7b9773b48b2a044c764fbec260ec356d4a0f66a31737015dad5f1509145bf97094988fc2ea55282e98d52df4448a80e46b9e3c2fef57345b87846'
@@ -128,7 +132,8 @@ b2sums=('3c4645252b9affb46852be4d3103fc94664f76df1a1b64b7a8aee011f26b38f10d5bd18
         '38c0ce916e604ed493d8f7d0664bf0a36735944555de7ef6b287c09736dcb7a7646ad72dbe14f587d9de4886e514569e888b976b81c6fa64bd592aa80f9b5028'
         '183c51a642fe759ff90efa4b7e31149cfdbc44ebe42911b14800bd786cef84405e2b430b6bf8bec1b151b6dccc7722f8bf026a0f58754ecd0f080465f8fff3f8'
         'f4f0e167e387c34fbb7fbc56f2fb6cc6745388f9e519b5051bcaab8a9d1d9a83b666f123af2964eb4601162380b96edff47314f7c0b3799c16672331297f1a90'
-        'b99949982a9c23dfd176dd558593795d26f09e8ae08fb59d786345e9d8c04b935c7b21f2e52d21f4d1b4641c25bc39f08f7544c1212317f923bc73955ddb2d45')
+        'b99949982a9c23dfd176dd558593795d26f09e8ae08fb59d786345e9d8c04b935c7b21f2e52d21f4d1b4641c25bc39f08f7544c1212317f923bc73955ddb2d45'
+        '63f63c44d6022cad38cae9862efcf4cb71ca2c01e272a4e5d4818d1e856e30f7f779542a8bcf015a83940bb1ea2d1e3ec009d0dfc4d5d8b64d06f991da70cda6')
 
 prepare() {
   cd pipewire
