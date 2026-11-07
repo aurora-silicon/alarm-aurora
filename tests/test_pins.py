@@ -26,8 +26,10 @@ class PinTests(unittest.TestCase):
         # Enabled by the package; the gate in every unit decides.
         self.assertIn('multi-user.target.wants', main)
         self.assertIn('pipewire.service.wants', main)
-        for u in ['speakerguardd-v2-provision.service', 'speakerguardd-v2-seat.path', 'speakerguardd-v2-graph.service']:
+        for u in ['speakerguardd-v2-provision.service', 'speakerguardd-v2-seat.path', 'speakerguardd-v2-graph.service',
+                  'speakerguardd-v2-sleep.service']:
             self.assertIn(u, main)
+        self.assertIn('sleep.target.wants', main)
         self.assertIn("'Requires=speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service'", text)
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate v2'", text)
         # The older daemons carry the same gate, the other way round.
