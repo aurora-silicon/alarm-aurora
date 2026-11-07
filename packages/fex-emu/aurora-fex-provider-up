@@ -1,0 +1,14 @@
+#!/bin/sh
+# Bring Aurora's FEX guest graphics provider up once its lower layer (the
+# stock guest root filesystem) can mount: on the first install, or when that
+# filesystem image arrives or changes. Leaves a disabled provider alone.
+[ -d /run/systemd/system ] || exit 0
+systemctl -q is-enabled aurora-fex-mesa.service 2>/dev/null || exit 0
+# The new mount unit and drop-in may not be loaded yet in this transaction.
+systemctl daemon-reload || :
+lower='usr-share-guestos-fex\x2dmesa.mount'
+if systemctl -q is-active "$lower"; then
+	# A replaced image needs a fresh loop mount; the overlay holds it busy.
+	systemctl stop aurora-fex-mesa.service "$lower" || :
+fi
+systemctl start aurora-fex-mesa.service || :
