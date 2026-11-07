@@ -1,0 +1,46 @@
+pkgname=libva-v4l2-request-avd
+pkgver=1.3.r11
+pkgrel=1
+pkgdesc='VA-API driver for the AVD V4L2 Request decoder'
+arch=('aarch64')
+groups=('aurora-platform-apple-silicon')
+url='https://github.com/omacom/libva-v4l2_request'
+license=('GPL-3.0-or-later')
+_commit=4f60c51f7841dd74bb61c94a4ad31e630bbdab01
+depends=('glibc' 'libdrm' 'libva')
+makedepends=('meson' 'ninja' 'pkgconf' 'linux-api-headers')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/omacom/libva-v4l2_request/tar.gz/$_commit"
+        '0001-offline-test-portability.patch')
+sha256sums=('826fda7396374daea1c39c08e2057dd2b4775cf0205c59bce2d30ce2bfd212a4'
+            '8fbf69cf1d3d6275f4594f8b7212800be75cf7014116eb460017992b4b22b51e')
+
+prepare() {
+  patch -d "libva-v4l2_request-$_commit" -Np1 -i "$srcdir/0001-offline-test-portability.patch"
+}
+
+build() {
+  arch-meson "libva-v4l2_request-$_commit" build \
+    --libdir=lib \
+    -Ddriverdir=/usr/lib/dri \
+    -Dstrip=false \
+    -Dcodec_h264=enabled \
+    -Dcodec_hevc=enabled \
+    -Dcodec_vp9=enabled \
+    -Dcodec_av1=enabled
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs --num-processes 4
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  ln -s v4l2_request_drv_video.so "$pkgdir/usr/lib/dri/asahi_drv_video.so"
+  # Aurora kernels name the AGX render node driver "aurora".
+  ln -s v4l2_request_drv_video.so "$pkgdir/usr/lib/dri/aurora_drv_video.so"
+  install -Dm644 "libva-v4l2_request-$_commit/COPYING" \
+    "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+  install -Dm644 "libva-v4l2_request-$_commit/docs/SUPPORT.md" \
+    "$pkgdir/usr/share/doc/$pkgname/SUPPORT.md"
+}

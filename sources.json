@@ -1,11 +1,11 @@
 {
   "kernel-aurora": {
     "repository": "https://github.com/aurora-silicon/linux",
-    "commit": "2661d71e16bf538156001bd9e93bafcd60855c85",
+    "commit": "4731456d979107bfed16316fea45378d9de7d1da",
     "version": "7.3.0",
-    "source_url": "https://codeload.github.com/aurora-silicon/linux/tar.gz/2661d71e16bf538156001bd9e93bafcd60855c85",
-    "archive_root": "linux-2661d71e16bf538156001bd9e93bafcd60855c85",
-    "sha256": "e7199a9342508b6f13cbb7aff66191a13d41ecadfaed5ea6764ffe9fec26b6e0"
+    "source_url": "https://codeload.github.com/aurora-silicon/linux/tar.gz/4731456d979107bfed16316fea45378d9de7d1da",
+    "archive_root": "linux-4731456d979107bfed16316fea45378d9de7d1da",
+    "sha256": "72fedf127148737a5d0c3f82c52022226cf7344974f854f99d3da05d3ba24f16"
   },
   "aura": {
     "repository": "https://github.com/aurora-silicon/aura",
@@ -38,6 +38,14 @@
     "source_url": "https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/0287029648842be7b62ce9869ceaf5dbe9555831",
     "archive_root": "speakerguardd-0287029648842be7b62ce9869ceaf5dbe9555831",
     "sha256": "2692684c895396aec23fec34d1b9a71f789bbc2a58f35104470a66869f4fca77"
+  },
+  "speakerguardd-v2": {
+    "repository": "https://github.com/aurora-silicon/speakerguardd",
+    "commit": "f5b6933fd6775b06940658117a60a0e336d9f337",
+    "version": "1.0.0-alpha.1",
+    "source_url": "https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/f5b6933fd6775b06940658117a60a0e336d9f337",
+    "archive_root": "speakerguardd-f5b6933fd6775b06940658117a60a0e336d9f337",
+    "sha256": "7397bce94333d25371dff2d87ed8de5f7ce7cc2c75c034b50ce02a3d251a9831"
   },
   "aurora-camera-denoise": {
     "repository": "https://github.com/aurora-silicon/camera-denoise",
@@ -102,6 +110,14 @@
     "source_url": "https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/6e127f8b2191c11dc7a584c363660610fc793c5f",
     "archive_root": "aurora-platform-6e127f8b2191c11dc7a584c363660610fc793c5f",
     "sha256": "5919aa97e5fcea18fb98cf5b65a21113d861a0c8cad858edc80f8a56a570ac60"
+  },
+  "libva-v4l2-request-avd": {
+    "repository": "https://github.com/omacom/libva-v4l2_request",
+    "commit": "4f60c51f7841dd74bb61c94a4ad31e630bbdab01",
+    "version": "1.3.r11",
+    "source_url": "https://codeload.github.com/omacom/libva-v4l2_request/tar.gz/4f60c51f7841dd74bb61c94a4ad31e630bbdab01",
+    "archive_root": "libva-v4l2_request-4f60c51f7841dd74bb61c94a4ad31e630bbdab01",
+    "sha256": "826fda7396374daea1c39c08e2057dd2b4775cf0205c59bce2d30ce2bfd212a4"
   },
   "avd-fw": {
     "repository": "https://github.com/aurora-silicon/avd-fw",
@@ -249,6 +265,20 @@
         "source_url": "https://codeload.github.com/martinus/unordered_dense/tar.gz/3234af2c03549bc85656bfd3a86993bf1cd8aef1",
         "archive_root": "unordered_dense-3234af2c03549bc85656bfd3a86993bf1cd8aef1",
         "sha256": "aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b"
+      },
+      "fmt": {
+        "repository": "https://github.com/fmtlib/fmt",
+        "commit": "c07e2aa4b130b4fd359a1c6455a5201b17af01fa",
+        "source_url": "https://codeload.github.com/fmtlib/fmt/tar.gz/c07e2aa4b130b4fd359a1c6455a5201b17af01fa",
+        "archive_root": "fmt-c07e2aa4b130b4fd359a1c6455a5201b17af01fa",
+        "sha256": "e0099a9035521b29523915fae2e5f1b38229df896191e4a046f7b0d55a45c7d2"
+      },
+      "xxHash": {
+        "repository": "https://github.com/Cyan4973/xxHash",
+        "commit": "e626a72bc2321cd320e953a0ccf1584cad60f363",
+        "source_url": "https://codeload.github.com/Cyan4973/xxHash/tar.gz/e626a72bc2321cd320e953a0ccf1584cad60f363",
+        "archive_root": "xxHash-e626a72bc2321cd320e953a0ccf1584cad60f363",
+        "sha256": "34e71c085636fbc1726482996d92719d0a16e6a6097970ecf2990a27b3821162"
       }
     }
   },
