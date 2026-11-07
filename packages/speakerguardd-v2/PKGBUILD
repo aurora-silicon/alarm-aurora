@@ -4,8 +4,8 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=19
-_commit=4d6273225e0d718250cfc9ad7090124478b0a9af
+pkgrel=20
+_commit=44a479d80e0ef67eeb1379759844ef21ef82e49f
 _src=speakerguardd-$_commit
 pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview)'
 arch=('aarch64')
@@ -15,7 +15,7 @@ license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
-sha256sums=('b6c77a1df51aa64ee7aa394d7e84d9ab73598f2798bc610140108b2495dbc6a9'
+sha256sums=('dabd2f06a08a7b5684196874622bb6ba2372eef45532f3f8e8be50682c886dc9'
             'e37f544be1001efda5df7b960113fde7f8697a2e9ceec3f1e953f64c2538b3d0')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
@@ -24,7 +24,10 @@ prepare() {
   cd "$_src"
   # The upstream units, under their own names, with the programs where this
   # package installs them. Provisioning and the self-check are hard
-  # prerequisites of the supervisor, and every system unit carries the gate.
+  # prerequisites of the supervisor, and every system unit carries the gate:
+  # the supervisor and the sleep hooks need a qualified board (gate v2);
+  # provisioning, the seat follower and the silent self-check run first, in
+  # the gate's prepare mode, and produce the records that qualify the board.
   python - <<'PYUNIT'
 import re
 from pathlib import Path
@@ -48,12 +51,12 @@ def must(f, *lines):
             raise SystemExit(f'{f}: missing {l!r}')
 must('speakerguardd-v2.service', f'ExecStart={lx}/speakerguardd $SGV2_ARGS',
      'Requires=speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service', f'ExecCondition={lx}/speakerguardd-gate v2')
-must('speakerguardd-v2-selfcheck.service', 'Requires=speakerguardd-v2-provision.service', f'ExecCondition={lx}/speakerguardd-gate v2',
+must('speakerguardd-v2-selfcheck.service', 'Requires=speakerguardd-v2-provision.service', f'ExecCondition={lx}/speakerguardd-gate prepare',
      f'ExecStartPost={lx}/speakerguardd-provision activate --graph-unit speakerguardd-v2-graph.service')
 must('speakerguardd-v2-provision.service', 'Before=speakerguardd-v2-selfcheck.service speakerguardd-v2.service',
-     f'ExecStart={lx}/speakerguardd-provision run', f'ExecCondition={lx}/speakerguardd-gate v2')
+     f'ExecStart={lx}/speakerguardd-provision run', f'ExecCondition={lx}/speakerguardd-gate prepare')
 must('speakerguardd-v2-seat.service', f'ExecStart={lx}/speakerguardd-provision seat --unit speakerguardd-v2.service',
-     f'ExecCondition={lx}/speakerguardd-gate v2')
+     f'ExecCondition={lx}/speakerguardd-gate prepare')
 must('speakerguardd-v2-seat.path', 'Unit=speakerguardd-v2-seat.service')
 must('speakerguardd-v2-sleep.service', 'Before=sleep.target', f'ExecCondition={lx}/speakerguardd-gate v2',
      f'ExecStart={lx}/speakerguardd-provision sleep --unit speakerguardd-v2.service',
