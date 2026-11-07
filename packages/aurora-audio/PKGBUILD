@@ -1,12 +1,12 @@
 pkgname=aurora-audio
 pkgver=4.1.aurora2
-pkgrel=9
+pkgrel=10
 pkgdesc='Aurora Apple Silicon PipeWire/WirePlumber DSP profiles including J700'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/asahi-audio'
 license=('MIT')
-_commit=f1d596b9efeede884b28e3ad81fff24b22ba97a3
+_commit=a321ae95d04d08136934c643472f7d59aa0bbf94
 makedepends=('make')
 provides=("asahi-audio=$pkgver" "asahi-audio-aurora=$pkgver")
 conflicts=('asahi-audio' 'asahi-audio-aurora')
@@ -14,7 +14,7 @@ replaces=('asahi-audio-aurora')
 backup=('etc/mkinitcpio.conf.d/90-aurora-audio.conf')
 source=("aurora-audio-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/asahi-audio/tar.gz/$_commit"
         90-aurora-audio.conf aurora-audio.hook)
-sha256sums=('474ef9dde74f7d7763e76d6da72eb4a318fda78dace4fda6c761043ced152676' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953')
+sha256sums=('05ca18989fb88331284c747bea05498919ebcf6c64dea1738a875d4af42abe94' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953')
 package() {
   # The profile files can be packaged without installing the target audio stack.
   # Both speaker protection stacks: speakerguardd-v2's fleet gate starts
