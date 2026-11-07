@@ -1,0 +1,24 @@
+pkgname=aurora-xart
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Inspect and manage the Linux side of the Secure Enclave and xART state on Apple silicon Macs'
+arch=('any')
+groups=('aurora-platform-apple-silicon')
+url='https://github.com/aurora-silicon/aurora-xart'
+license=('MIT')
+_commit=aab11591fec7723b58db9386da031f67cd74f13c
+depends=('python')
+# reset-touchid opens the sensor through fprintd-list.
+optdepends=('fprintd-aurora: open the Touch ID sensor before judging a stored keybag')
+makedepends=('make')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-xart/tar.gz/$_commit")
+sha256sums=('a1537edd53b7250723a14ce25805eb486612a6446c14ba3a768ff42dacba2c20')
+
+check() {
+  make -C "aurora-xart-$_commit" check
+}
+
+package() {
+  make -C "aurora-xart-$_commit" install DESTDIR="$pkgdir" PREFIX=/usr
+  install -Dm644 "aurora-xart-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
