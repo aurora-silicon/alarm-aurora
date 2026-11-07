@@ -19,7 +19,7 @@ firmware from the ESP at boot.
 
 The aura package ships `/usr/share/aura/monitor-free` once its pinned source has no monitor. The recipe
 declares that in `_monitor_free`, and `prepare()` refuses a source that disagrees (`src/ctxr_exec.c`, or no
-`src/monitor.c`). aura 1.0.0b6 is the first pin without the monitor (aura#77), so `_monitor_free` is 1.
+`src/monitor.c`). aura 1.0.0b7 is the first pin without the monitor (aura#77), so `_monitor_free` is 1.
 
 Such an aura moves the kernel into the CTXR window, which only a kernel built with
 `CONFIG_ARM64_CTXR_EXECMEM` keeps its code inside. With `_monitor_free=1`, aura depends on
