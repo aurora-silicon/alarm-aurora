@@ -19,14 +19,14 @@ firmware from the ESP at boot.
 
 The aura package ships `/usr/share/aura/monitor-free` once its pinned source has no monitor. The recipe
 declares that in `_monitor_free`, and `prepare()` refuses a source that disagrees (`src/ctxr_exec.c`, or no
-`src/monitor.c`), so the aura#77 pin has to set it. Until then every Mac updates `boot.bin`.
+`src/monitor.c`). aura 1.0.0b6 is the first pin without the monitor (aura#77), so `_monitor_free` is 1.
 
 Such an aura moves the kernel into the CTXR window, which only a kernel built with
 `CONFIG_ARM64_CTXR_EXECMEM` keeps its code inside. With `_monitor_free=1`, aura depends on
 `aurora-ctxr-execmem`, which `linux-aurora` provides when its `_ctxr_execmem=1`. Its `prepare()` checks
 that flag against the resolved configuration, so it can be set only with a kernel pin that has
 aurora-silicon/linux#985. `tests/test_update_m1n1.py` fails if `_monitor_free` is set without it.
-The 4731456 pin has it and `packages/linux-aurora/config` turns it on, so `_ctxr_execmem` is 1.
+Every kernel pin since 4731456 has it, and `packages/linux-aurora/config` turns it on, so `_ctxr_execmem` is 1.
 
 With the marker, a Mac that boots a Mach-O Stage 1 (`/proc/device-tree/compatible` names one of the chips
 in the installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and later) gets
