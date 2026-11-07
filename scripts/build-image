@@ -2,6 +2,8 @@
 set -euo pipefail
 trap 'status=$?; echo "Aurora image failed ($status) at line $LINENO: $BASH_COMMAND" >&2; exit "$status"' ERR
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# An image serves every Mac, whichever one builds it.
+export AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent
 profile=${1:?arch-kde, arch-gnome or arch-minimal required}
 tag=${2:?immutable signed Aurora testing snapshot required}
 # The update channel the installed system follows afterwards.
@@ -207,7 +209,13 @@ chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
 # aurora-userpages' GRUB drop-in turns per-process 4K userspace pages on.
 grep -Eq '^\s*linux\s.*\suser4k=on(\s|$)' "$mountroot/boot/grub/grub.cfg"
 mkdir -p "$mountroot/boot/efi/m1n1"
-chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
+# In the C locale t6040-j616s-tether.dtb sorts before t6040-j616s.dtb, and aura
+# boots the last tree of a board, so the board's main tree has to come last.
+LC_ALL=C chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
+# The image gets boot-ctxr.bin only with an aura that has no monitor, the rule
+# update-m1n1 follows on an installed Mac. Look for the marker while the root is mounted.
+monitor_free=false
+if [[ -e $mountroot/usr/share/aura/monitor-free ]]; then monitor_free=true; fi
 # Initial assembly is pinned; subsequent installed-system updates use the signed rolling feed.
 sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/$channel/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
@@ -250,6 +258,10 @@ revision=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["auror
 if ! bash "$root/out/finalizer/$revision/images/finalize-image" "$image" "$profile" "$root/out/$profile-installer"; then
   python3 "$root/scripts/diagnose-image-mounts.py" /tmp
   exit 1
+fi
+# A Stage 1 with the CTXR window chainloads these, on Mach-O Macs.
+if $monitor_free; then
+  python3 "$root/scripts/prepare-ctxr-stage2.py" "$root/out/$profile-installer/esp/m1n1"
 fi
 # GRUB finds /boot by UUID on the startup disk only, in the files the
 # installer writes.
