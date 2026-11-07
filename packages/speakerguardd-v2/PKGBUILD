@@ -30,7 +30,8 @@ import re
 from pathlib import Path
 lx = '/usr/lib/speakerguardd-v2'
 units = ['speakerguardd.service', 'speakerguardd-provision.service', 'speakerguardd-selfcheck.service',
-         'speakerguardd-seat.service', 'speakerguardd-seat.path', 'speakerguardd-session.service', 'speakerguardd-graph.service']
+         'speakerguardd-seat.service', 'speakerguardd-seat.path', 'speakerguardd-session.service', 'speakerguardd-graph.service',
+         'speakerguardd-sleep.service']
 for u in units:
     s = Path('packaging/systemd', u).read_text()
     s = s.replace('/usr/libexec/speakerguardd/', lx + '/').replace('ExecStart=/usr/bin/speakerguardd ', f'ExecStart={lx}/speakerguardd ')
@@ -54,6 +55,9 @@ must('speakerguardd-v2-provision.service', 'Before=speakerguardd-v2-selfcheck.se
 must('speakerguardd-v2-seat.service', f'ExecStart={lx}/speakerguardd-provision seat --unit speakerguardd-v2.service',
      f'ExecCondition={lx}/speakerguardd-gate v2')
 must('speakerguardd-v2-seat.path', 'Unit=speakerguardd-v2-seat.service')
+must('speakerguardd-v2-sleep.service', 'Before=sleep.target', f'ExecCondition={lx}/speakerguardd-gate v2',
+     f'ExecStart={lx}/speakerguardd-provision sleep --unit speakerguardd-v2.service',
+     f'ExecStop={lx}/speakerguardd-provision wake --unit speakerguardd-v2.service')
 must('speakerguardd-v2-session.service', f'ExecCondition={lx}/speakerguardd-provision is-seat')
 # The kernel's "Speaker Protection" lock and lease writes need CAP_SYS_ADMIN.
 if not re.search(r'^CapabilityBoundingSet=.*\bCAP_SYS_ADMIN\b', Path('speakerguardd-v2.service').read_text(), re.M):
@@ -101,7 +105,7 @@ package_speakerguardd-v2() {
   install -Dm644 packaging/pipewire/sgv2-*.conf -t "$pkgdir/usr/share/speakerguardd/pipewire/"
   install -Dm644 packaging/wireplumber/60-sgv2-*.conf -t "$pkgdir/usr/share/speakerguardd/wireplumber/"
   install -Dm644 speakerguardd-v2.service speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service \
-    speakerguardd-v2-seat.service speakerguardd-v2-seat.path -t "$pkgdir/usr/lib/systemd/system/"
+    speakerguardd-v2-seat.service speakerguardd-v2-seat.path speakerguardd-v2-sleep.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 speakerguardd-v2-session.service speakerguardd-v2-graph.service -t "$pkgdir/usr/lib/systemd/user/"
   # Enabled by the package itself (pacman applies no presets); the gate in
   # every unit decides whether anything runs.
@@ -112,6 +116,9 @@ package_speakerguardd-v2() {
   for u in speakerguardd-v2-graph.service speakerguardd-v2-session.service; do
     ln -s "../$u" "$pkgdir/usr/lib/systemd/user/pipewire.service.wants/$u"
   done
+  # Before every sleep: the amps unlinked and the supervisor stopped while awake.
+  install -d "$pkgdir/usr/lib/systemd/system/sleep.target.wants"
+  ln -s ../speakerguardd-v2-sleep.service "$pkgdir/usr/lib/systemd/system/sleep.target.wants/speakerguardd-v2-sleep.service"
   # The older daemons start only where v2 does not run and the kernel has no
   # v2 interface: exactly one stack holds the speakers on each boot.
   for u in speakersafetyd speakerguardd; do
