@@ -6,15 +6,15 @@ arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('MIT')
-_commit=2788d62ff0cf3cce2971498989a30c8f3b0be9a1
-depends=('python' 'python-cryptography' 'python-gobject' 'fprintd' 'aurora-sep' 'json-c' 'systemd')
+_commit=32ac7d2fcf306545363deb15ea8688568429ac43
+depends=('python' 'python-cryptography' 'python-gobject' 'fprintd' 'aurora-sep' 'json-c' 'systemd' 'polkit')
 makedepends=('gcc' 'make' 'pkgconf')
 optdepends=('libnotify: the "Touch ID to sign in to <site>" notification'
             'libfido2: fido2-token and friends'
             'pam-u2f: sudo and login with the security key')
 backup=('etc/aurora-fido/aurora-fido.conf')
 source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
-sha256sums=('da9d0fa83c1d3ff36a699cbd947b2a8d7a72442f6c17ea4a5345c90c63f55ea3')
+sha256sums=('22397358410061b32c9047966bf42f03fd147971f3b6bff204779df62bcaf373')
 
 build() {
   make -C "aurora-sep-userspace-$_commit/fido" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" \
