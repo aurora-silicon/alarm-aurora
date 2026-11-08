@@ -4,8 +4,10 @@ test_bootchain.py is fedora-aurora's suite for the shared bootchain.py and
 runs unchanged. These cases cover what bootchain_arch.py changes (flat dtbs
 directories, /boot/vmlinuz-<pkgbase>, no /boot/dtb, the pacman refusal) and
 repeat the trial transactions on that layout: arm, commit on the trial boot,
-keep the live image after a fallback, the guard's reboot and the DT ABI guard.
+keep the live image after a fallback, the guard's reboot, the DT ABI guard and
+an aura update on the same kernel after a commit.
 """
+import hashlib
 import importlib.util
 import os
 from pathlib import Path
@@ -199,7 +201,7 @@ class ArchTrial(unittest.TestCase):
         self.candidate = self.target.with_name('boot.bin.next')
         self.marker = self.root / 'esp/aura-try'
         self.prev = self.target.with_name('boot.bin.prev')
-        self.attempt = self.root / 'var/lib/aurora-stage2/attempts' / self.RELEASE
+        self.attempts = self.root / 'var/lib/aurora-stage2/attempts'
         self.addCleanup(patch.stopall)
         patch.object(bootchain.Update, 'check_esp').start()
         self.flush = patch.object(bootchain.Update, 'flush_esp').start()
@@ -241,7 +243,7 @@ class ArchTrial(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), b'GOOD-STAGE2')
         self.assertEqual(self.backup.read_bytes(), b'OLDER-STAGE2')
         self.assertFalse(self.prev.exists())
-        self.assertTrue(self.attempt.exists())
+        self.assertTrue((self.attempts / hashlib.sha256(self.candidate.read_bytes()).hexdigest()).exists())
         self.commit()  # Still on the ordinary boot that armed it.
         self.assertTrue(self.marker.exists())
         self.assertEqual(self.target.read_bytes(), b'GOOD-STAGE2')
@@ -278,6 +280,23 @@ class ArchTrial(unittest.TestCase):
         self.assertTrue(self.marker.read_bytes().startswith(b'spent\n'))
         self.assertEqual(self.target.read_bytes(), b'GOOD-STAGE2')
 
+    def test_aura_update_on_the_same_kernel_trials_after_a_commit(self):
+        self.trial_setup()
+        self.apply()
+        self.trial_boot()
+        self.sane()
+        self.commit()
+        committed = self.target.read_bytes()
+        # Same boot, same kernel release: the new aura still gets its trial.
+        self.put('/usr/lib/asahi-boot/m1n1.bin', b'AURA-2')
+        self.apply()
+        self.assertEqual(self.marker.read_bytes(), b'armed\nm1n1/boot.bin.next\n')
+        self.assertTrue(self.candidate.read_bytes().startswith(b'AURA-2'))
+        self.assertEqual(self.target.read_bytes(), committed)
+        with patch.object(bootchain.subprocess, 'run') as command:
+            self.guard()
+        command.assert_not_called()
+
     def test_guard_reboots_an_uncommitted_trial(self):
         self.trial_setup()
         self.apply()
@@ -306,7 +325,7 @@ class ArchTrial(unittest.TestCase):
         self.unchanged()
         self.assertFalse(self.marker.exists())
         self.assertFalse(self.candidate.exists())
-        self.assertFalse(self.attempt.exists())
+        self.assertFalse(self.attempts.exists())
 
     def test_kernel_installed_after_arming_cannot_bypass_the_abi_guard(self):
         self.trial_setup()
