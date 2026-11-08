@@ -18,6 +18,16 @@
 # when polkit's changes, unless it was edited. A line or file the owner
 # removed or changed is left as it is. Run by a pacman hook; "--remove"
 # undoes what it did.
+#
+# A password also re-arms Touch ID after a lockout (aurora-touchid-rearm).
+# One line goes after the last auth line of /etc/pam.d/system-auth, which
+# every password stack includes and which reaches its end only when pam_unix
+# (or systemd-homed) accepted the password:
+#
+#   -auth optional pam_aurora_touchid.so
+#
+# The module never changes the result, and the "-" skips it when it is not
+# installed. pambase keeps the edit across updates (system-auth.pacnew).
 set -eu
 
 pamd=${AURORA_PAM_DIR:-/etc/pam.d}
@@ -25,6 +35,8 @@ vendor=${AURORA_PAM_VENDOR_DIR:-/usr/lib/pam.d}
 state=${AURORA_SEP_STATE_DIR:-/var/lib/aurora-sep}
 comment='# Touch ID (aurora-sep): a fingerprint, or else the password.'
 line='-auth      sufficient   pam_fprintd.so'
+rearm_comment='# Touch ID (aurora-sep): an accepted password re-arms a lockout.'
+rearm_line='-auth      optional     pam_aurora_touchid.so'
 
 log() {
     echo "aurora-sep touchid-pam: $*" >&2
@@ -99,6 +111,37 @@ polkit_stack() {
     fi
 }
 
+system_auth_stack() {
+    f=$pamd/system-auth
+    marker=$state/pam-system-auth-rearm
+    [ -f "$f" ] || return 0
+    if grep -q 'pam_aurora_touchid\.so' "$f"; then
+        : >"$marker"
+        return 0
+    fi
+    [ -e "$marker" ] && return 0  # the owner took it out
+    tmp=$(mktemp "$f.XXXXXX")
+    if awk -v comment="$rearm_comment" -v line="$rearm_line" '
+        { lines[NR] = $0 }
+        /^[[:space:]]*-?auth[[:space:]]/ { last = NR }
+        END {
+            for (i = 1; i <= NR; i++) {
+                print lines[i]
+                if (i == last) { print comment; print line }
+            }
+            exit !last
+        }
+    ' "$f" >"$tmp"; then
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$f"
+        : >"$marker"
+        log "a password re-arms Touch ID after a lockout"
+    else
+        rm -f "$tmp"
+        log "$f has no auth line; left as it is"
+    fi
+}
+
 remove() {
     f=$pamd/sudo
     if [ -e "$state/pam-sudo-offered" ] && [ -f "$f" ]; then
@@ -112,7 +155,14 @@ remove() {
         [ "$(sum "$f")" = "$(cat "$state/pam-polkit-1.sha256")" ]; then
         rm -f "$f"
     fi
-    rm -f "$state/pam-sudo-offered" "$state/pam-polkit-1.sha256"
+    f=$pamd/system-auth
+    if [ -e "$state/pam-system-auth-rearm" ] && [ -f "$f" ]; then
+        tmp=$(mktemp "$f.XXXXXX")
+        awk -v comment="$rearm_comment" -v line="$rearm_line" '$0 != comment && $0 != line' "$f" >"$tmp"
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$f"
+    fi
+    rm -f "$state/pam-sudo-offered" "$state/pam-polkit-1.sha256" "$state/pam-system-auth-rearm"
 }
 
 mkdir -p "$state"
@@ -122,3 +172,4 @@ if [ "${1:-}" = --remove ]; then
 fi
 sudo_stack || :
 polkit_stack || :
+system_auth_stack || :

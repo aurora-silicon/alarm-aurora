@@ -1,0 +1,34 @@
+pkgname=aurora-touchid-rearm
+pkgver=1
+pkgrel=3
+pkgdesc='Re-arm Touch ID with the password after a lockout'
+arch=('aarch64')
+groups=('aurora-platform-apple-silicon')
+url='https://github.com/aurora-silicon/aurora-sep-userspace'
+license=('GPL-2.0-only')
+_commit=fb19f69381ad29cd51a06dda7456ce6c01030a12
+depends=('pam' 'glibc')
+makedepends=('gcc' 'make')
+checkdepends=('python')
+install=aurora-touchid-rearm.install
+backup=('etc/aurora/touchid.conf')
+source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
+sha256sums=('d56d4cc8a4a5f321f4a6e799675f6ec8bd38bca7e2a40e244430036bafced984')
+
+build() {
+  make -C "aurora-sep-userspace-$_commit/touchid-rearm" WARN='-Wall -Wextra'
+}
+
+check() {
+  make -C "aurora-sep-userspace-$_commit/touchid-rearm" check WARN='-Wall -Wextra'
+}
+
+package() {
+  make -C "aurora-sep-userspace-$_commit/touchid-rearm" install DESTDIR="$pkgdir" \
+    LIBEXECDIR=/usr/libexec PAMDIR=/usr/lib/security PAMCONFDIR=/usr/lib/pam.d \
+    UNITDIR=/usr/lib/systemd/system SYSCONFDIR=/etc DOCDIR=/usr/share/doc/aurora-touchid-rearm
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/80-aurora-touchid-rearm.preset" <<'PRESET'
+enable aurora-touchid-rearm.socket
+enable aurora-touchid-boot.service
+PRESET
+}

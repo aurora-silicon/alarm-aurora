@@ -82,7 +82,12 @@ case $profile in
   arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth plymouth-theme-aurora);;
   arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora);;
 esac
-chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
+# GitHub release downloads sometimes stall; finished packages stay cached.
+attempt=1
+until chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"; do
+  (( attempt++ < 3 ))
+  sleep 30
+done
 # A fresh Arch root generates no locale, so sessions ran in the C locale and
 # gnome-terminal refused to start. Generate a UTF-8 default; first-boot
 # setup may change the language afterwards.

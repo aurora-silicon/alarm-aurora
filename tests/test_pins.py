@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class PinTests(unittest.TestCase):
     def test_hardware_recipes_match_the_recorded_source_pins(self):
         pins = json.loads((ROOT / 'sources.json').read_text())
-        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'speakerguardd-v2', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-fido']:
+        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'speakerguardd-v2', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-touchid-rearm', 'aurora-fido']:
             self.assertIn(pins[name]['commit'], (ROOT / 'packages' / name / 'PKGBUILD').read_text())
         self.assertIn(pins['kernel-aurora']['commit'], (ROOT / 'packages/linux-aurora/PKGBUILD').read_text())
         firstboot = (ROOT / 'packages/aurora-firstboot/PKGBUILD').read_text()
@@ -32,6 +32,8 @@ class PinTests(unittest.TestCase):
         self.assertIn('sleep.target.wants', main)
         self.assertIn("'Requires=speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service'", text)
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate v2'", text)
+        # Provisioning, the seat follower and the self-check qualify the board first.
+        self.assertIn("f'ExecCondition={lx}/speakerguardd-gate prepare'", text)
         # The older daemons carry the same gate, the other way round.
         self.assertIn('for u in speakersafetyd speakerguardd; do', main)
         self.assertIn('60-speakerguardd-v2-gate.conf', main)
