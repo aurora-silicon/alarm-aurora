@@ -1,19 +1,19 @@
 pkgname=aurora-touchid-rearm
 pkgver=1
-pkgrel=3
+pkgrel=4
 pkgdesc='Re-arm Touch ID with the password after a lockout'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('GPL-2.0-only')
-_commit=fb19f69381ad29cd51a06dda7456ce6c01030a12
+_commit=501c12baad8e85999437304edcfbd95421fd5a1a
 depends=('pam' 'glibc')
 makedepends=('gcc' 'make')
 checkdepends=('python')
 install=aurora-touchid-rearm.install
 backup=('etc/aurora/touchid.conf')
 source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
-sha256sums=('d56d4cc8a4a5f321f4a6e799675f6ec8bd38bca7e2a40e244430036bafced984')
+sha256sums=('adfe47891bcb9cf25e5a9a90997926e0187533c4390e2c94799df6f4e9de8208')
 
 build() {
   make -C "aurora-sep-userspace-$_commit/touchid-rearm" WARN='-Wall -Wextra'
