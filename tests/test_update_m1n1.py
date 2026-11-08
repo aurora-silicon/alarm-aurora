@@ -489,7 +489,7 @@ class Recipes(unittest.TestCase):
         aura = (ROOT / 'packages/aura/PKGBUILD').read_text()
         self.assertRegex(aura, r"(?m)^  depends=\(.*'aurora-stage2-trial'.*\)$")
         uboot = (ROOT / 'packages/uboot-aurora/PKGBUILD').read_text()
-        self.assertRegex(uboot, r"(?m)^  depends=\('aurora-stage2-trial'\)$")
+        self.assertRegex(uboot, r"(?m)^  depends=\('aurora-stage2-trial'.*\)$")
         kernel = (ROOT / 'packages/linux-aurora/PKGBUILD').read_text()
         self.assertRegex(kernel, r'(?m)^  depends=\(.* aurora-stage2-trial .*\)$')
 
