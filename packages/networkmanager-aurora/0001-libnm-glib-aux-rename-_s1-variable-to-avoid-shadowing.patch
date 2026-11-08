@@ -1,0 +1,45 @@
+From 4a2278970a8930d5fbedc21e5690bfd86f61567b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Peter=20Rak=C5=A1=C3=A1ny?= <praksany@redhat.com>
+Date: Wed, 2 Sep 2026 18:22:58 +0200
+Subject: [PATCH] libnm-glib-aux: rename _s1 variable to avoid shadowing with
+ GLib 2.89.3
+
+(cherry picked from commit 4048021c305f7144930336c924c5483e47290433)
+---
+ .../tests/test-shared-general.c               | 20 +++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/src/libnm-glib-aux/tests/test-shared-general.c b/src/libnm-glib-aux/tests/test-shared-general.c
+index 95255c7e88..3e00b1e491 100644
+--- a/src/libnm-glib-aux/tests/test-shared-general.c
++++ b/src/libnm-glib-aux/tests/test-shared-general.c
+@@ -259,16 +259,16 @@ typedef enum {
+ static void
+ test_nm_strdup_int(void)
+ {
+-#define _NM_STRDUP_INT_TEST(num, str)  \
+-    G_STMT_START                       \
+-    {                                  \
+-        gs_free char *_s1 = NULL;      \
+-                                       \
+-        _s1 = nm_strdup_int((num));    \
+-                                       \
+-        g_assert(_s1);                 \
+-        g_assert_cmpstr(_s1, ==, str); \
+-    }                                  \
++#define _NM_STRDUP_INT_TEST(num, str)   \
++    G_STMT_START                        \
++    {                                   \
++        gs_free char *_str = NULL;      \
++                                        \
++        _str = nm_strdup_int((num));    \
++                                        \
++        g_assert(_str);                 \
++        g_assert_cmpstr(_str, ==, str); \
++    }                                   \
+     G_STMT_END
+ 
+ #define _NM_STRDUP_INT_TEST_TYPED(type, num)         \
+-- 
+GitLab
+
