@@ -422,8 +422,8 @@ def git_blob(path):
 # fedora-aurora packages/update-m1n1 (aurora-silicon/fedora-aurora#193, #207) as git
 # blob ids: these files are shared with Fedora byte for byte.
 FEDORA_BLOBS = {
-    'bootchain.py': 'c060332928bb933a5ce0226505f460b015fc5465',
-    'test_bootchain.py': 'dfcb1a3b588ab8f875b4cb5898fd9416fbc141c8',
+    'bootchain.py': 'e4a77b0c648b29b3934f068711ca32c6db37c4cf',
+    'test_bootchain.py': 'e1d45e65567e2d852af36397c0342a5d63747588',
     'aurora-stage2-commit.service': '6f9de701f9485dc4b869e8b73f4ef35aa67dbeae',
     'aurora-stage2-guard.service': '693a255c2bedb707e55fb0e7db45ae9d9d87949d',
     'aurora-stage2-guard.timer': '02dfb37c3eb71a9531276a026b25c62ac84ef1cb',

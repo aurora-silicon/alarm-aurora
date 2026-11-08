@@ -648,16 +648,17 @@ class TrialTests(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), committed)
         self.assertTrue(self.marker.exists())
 
-    def test_trial_boot_without_commit_evidence_still_refuses(self):
+    def test_trial_without_its_marker_can_no_longer_commit_and_is_kept(self):
         self.trial_setup()
         self.apply()
         self.trial_boot()
-        before = self.candidate.read_bytes()
-        self.marker.unlink()  # Removed by hand; the trial never committed.
+        abandoned = self.candidate.read_bytes()
+        self.marker.unlink()  # Removed by hand: commit() can no longer publish it.
         self.kernel('7.4', cells=5)
-        with self.assertRaisesRegex(bootchain.Refused, 'trial is running'):
-            self.apply()
-        self.assertEqual(self.candidate.read_bytes(), before)
+        self.apply()
+        self.assertEqual(self.marker.read_bytes(), b'armed\nm1n1/boot.bin.next\n')
+        saved = self.target.with_name('boot.bin.failed-' + hashlib.sha256(abandoned).hexdigest())
+        self.assertEqual(saved.read_bytes(), abandoned)
         self.assertEqual(self.target.read_bytes(), b'GOOD-STAGE2')
 
     def test_kernel_keyed_attempt_still_blocks_its_fallen_back_candidate(self):

@@ -347,34 +347,16 @@ class Update:
                     return legacy, details
         return path, None
 
-    def trial_running(self, esp, current):
-        """True while the booted trial candidate has not been committed.
+    def trial_running(self, current):
+        """True while this boot is a trial that can still commit.
 
-        The aurora,trial property lasts for the whole boot. Commit removes the
-        marker only after the live image matches the trial receipt, so a boot
-        without the marker and with that match is an ordinary committed boot.
+        The aurora,trial property lasts for the whole boot, but only the spent
+        marker lets commit() publish the booted candidate, and commit removes
+        it. Without a spent marker a trial boot stages like an ordinary boot.
+        An armed marker was written after this boot's commit; the ownership,
+        attempt and armed checks apply to it.
         """
-        trial = self.chosen('aurora,trial')
-        if not trial:
-            return False
-        if current is not None:
-            # Stage 1 spent the marker to boot this trial, so a spent marker
-            # is still the running trial. An armed one was staged after this
-            # boot's commit; the ownership, attempt and armed checks apply.
-            return current[0] == 'spent'
-        if (not re.fullmatch(r'[A-Za-z0-9_./-]+\.next', trial) or
-                any(part in ('', '.', '..') for part in trial.split('/'))):
-            return True
-        candidate = esp / trial
-        target = candidate.with_name(candidate.name.removesuffix('.next'))
-        receipt = candidate.with_name(candidate.name + '.json')
-        if target.is_symlink() or receipt.is_symlink():
-            return True
-        try:
-            details = json.loads(receipt.read_text())
-            return hashlib.sha256(target.read_bytes()).hexdigest() != details['sha256']
-        except (OSError, ValueError, KeyError, TypeError):
-            return True
+        return bool(self.chosen('aurora,trial')) and current is not None and current[0] == 'spent'
 
     def verify_stage2(self, payload, offset):
         """Traverse the composed FDT records, including the ESP read-back."""
@@ -421,7 +403,7 @@ class Update:
     def stage_trial(self, selected, payload):
         target, candidate, receipt, marker, relative = self.trial_paths()
         current = self.marker(marker)
-        if self.trial_running(self.path(self.env['ESP_ROOT']), current):
+        if self.trial_running(current):
             raise Refused('a trial is running; preserve its candidate until the next boot')
         if current and current[1] != relative:
             raise Refused('another aura-try owns the ESP marker')
