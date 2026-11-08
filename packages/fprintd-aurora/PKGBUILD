@@ -23,15 +23,25 @@ prepare() {
 }
 
 build() {
+  # 0002 matches libfprint-aurora's FP_DEVICE_ERROR_LOCKED_OUT (0008, pkgrel 6),
+  # the value after FP_DEVICE_ERROR_TOO_HOT. Each package builds in its own clean
+  # ALARM root with stock libfprint headers, which lack it; package() requires
+  # libfprint-aurora>=1.94.100-6, so the daemon always runs on the library
+  # that reports it.
+  if ! grep -q FP_DEVICE_ERROR_LOCKED_OUT /usr/include/libfprint-2/fp-device.h; then
+    export CFLAGS="$CFLAGS -DFP_DEVICE_ERROR_LOCKED_OUT=(FP_DEVICE_ERROR_TOO_HOT+1)"
+  fi
   arch-meson "fprintd-v$pkgver" build -Dgtk_doc=true -Dpam=true -Dpam_modules_dir=/usr/lib/security
   meson compile -C build
 }
 
 check() {
   python "$srcdir/test_account_gate.py" "$srcdir/fprintd-v$pkgver/src/device.c"
+  grep -q 'verify-lockout' "$srcdir/fprintd-v$pkgver/src/device.c"
+  grep -q 'verify-lockout' "$srcdir/fprintd-v$pkgver/pam/pam_fprintd.c"
 }
 
 package() {
-  depends=('libfprint-aurora>=1.94.100-4' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
+  depends=('libfprint-aurora>=1.94.100-6' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
   meson install -C build --destdir "$pkgdir"
 }

@@ -1,0 +1,13 @@
+"compatibilitytools"
+{
+  "compat_tools"
+  {
+    "fex-aurora"
+    {
+      "install_path" "."
+      "display_name" "FEX (Aurora)"
+      "from_oslist" "linux"
+      "to_oslist" "linux"
+    }
+  }
+}

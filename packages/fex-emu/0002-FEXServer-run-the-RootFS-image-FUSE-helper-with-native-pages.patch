@@ -1,0 +1,53 @@
+From 5f5abff912c131d9c5c94696dab2dfb6e2c69260 Mon Sep 17 00:00:00 2001
+From: Diljit Singh <hey@djdev.me>
+Date: Sat, 7 Nov 2026 12:37:34 -0500
+Subject: [PATCH] FEXServer: Run the RootFS image's FUSE helper with native
+ pages
+
+Aurora's 16K kernels can't serve /dev/fuse to a 4K page process: erofsfuse
+and squashfuse fail with "reading device: Operation not supported", so a
+FEXServer started from `userpages 4k` never mounts an image RootFS. Ask
+the kernel for native pages before exec'ing the helper. Other kernels
+reject the private prctl options and nothing changes.
+
+Signed-off-by: Diljit Singh <hey@djdev.me>
+---
+ Source/Tools/FEXServer/SquashFS.cpp | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/Source/Tools/FEXServer/SquashFS.cpp b/Source/Tools/FEXServer/SquashFS.cpp
+index 3a2675285..f040ead35 100644
+--- a/Source/Tools/FEXServer/SquashFS.cpp
++++ b/Source/Tools/FEXServer/SquashFS.cpp
+@@ -12,6 +12,7 @@
+ #include <fcntl.h>
+ #include <filesystem>
+ #include <poll.h>
++#include <sys/prctl.h>
+ #include <sys/stat.h>
+ #include <sys/wait.h>
+ #include <thread>
+@@ -19,6 +20,10 @@
+ namespace SquashFS {
+ 
+ constexpr int USER_PERMS = S_IRWXU | S_IRWXG | S_IRWXO;
++// Aurora kernels' page-size preferences (0 is native): the next exec, and
++// what descendants inherit.
++constexpr int PR_AURORA_SET_EXEC_PAGE_SIZE = 0x41555001;
++constexpr int PR_AURORA_SET_DEFAULT_PAGE_SIZE = 0x41555003;
+ static int ServerRootFSLockFD {-1};
+ static int FuseMountPID {};
+ static fextl::string MountFolder {};
+@@ -138,6 +143,12 @@ static bool MountRootFSImagePath(const fextl::string& SquashFS, bool EroFS) {
+     argv[2] = MountFolder.c_str();
+     argv[3] = nullptr;
+ 
++    // A 4K page process can't read /dev/fuse on Aurora's 16K kernels, so run
++    // the helper and its mount helper with native pages. Other kernels reject
++    // these options.
++    prctl(PR_AURORA_SET_DEFAULT_PAGE_SIZE, 0UL, 0UL, 0UL, 0UL);
++    prctl(PR_AURORA_SET_EXEC_PAGE_SIZE, 0UL, 0UL, 0UL, 0UL);
++
+     // Try and execute {erofsfuse, squashfuse} to mount our rootfs
+     if (execvpe(argv[0], (char* const*)argv, environ) == -1) {
+       // Give a hopefully helpful error message for users

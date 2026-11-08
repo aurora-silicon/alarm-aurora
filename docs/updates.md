@@ -17,6 +17,30 @@ every DTB of the newest `*-ARCH` kernel and U-Boot into the ESP Stage 2 (keeping
 mkinitcpio rebuilds the initramfs with the `asahi` and `aurora-vendor` hooks, which read this Mac's
 firmware from the ESP at boot.
 
+The aura package ships `/usr/share/aura/monitor-free` once its pinned source has no monitor. The recipe
+declares that in `_monitor_free`, and `prepare()` refuses a source that disagrees (`src/ctxr_exec.c`, or no
+`src/monitor.c`). aura 1.0.0b7 is the first pin without the monitor (aura#77), so `_monitor_free` is 1.
+
+Such an aura moves the kernel into the CTXR window, which only a kernel built with
+`CONFIG_ARM64_CTXR_EXECMEM` keeps its code inside. With `_monitor_free=1`, aura depends on
+`aurora-ctxr-execmem`, which `linux-aurora` provides when its `_ctxr_execmem=1`. Its `prepare()` checks
+that flag against the resolved configuration, so it can be set only with a kernel pin that has
+aurora-silicon/linux#985. `tests/test_update_m1n1.py` fails if `_monitor_free` is set without it.
+Every kernel pin since 4731456 has it, and `packages/linux-aurora/config` turns it on, so `_ctxr_execmem` is 1.
+
+With the marker, a Mac that boots a Mach-O Stage 1 (`/proc/device-tree/compatible` names one of the chips
+in the installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and later) gets
+`m1n1/boot-ctxr.bin` instead, keeping `boot-ctxr.bin.old`, with only this board's DTBs. It never touches
+`m1n1/boot.bin`, because the padded Stage 1 these Macs enroll chainloads `boot-ctxr.bin`. M1 to M3 Macs
+only ever use `boot.bin`.
+
+Image builds set `AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent`, so `update-m1n1` writes `boot.bin` as before
+whichever Mac builds the image. If the image's aura has the marker, `scripts/prepare-ctxr-stage2.py` then
+adds `boot-ctxr.bin`, a copy of it, to the image's ESP, and `boot-ctxr-<board>.bin`, a copy of
+`boot-<board>.bin`, for each Mach-O board. The installer picks the board's file over the combined one. The
+script fails the image if any of them is over 16 MiB. Without the marker the image has no `boot-ctxr.bin`,
+and the installer refuses it on Mach-O Macs, so no Mac gets a `boot-ctxr.bin` that updates don't refresh.
+
 ## Workflows
 
 | Workflow | Trigger | Does |

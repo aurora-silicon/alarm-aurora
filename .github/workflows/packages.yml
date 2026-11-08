@@ -115,7 +115,11 @@ jobs:
           docker run --rm --privileged -v "$PWD:/src" -w /src \
             registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
               dnf install -y python3 gnupg2 tar gzip util-linux coreutils
-              bash scripts/ci-build-package "$1"
+              if [[ $1 == plymouth-theme-aurora ]]; then
+                bash scripts/ci-build-plymouth-theme
+              else
+                bash scripts/ci-build-package "$1"
+              fi
               if [[ $1 == mesa-aurora ]]; then
                 chroot out/container /bin/bash /src/scripts/test-graphics-upgrade /tmp/package-build
               fi

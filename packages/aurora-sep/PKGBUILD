@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=17
+pkgrel=19
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -10,12 +10,12 @@ install=aurora-sep.install
 # Touch ID's polkit and sudo stacks are written by touchid-pam (see there), and
 # the Plasma power-button default is the owner's to edit.
 backup=('etc/xdg/powerdevilrc')
-source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'aurora-touchid-setup' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' 'aurora-touchid-setup.service' 'touchid-setup-needed' 'touchid-pam' 'aurora-sep-touchid-pam.hook' 'powerdevilrc')
-sha256sums=('e6dc8c92d0f21026606f18161a23b332ed41a1009d709035ecfdc960b97bccee'
+source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'aurora-touchid-setup' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' 'aurora-touchid-setup.service' 'touchid-setup-needed' 'touchid-pam' 'aurora-sep-touchid-pam.hook' 'powerdevilrc' 'aurora-sep-modprobe.conf')
+sha256sums=('3909519a8c498c9da505d03883107db61cb3a7c5b9fa7e9878af78417e43dea4'
             'ef6e9067fe20b05c64bebe8445d1ea18b2f9800721522c3e84be21a2c47bb4eb'
             'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
-            '08ecac0ecf885cb7f7547df1eb3d373849162778d60d838c4ecc58a45fdfe576'
-            '4422988e5e7f2417791957d066c501741e929705724083da76cdf1cb70d7a2fc'
+            'c1a0d40762e3b9acc58f4d54b3a85b0947a6da7985e42cc3eaabe7a35b4b0e48'
+            '6986845ed02ead356c7c387134e6557c218e937d467b24c579991f28b1c87665'
             '52020e636e62b60f0c3e6251c3b67b8a8c409bff0486bc3463f356fd3073384b'
             '74810b98eab3ace7c59ae332635339e66bb5783690d657b9d82af145e3cbd0d5'
             '7a20a5bf69b6fc7e60e70c4c20f5eb63ffdc41820d7d8213ec9085f527b4e6d0'
@@ -28,15 +28,16 @@ sha256sums=('e6dc8c92d0f21026606f18161a23b332ed41a1009d709035ecfdc960b97bccee'
             '5936eb76db666496a8700dade7ac6bcb3785b517958dcea10685690f1822c86f'
             'ffab97b20bfd5f0eb1ab641179a131843349cf16890fff0cf2d893f0b5681b37'
             '0695bd9ce4c207241db13c3ea07819a032d8213417021378f5015ab9317cde12'
-            '536a5b5e9a06a0d72dabab20d79da8fb4762fc18dd185f61b484714e517c11cc'
+            'd43177d141a8355211acff51ab14db87b8b88640295bf4bdbc6fe7c64fc02042'
             '71305d392a68f623d351e0addf5a821fb0900b9a0fba7169c1ed62fd6bebe9ca'
             '371a0f8d874692a74581f884d7cc3db9e9e52fedaa7f099c0930a7c3a4080408'
             'e40e79ae7d9e54918078c620d425f59ac6ff201a706869637ddb4d4bca794d4c'
             'cbcac4487988d17c13290d093c5728306fee3212eb68332c7cb41e10cc068866'
-            'c4a546ba81e435434caae8abd10f59bd583aa089108d4dac036e0efda8182181')
+            'c4a546ba81e435434caae8abd10f59bd583aa089108d4dac036e0efda8182181'
+            '2afed78be5e8e163de50be82dd74fd956113b56059487f83e32121f43d6002ec')
 
 package() {
-  depends=('coreutils' 'fprintd-aurora>=1.94.5' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'gawk' 'systemd' 'libfprint-aurora>=1.94.100-4' 'aurora-touchid-rearm')
+  depends=('coreutils' 'fprintd-aurora>=1.94.5' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'gawk' 'systemd' 'libfprint-aurora>=1.94.100-6' 'aurora-touchid-rearm' 'aurora-xart')
   optdepends=('glib2-devel: fingerprint at the GNOME login screen (aurora-sep-greeter-fingerprint.service)')
   # Holds a packaged linux-aurora to one with the module-based SEP driver and
   # leaves a kernel from outside pacman alone; the units skip a kernel without
@@ -55,6 +56,7 @@ package() {
     sed -i -e 's|/usr/local/sbin/|/usr/libexec/|g' -e 's|^ExecStart=/usr/sbin/|ExecStart=/usr/bin/|' "$pkgdir/usr/lib/systemd/system/$name"
   done
   install -Dm644 aurora-sep-load.conf "$pkgdir/usr/lib/modprobe.d/aurora-sep-load.conf"
+  install -Dm644 aurora-sep-modprobe.conf "$pkgdir/usr/lib/modprobe.d/aurora-sep.conf"
   install -Dm644 fprintd-aurora.conf "$pkgdir/usr/lib/systemd/system/fprintd.service.d/aurora-sep.conf"
   sed 's|@FPRINTD@|/usr/lib/fprintd|' fprintd-no-timeout.conf.in > fprintd-no-timeout.conf
   install -Dm644 fprintd-no-timeout.conf "$pkgdir/usr/lib/systemd/system/fprintd.service.d/50-aurora-sep-no-timeout.conf"

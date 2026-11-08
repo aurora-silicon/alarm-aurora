@@ -64,9 +64,14 @@ class BootSplashTests(unittest.TestCase):
         self.assertEqual(grub('GRUB_TIMEOUT=0\nGRUB_TIMEOUT_STYLE=hidden'), ['console', 'hidden', '0'])
         pkgbuild = (BOOT/'PKGBUILD').read_text()
         self.assertIn('install -Dm644 40-aurora-console.cfg "$pkgdir/etc/default/grub.d/40-aurora-console.cfg"', pkgbuild)
-        self.assertIn('install -Dm644 aurora-grub.hook "$pkgdir/usr/share/libalpm/hooks/90-aurora-grub.hook"', pkgbuild)
+        self.assertIn('install -Dm644 aurora-grub.hook "$pkgdir/usr/share/libalpm/hooks/95-aurora-grub.hook"', pkgbuild)
+        # pacman runs hooks in name order; grub-mkconfig must see the kernel that
+        # 90-mkinitcpio-install puts back in /boot.
+        self.assertGreater('95-aurora-grub.hook', '90-mkinitcpio-install.hook')
         hook = (BOOT/'aurora-grub.hook').read_text()
         self.assertIn('\nTarget = etc/default/grub.d/40-aurora-console.cfg\n', hook)
+        self.assertIn('\nTarget = etc/default/grub.d/50-aurora-user4k.cfg\n', hook)
+        self.assertIn('\nTarget = usr/lib/modules/*/vmlinuz\n', hook)
         self.assertIn("[ -f /boot/grub/grub.cfg ] && [ -x /usr/bin/grub-mkconfig ] || exit 0; "
                       "exec /usr/bin/grub-mkconfig -o /boot/grub/grub.cfg'", hook)
 

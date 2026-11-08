@@ -1,0 +1,29 @@
+From a5310617a0af1f2f25a3910503d5a0ebff59d644 Mon Sep 17 00:00:00 2001
+From: Ryan Murray <ryan@aurorasilicon.org>
+Date: Mon, 2 Nov 2026 01:16:33 +1100
+Subject: [PATCH 1/2] linux: update nl80211.h for the OWE offload ext features
+
+Add NL80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA,
+NL80211_EXT_FEATURE_OWE_OFFLOAD and NL80211_EXT_FEATURE_OWE_OFFLOAD_AP
+in their kernel order after NL80211_EXT_FEATURE_SECURE_NAN.
+---
+ linux/nl80211.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/linux/nl80211.h b/linux/nl80211.h
+index f14621a9..5ec7d12e 100644
+--- a/linux/nl80211.h
++++ b/linux/nl80211.h
+@@ -6396,6 +6396,9 @@ enum nl80211_ext_feature_index {
+ 	NL80211_EXT_FEATURE_POWERED_ADDR_CHANGE,
+ 	NL80211_EXT_FEATURE_PUNCT,
+ 	NL80211_EXT_FEATURE_SECURE_NAN,
++	NL80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA,
++	NL80211_EXT_FEATURE_OWE_OFFLOAD,
++	NL80211_EXT_FEATURE_OWE_OFFLOAD_AP,
+ 
+ 	/* add new features before the definition below */
+ 	NUM_NL80211_EXT_FEATURES,
+-- 
+2.50.1 (Apple Git-155)
+
