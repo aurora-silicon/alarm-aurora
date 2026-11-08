@@ -1,18 +1,23 @@
-"""The ESP Stage 2 files an update and an image build write, per Mac.
+"""CTXR slot routing, image preparation and the packaged updater contracts.
 
-The shipped update-m1n1 runs for real against a temporary ESP. Only the system
-paths it hardcodes are redirected, as the package build does for its config
-file, and the ESP mount is stubbed.
+The updater's Arch layout (bootchain_arch.py over fedora-aurora's bootchain.py)
+runs against a temporary root with valid DTBs and a declared kernel DT ABI
+generation. scripts/test-stage2-transactions runs the shell entry point and
+the pacman hook in real pacman transactions.
 """
+import contextlib
+import io
 import gzip
 import hashlib
 import importlib.util
 import os
 from pathlib import Path
+from unittest.mock import patch
 import re
 import struct
 import subprocess
 import sys
+import shutil
 import tempfile
 import unittest
 import zlib
@@ -20,6 +25,11 @@ import zlib
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / 'packages/asahi-scripts/update-m1n1'
+HELPER = ROOT / 'packages/asahi-scripts/bootchain_arch.py'
+SHARED = ROOT / 'packages/asahi-scripts/bootchain.py'
+_helper_spec = importlib.util.spec_from_file_location('ctxr_bootchain_arch', HELPER)
+bootchain = importlib.util.module_from_spec(_helper_spec)
+_helper_spec.loader.exec_module(bootchain)
 PKGBUILD = ROOT / 'packages/asahi-scripts/PKGBUILD'
 
 # Every chip AuraStage1Format.usesMachO admits or names, and every one below it.
@@ -39,12 +49,12 @@ def device_tree(compatibles):
     body = (struct.pack('>I', 1) + b'\0\0\0\0'
             + struct.pack('>III', 3, len(value), 0) + padded
             + struct.pack('>I', 2) + struct.pack('>I', 9))
-    struct_offset = 40
+    struct_offset = 56
     strings_offset = struct_offset + len(body)
     total = strings_offset + len(strings)
     header = struct.pack('>10I', 0xD00DFEED, total, struct_offset, strings_offset, 40,
                          17, 16, 0, len(strings), len(body))
-    return header + body + strings
+    return header + b'\0' * 16 + body + strings
 
 
 def compatible_file(board, chip):
@@ -61,10 +71,12 @@ def load_prepare():
 prepare_ctxr = load_prepare()
 
 
+@unittest.skipUnless(shutil.which('dtc') and shutil.which('fdtget'), 'requires dtc')
 class UpdateM1n1(unittest.TestCase):
-    TREES = {'t8103-j274.dtb': b'dtb-j274', 't6040-j616s-tether.dtb': b'dtb-j616s-tether',
-             't6040-j616s.dtb': b'dtb-j616s', 't8140-j700-ane-test.dtb': b'dtb-j700-ane',
-             't8140-j700.dtb': b'dtb-j700', 't8132-j713.dtb': b'dtb-j713'}
+    NAMES = ('t8103-j274.dtb', 't6040-j616s-tether.dtb', 't6040-j616s.dtb',
+             't8140-j700-ane-test.dtb', 't8140-j700.dtb', 't8132-j713.dtb')
+    TREES = {name: device_tree([f'apple,{name.split("-", 1)[1].split(".", 1)[0].split("-", 1)[0]}',
+                               f'apple,{name.split("-", 1)[0]}', f'fixture,{name}']) for name in NAMES}
 
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -78,39 +90,43 @@ class UpdateM1n1(unittest.TestCase):
         os.utime(self.boot, (1000000, 1000000))
         self.dtbs = root / 'dtbs'
         self.dtbs.mkdir()
+        # Arch's linux-aurora layout: one flat dtbs directory per kernel release.
+        installed = root / 'usr/lib/modules/7.3.0-1-24-ARCH/dtbs'
+        installed.mkdir(parents=True)
+        (installed.parent / 'vmlinuz').write_bytes(b'fixture kernel')
+        (installed.parent / 'dtb-abi').write_text('1\n')
+        (installed.parent / 'pkgbase').write_text('linux-aurora\n')
+        (root / 'boot').mkdir()
+        (root / 'boot/vmlinuz-linux-aurora').write_bytes(b'fixture kernel')
         for name, data in self.TREES.items():
             (self.dtbs / name).write_bytes(data)
+            (installed / name).write_bytes(data)
         (root / 'm1n1.bin').write_bytes(AURA)
         (root / 'u-boot-nodtb.bin').write_bytes(UBOOT)
-        run = root / 'run'
-        run.mkdir()
-        bindir = root / 'bin'
-        bindir.mkdir()
-        # The ESP mount becomes a link to the fixture ESP; umount removes it.
-        (bindir / 'functions.sh').write_text(
-            'info() { :; }\nwarn() { echo "$@" >&2; }\n'
-            f'mount_sys_esp() {{ ln -s "{self.esp}" "$1"; }}\n')
-        (bindir / 'umount').write_text('#!/bin/sh\nrm -f "$1"\n')
-        (bindir / 'umount').chmod(0o755)
-        text = SCRIPT.read_text()
-        for system, fixture in (('/run/', f'{run}/'), ('/etc/default/', f'{root}/default-')):
-            self.assertIn(system, text)
-            text = text.replace(system, fixture)
-        self.script = bindir / 'update-m1n1'
-        self.script.write_text(text)
-        self.script.chmod(0o755)
         self.compatible = root / 'compatible'
         self.marker = root / 'monitor-free'
 
-    def run_update(self, *args, shell='sh', **env):
-        environment = dict(os.environ, PATH=f'{self.root / "bin"}:{os.environ["PATH"]}', LC_ALL='C',
-                           SOURCE=str(self.root), DTBS=f'{self.dtbs}/*.dtb',
-                           CONFIG=str(self.root / 'm1n1.conf'),
-                           AURORA_DEVICE_TREE_COMPATIBLE=str(self.compatible),
-                           AURORA_MONITOR_FREE_MARKER=str(self.marker))
-        environment.update(env)
-        return subprocess.run([shell, str(self.script), *args], env=environment,
-                              capture_output=True, text=True)
+    def run_update(self, *args, **env):
+        settings = dict(M1N1='/m1n1.bin', U_BOOT='/u-boot-nodtb.bin', TARGET='/esp/m1n1/boot.bin',
+                        DTBS='/dtbs/*.dtb', CONFIG='/m1n1.conf',
+                        AURORA_DEVICE_TREE_COMPATIBLE='/compatible', AURORA_MONITOR_FREE_MARKER='/monitor-free')
+        settings.update(env)
+        if args:
+            settings['TARGET'] = str(args[0])
+        if settings['DTBS'] is None:
+            del settings['DTBS']
+        for key in ('M1N1', 'U_BOOT', 'TARGET', 'DTBS', 'CONFIG',
+                    'AURORA_DEVICE_TREE_COMPATIBLE', 'AURORA_MONITOR_FREE_MARKER'):
+            if key in settings:
+                settings[key] = settings[key].replace(str(self.root), '')
+        output = io.StringIO()
+        try:
+            locale = {key: value for key, value in settings.items() if key in ('LC_ALL', 'LOCPATH')}
+            with patch.dict(os.environ, locale), contextlib.redirect_stdout(output):
+                bootchain.ArchUpdate(self.root, settings).apply()
+        except (bootchain.Refused, OSError) as error:
+            return subprocess.CompletedProcess(['update-m1n1'], 1, output.getvalue(), str(error))
+        return subprocess.CompletedProcess(['update-m1n1'], 0, output.getvalue(), '')
 
     def on(self, board, chip):
         self.compatible.write_bytes(compatible_file(board, chip))
@@ -167,7 +183,7 @@ class UpdateM1n1(unittest.TestCase):
         result = self.run_update()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, '')
-        self.assertIn('m1n1 updated at', result.stdout)
+        self.assertIn('Stage 2 verified at', result.stdout)
         self.assertIn('boot-ctxr.bin', result.stdout)
         self.assert_frozen()
 
@@ -194,16 +210,16 @@ class UpdateM1n1(unittest.TestCase):
 
     def test_macho_stage2_holds_only_this_boards_trees_in_byte_order(self):
         self.monitor_free()
-        locale = self.en_us()
-        # Arch's sh is bash, which sorts globs by locale.
-        for shell in ('sh', 'bash'):
-            with self.subTest(shell):
+        # The old shell updater sorted its DTB glob by locale; the shared
+        # helper sorts file names bytewise whatever the locale.
+        for locale in ({'LC_ALL': 'C'}, self.en_us()):
+            with self.subTest(locale=locale):
                 self.on('j700', 't8140')
-                self.assertEqual(self.run_update(shell=shell, **locale).returncode, 0)
+                self.assertEqual(self.run_update(**locale).returncode, 0)
                 self.assertEqual(self.read_parts(self.ctxr),
                                  self.parts(['t8140-j700-ane-test.dtb', 't8140-j700.dtb']))
                 self.on('j616s', 't6040')
-                self.assertEqual(self.run_update(shell=shell, **locale).returncode, 0)
+                self.assertEqual(self.run_update(**locale).returncode, 0)
                 self.assertEqual(self.read_parts(self.ctxr),
                                  self.parts(['t6040-j616s-tether.dtb', 't6040-j616s.dtb']))
 
@@ -211,8 +227,8 @@ class UpdateM1n1(unittest.TestCase):
         self.monitor_free()
         self.on('j616', 't6040')
         result = self.run_update()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('no device tree for j616', result.stderr)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('have no apple,j616', result.stderr)
         self.assertFalse(self.ctxr.exists())
 
     def test_macho_update_keeps_the_previous_ctxr_stage2(self):
@@ -257,13 +273,12 @@ class UpdateM1n1(unittest.TestCase):
         self.assertFalse(self.ctxr.exists())
 
     def test_macho_without_a_tree_for_the_board_changes_nothing(self):
-        # A warning, not a failure: kernel-install and the pacman hook run this.
+        # Refuse before changing the image; the pacman hook reports it.
         self.monitor_free()
         self.on('j873g', 't8152')
         result = self.run_update()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('no device tree for j873g', result.stderr)
-        self.assertIn('left as it is', result.stderr)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('have no apple,j873g', result.stderr)
         self.assert_frozen()
         self.assertFalse(self.ctxr.exists())
         self.assertFalse((self.esp / 'm1n1/boot-ctxr.bin.new').exists())
@@ -275,7 +290,7 @@ class UpdateM1n1(unittest.TestCase):
         first = self.ctxr.read_bytes()
         (self.root / 'm1n1.bin').write_bytes(b'\0' * (16 << 20))
         result = self.run_update()
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotEqual(result.returncode, 0)
         self.assertIn('16 MiB', result.stderr)
         self.assertEqual(self.ctxr.read_bytes(), first)
         self.assertFalse((self.esp / 'm1n1/boot-ctxr.bin.new').exists())
@@ -313,6 +328,10 @@ class UpdateM1n1(unittest.TestCase):
         self.monitor_free()
         self.compatible.write_bytes(b'linux,dummy-virt\0')
         self.assert_updated_boot_bin(self.run_update())
+
+    def test_without_dtbs_the_newest_kernels_own_trees_are_used(self):
+        self.on('j274', 't8103')
+        self.assert_updated_boot_bin(self.run_update(DTBS=None))
 
     def test_m1n1_conf_options_reach_the_ctxr_stage2(self):
         self.monitor_free()
@@ -395,18 +414,91 @@ class PrepareCtxrStage2(unittest.TestCase):
             self.assertFalse(prepare_ctxr.uses_macho([f'apple,{chip}']), chip)
 
 
+def git_blob(path):
+    data = Path(path).read_bytes()
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+
+
+# fedora-aurora packages/update-m1n1 (aurora-silicon/fedora-aurora#193) as git
+# blob ids: these files are shared with Fedora byte for byte.
+FEDORA_BLOBS = {
+    'bootchain.py': 'b6d8d2cfae3ec31cbc05434e50a5db42759c519c',
+    'test_bootchain.py': '0bb9b00d5a95f1bdc1f5f48411773e6db9b9b740',
+    'aurora-stage2-commit.service': '6f9de701f9485dc4b869e8b73f4ef35aa67dbeae',
+    'aurora-stage2-guard.service': '693a255c2bedb707e55fb0e7db45ae9d9d87949d',
+    'aurora-stage2-guard.timer': '02dfb37c3eb71a9531276a026b25c62ac84ef1cb',
+    '90-aurora-stage2.preset': 'e7e350b52d42ea65cae85d97bb1bb5cf778c1608',
+}
+# fedora-aurora packages/kernel-aurora/dtb-abi: both kernels declare one generation.
+FEDORA_DTB_ABI = 'd00491fd7e5bb6fa28c517a0bb32b8b506539d4d'
+
+
 class Recipes(unittest.TestCase):
-    def test_the_package_ships_the_tested_script(self):
+    def test_the_package_ships_the_tested_files(self):
         recipe = PKGBUILD.read_text()
-        self.assertIn('update-m1n1)', recipe.split('sha256sums=', 1)[0])
-        digest = hashlib.sha256(SCRIPT.read_bytes()).hexdigest()
-        self.assertIn(digest, recipe)
+        sources = recipe.split('sha256sums=', 1)[0]
+        for path in sorted(PKGBUILD.parent.iterdir()):
+            if path.name in ('PKGBUILD', 'asahi-scripts.install') or path.name.startswith('.'):
+                continue
+            with self.subTest(path.name):
+                self.assertRegex(sources, rf'(?m)^\s+{re.escape(path.name)}\)?$')
+                self.assertIn(hashlib.sha256(path.read_bytes()).hexdigest(), recipe)
         self.assertIn('install -m755 "${srcdir}/update-m1n1" update-m1n1', recipe)
+        self.assertIn('install -m644 "${srcdir}/95-m1n1-install.hook" libalpm/hooks/95-m1n1-install.hook',
+                      recipe)
+        self.assertIn('install -Dm644 -t "$pkgdir/usr/libexec/aurora" bootchain.py bootchain_arch.py', recipe)
+        self.assertIn('install -Dm755 aurora-stage2-commit "$pkgdir/usr/libexec/aurora/aurora-stage2-commit"', recipe)
+        self.assertIn('python3 test_bootchain.py\n  python3 test_bootchain_arch.py', recipe)
+
+    def test_shared_files_are_fedoras_byte_for_byte(self):
+        for name, blob in FEDORA_BLOBS.items():
+            with self.subTest(name):
+                self.assertEqual(git_blob(PKGBUILD.parent / name), blob)
+        self.assertEqual(git_blob(ROOT / 'packages/linux-aurora/dtb-abi'), FEDORA_DTB_ABI)
+
+    def test_units_run_the_arch_commit_helper(self):
+        units = PKGBUILD.parent
+        self.assertIn('ExecStart=/usr/libexec/aurora/aurora-stage2-commit\n',
+                      (units / 'aurora-stage2-commit.service').read_text())
+        self.assertIn('ExecStart=/usr/libexec/aurora/aurora-stage2-commit --guard\n',
+                      (units / 'aurora-stage2-guard.service').read_text())
+        self.assertIn('exec /usr/bin/update-m1n1 "$@"', (units / 'aurora-stage2-commit').read_text())
+        self.assertIn('/usr/libexec/aurora/bootchain_arch.py', SCRIPT.read_text())
+        install = (units / 'asahi-scripts.install').read_text()
+        self.assertIn('preset \\\n    aurora-stage2-commit.service aurora-stage2-guard.timer', install)
+        self.assertIn('vercmp "$2" 20261023-4', install)
+        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgver=20261023$')
+        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgrel=4$')
+
+    def test_the_hook_runs_after_kernel_removal_too(self):
+        hook = (PKGBUILD.parent / '95-m1n1-install.hook').read_text()
+        for line in ('Operation = Install', 'Operation = Upgrade', 'Operation = Remove',
+                     'Target = usr/lib/modules/*/dtbs/*', 'Target = usr/lib/modules/*/dtb-abi',
+                     'Target = usr/lib/asahi-boot/*', 'When = PostTransaction', 'Exec = /usr/bin/update-m1n1'):
+            self.assertIn(line + '\n', hook)
 
     def test_aura_needs_the_capability_only_this_package_provides(self):
-        self.assertRegex(PKGBUILD.read_text(), r"(?m)^provides=\('aurora-stage2-ctxr-slot=1'\)$")
+        self.assertRegex(PKGBUILD.read_text(),
+                         r"(?m)^provides=\('aurora-stage2-ctxr-slot=1' 'aurora-stage2-trial=1'\)$")
         aura = (ROOT / 'packages/aura/PKGBUILD').read_text()
         self.assertRegex(aura, r"(?m)^  depends=\(.*'aurora-stage2-ctxr-slot'.*\)$")
+
+    def test_boot_chain_packages_need_the_trial_updater(self):
+        aura = (ROOT / 'packages/aura/PKGBUILD').read_text()
+        self.assertRegex(aura, r"(?m)^  depends=\(.*'aurora-stage2-trial'.*\)$")
+        uboot = (ROOT / 'packages/uboot-aurora/PKGBUILD').read_text()
+        self.assertRegex(uboot, r"(?m)^  depends=\('aurora-stage2-trial'\)$")
+        kernel = (ROOT / 'packages/linux-aurora/PKGBUILD').read_text()
+        self.assertRegex(kernel, r'(?m)^  depends=\(.* aurora-stage2-trial .*\)$')
+
+    def test_the_kernel_ships_its_dt_abi_generation(self):
+        kernel = (ROOT / 'packages/linux-aurora/PKGBUILD').read_text()
+        self.assertRegex(kernel.split('sha256sums=', 1)[0], r'(?m)^\s+dtb-abi\)$')
+        self.assertIn(hashlib.sha256((ROOT / 'packages/linux-aurora/dtb-abi').read_bytes()).hexdigest(), kernel)
+        install = '  install -m644 "$srcdir/dtb-abi" "$modulesdir/dtb-abi"\n'
+        self.assertIn(install, kernel)
+        self.assertLess(kernel.index('local modulesdir="$pkgdir/usr/lib/modules/$kernver"'), kernel.index(install))
+        self.assertRegex((ROOT / 'packages/linux-aurora/dtb-abi').read_text(), r'\A(0|[1-9][0-9]*)\n\Z')
 
     def flag(self, recipe, name):
         return int(re.search(rf'(?m)^{name}=([01])$', (ROOT / 'packages' / recipe / 'PKGBUILD').read_text())[1])
@@ -482,7 +574,8 @@ class Recipes(unittest.TestCase):
         self.assertIn('LC_ALL=C chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin', text)
 
     def test_the_tool_and_the_recipe_agree_on_the_marker_path(self):
-        self.assertIn('/usr/share/aura/monitor-free', SCRIPT.read_text())
+        for path in (SCRIPT, SHARED):
+            self.assertIn('/usr/share/aura/monitor-free', path.read_text())
 
     def test_image_build_ignores_the_builders_device_tree(self):
         text = (ROOT / 'scripts/build-image').read_text()
