@@ -1,6 +1,6 @@
 pkgname=libfprint-aurora
 pkgver=1.94.100
-pkgrel=6
+pkgrel=7
 pkgdesc='Fingerprint reader library with the Aurora SEP driver'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -20,7 +20,9 @@ source=("libfprint-$_commit.tar.gz::https://gitlab.freedesktop.org/api/v4/projec
   '0006-aurora-report-finger-lift-and-lockout.patch'
   '0007-aurora-name-retry-causes-and-keep-waiting.patch'
   '0008-aurora-report-the-touch-id-lockout-as-locked-out.patch'
+  '0009-aurora-say-why-touch-id-needs-the-password.patch'
   'test_interface.py'
+  'test_lockout_reason.py'
   'apple-sep.h'
   'fprintd-lid-switch.conf'
   'libfprint-1.94.100-apple-sep.patch'
@@ -33,8 +35,10 @@ sha256sums=('94ff7f3689d14da28389a4d9cad5fb523065bbed3e6c8e3694522fde1316e780'
             'ab7883751d087e11f192a18f8744500eb271de6b7737837c7da398ddb11da246'
             'e14bc4fb3a63ee28d3418d7c7e4823d3bd86e9da784f6e34fd2bef8b11a5f510'
             '0c75bf129d7416ac534caec4a780dc25a50c478180747213f71c1148e279796b'
+            'd3f31fb55bf9c55173123c48192f85b9dd1e8f0db1157d7bb77a785d90490253'
             '73b95e4c39a2fe8c5496cd38545cc67df20c89cc1a88fc3aedf216e997b41da4'
-            '3f1a5f3b23f1cdcca14e7e4b788d256daa671166fe17646c06dae01afe6bd39a'
+            'a0bf00b31fe6a3fc999a1f2838aed2143ae0da591469a859e713597033afedbf'
+            'ce2ac6209e5034f402536b72f59d1048b6bb77ca98490d8c7d509bb187ee7a21'
             'dd53832d8da285112742d1f8a4726236e724293c6f96af0f1309c01c45b065a4'
             '55aef4a2019568a13aea48064ed83858a7ce4902636f8e85e46877ce9d8ef172')
 
@@ -48,6 +52,7 @@ prepare() {
   patch -Np1 -i "$srcdir/0006-aurora-report-finger-lift-and-lockout.patch"
   patch -Np1 -i "$srcdir/0007-aurora-name-retry-causes-and-keep-waiting.patch"
   patch -Np1 -i "$srcdir/0008-aurora-report-the-touch-id-lockout-as-locked-out.patch"
+  patch -Np1 -i "$srcdir/0009-aurora-say-why-touch-id-needs-the-password.patch"
   install -Dm644 "$srcdir/apple-sep.h" aurora-uapi/linux/apple-sep.h
 }
 
@@ -59,6 +64,7 @@ build() {
 
 check() {
   python "$srcdir/test_interface.py" "$srcdir/libfprint-$_commit-$_commit/libfprint/drivers/aurora/aurora.c" "$srcdir/apple-sep.h"
+  python "$srcdir/test_lockout_reason.py" "$srcdir/libfprint-$_commit-$_commit/libfprint/drivers/aurora/aurora.c"
   meson test -C build --print-errorlogs
 }
 
