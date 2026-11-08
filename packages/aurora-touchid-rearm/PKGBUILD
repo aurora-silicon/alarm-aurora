@@ -6,14 +6,14 @@ arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('GPL-2.0-only')
-_commit=5c894c8535ad7d18d9a4775283a6758abaaaeb53
+_commit=fb19f69381ad29cd51a06dda7456ce6c01030a12
 depends=('pam' 'glibc')
 makedepends=('gcc' 'make')
 checkdepends=('python')
 install=aurora-touchid-rearm.install
 backup=('etc/aurora/touchid.conf')
 source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
-sha256sums=('8aa25ad961a2d96147b252829b1940598d472036fa8b53cbd58e2c7f130411f2')
+sha256sums=('d56d4cc8a4a5f321f4a6e799675f6ec8bd38bca7e2a40e244430036bafced984')
 
 build() {
   make -C "aurora-sep-userspace-$_commit/touchid-rearm" WARN='-Wall -Wextra'
