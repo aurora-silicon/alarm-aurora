@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=26
+pkgrel=27
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -54,6 +54,7 @@ options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         0001-restore-legacy-speaker-protection.patch
+        0002-mca-bound-pcm-buffer.patch
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '3fd24d573b597102f749e5ad010c3dbb684d9a695af21bd31c99e8fa7c705feb'
@@ -63,6 +64,7 @@ sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             'a8b6015c48ea09f7946ddb1942ceab8d2560d8fb6b8113ce904b1fa5eafa327d'
+            '828d7a3c2878a8f2bc74b454bbdbdf05e46480202d809cc3b85b690095572680'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
 
 
