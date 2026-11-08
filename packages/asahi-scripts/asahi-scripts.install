@@ -1,11 +1,11 @@
 #!/bin/sh
 
-post_install() {
+_remove_obsolete_vendor_firmware() (
   set -e
 
   cd /lib/firmware
   [ -e .vendorfw.manifest ] || return 0
- 
+
   printf '==> Removing obsolete vendor firmware from /lib/firmware...\n'
   awk '{ print $2 }' < .vendorfw.manifest | xargs rm -f
   rmdir asmedia brcm 2>/dev/null || true
@@ -15,8 +15,30 @@ post_install() {
     mount -t tmpfs vendorfw vendor
     mv .vendorfw.manifest vendor/
   fi
+)
+
+# Apply the shipped preset, as Fedora's systemd_post does: the boot-time
+# commit of a Stage 2 trial and its 12-minute guard. A unit already enabled
+# or disabled stays as it is.
+_preset_stage2_units() {
+  systemctl --preset-mode=enable-only preset \
+    aurora-stage2-commit.service aurora-stage2-guard.timer >/dev/null 2>&1 || :
+}
+
+post_install() {
+  _remove_obsolete_vendor_firmware
+  _preset_stage2_units
 }
 
 post_upgrade() {
-  post_install
+  _remove_obsolete_vendor_firmware
+  # The units are new to an existing install too; preset them once, on the
+  # upgrade that brings them, as Fedora's %triggerun does.
+  if [ "$(vercmp "$2" 20261023-4)" -lt 0 ]; then
+    _preset_stage2_units
+  fi
+}
+
+pre_remove() {
+  systemctl --no-reload disable aurora-stage2-commit.service aurora-stage2-guard.timer >/dev/null 2>&1 || :
 }

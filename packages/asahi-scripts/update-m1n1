@@ -1,140 +1,66 @@
-#!/bin/sh
+#!/bin/bash
 # SPDX-License-Identifier: MIT
+# Aurora's Stage 2 updater for Arch Linux ARM. The logic is fedora-aurora's
+# bootchain.py; bootchain_arch.py gives it Arch's paths. See docs/updates.md.
+set -euo pipefail
+# shellcheck disable=SC1091
+[[ ! -f /etc/default/update-m1n1 ]] || source /etc/default/update-m1n1
+[[ -z ${M1N1_UPDATE_DISABLED:-} ]] || exit 0
 
-set -e
-
-[ -e /etc/default/update-m1n1 ] && . /etc/default/update-m1n1
-
-[ -n "$M1N1_UPDATE_DISABLED" ] && exit 0
-
-if [ -e "$(dirname "$0")"/functions.sh ]; then
-    . "$(dirname "$0")"/functions.sh
+: "${SOURCE:=/usr/lib/asahi-boot}"
+export M1N1=${M1N1:-"$SOURCE/m1n1.bin"}
+export U_BOOT=${U_BOOT:-"$SOURCE/u-boot-nodtb.bin"}
+export CONFIG=${CONFIG:-/etc/m1n1.conf}
+# Unset means the newest installed kernel's own dtbs directory.
+[[ -z ${DTBS+x} ]] || export DTBS
+export AURORA_DEVICE_TREE_COMPATIBLE=${AURORA_DEVICE_TREE_COMPATIBLE:-/proc/device-tree/compatible}
+export AURORA_MONITOR_FREE_MARKER=${AURORA_MONITOR_FREE_MARKER:-/usr/share/aura/monitor-free}
+: "${AURORA_BOOTCHAIN:=/usr/libexec/aurora/bootchain_arch.py}"
+mode=${1:-}
+if [[ $mode == --commit || $mode == --guard ]]; then
+    export AURORA_KERNEL_ACTION=refresh AURORA_KERNEL_VERSION=
+    export TARGET=${TARGET:-}
 else
-    . /usr/share/asahi-scripts/functions.sh
+    [[ -z $mode || $mode != --* ]] || { echo "unknown update-m1n1 option" >&2; exit 2; }
+    # The pacman hook runs once after the whole transaction, so the
+    # installed kernels are already final: pick the newest.
+    export AURORA_KERNEL_ACTION=refresh AURORA_KERNEL_VERSION=
+    export TARGET=${TARGET:-$mode}
 fi
 
-: ${SOURCE:="/usr/lib/asahi-boot/"}
-: ${M1N1:="$SOURCE/m1n1.bin"}
-: ${U_BOOT:="$SOURCE/u-boot-nodtb.bin"}
-: ${TARGET:="$1"}
-: ${DTBS:=$(/bin/ls -d /lib/modules/*-ARCH | sort -rV | head -1)/dtbs/*.dtb}
-: ${CONFIG:=/etc/m1n1.conf}
-: ${AURORA_DEVICE_TREE_COMPATIBLE:=/proc/device-tree/compatible}
-: ${AURORA_MONITOR_FREE_MARKER:=/usr/share/aura/monitor-free}
-
-# The board of a Mac that boots a Mach-O Stage 1, nothing on any other machine.
-# The chips are the installer's: AuraStage1Format.usesMachO.
-macho_board() {
-    [ -r "$AURORA_DEVICE_TREE_COMPATIBLE" ] || return 0
-    first=
-    for entry in $(tr '\000' ' ' <"$AURORA_DEVICE_TREE_COMPATIBLE"); do
-        [ -n "$first" ] || first=${entry#apple,}
-        case "$entry" in
-            apple,t81[3-9a-f]?|apple,t8[2-9a-f]??|apple,t60[4-9a-f]?|apple,t6[1-9a-f]??)
-                echo "$first"
-                return 0
-                ;;
-        esac
-    done
+# One lock covers discovery, mounting, staging and the rename, for the pacman
+# hook, the boot-time commit and the guard alike.
+mkdir -p /run/lock
+exec 9>/run/lock/update-m1n1.lock
+flock -x 9
+mounted=false
+cleanup() {
+    if $mounted; then umount /run/.system-efi; fi
 }
+trap cleanup EXIT
 
-if [ -z "$DTBS" ]; then
-    warn "ERROR: DTBS config unset or empty, see `/etc/default/update-m1n1`"
-    exit 1
+# Preflight before mounting the ESP. The apply pass checks again under the lock.
+if [[ $mode != --commit && $mode != --guard ]]; then
+    python3 "$AURORA_BOOTCHAIN" --check || exit 1
 fi
-
-# If ${DTBS} is a directory expand it to include dtbs from all Apple silicon
-# macs.
-if [ -d "$DTBS" ]; then
-    DTBS="${DTBS}/apple/t6*.dtb ${DTBS}/apple/t81*.dtb"
-fi
-
-# The aura package ships this marker once it has no monitor. Until then every
-# Mac updates boot.bin. After that a Mac that boots a Mach-O Stage 1 updates
-# boot-ctxr.bin, which only a Stage 1 with the CTXR window chainloads.
-board=
-if [ -e "$AURORA_MONITOR_FREE_MARKER" ]; then
-    board=$(macho_board)
-fi
-
-# These Macs get only their own device trees, in byte order so aura settles on
-# the board's main tree: a Stage 2 with every board's trees is too large.
-if [ -n "$board" ]; then
-    LC_ALL=C
-    board_dtbs=
-    for dtb in $DTBS; do
-        case "${dtb##*/}" in
-            *-"$board".dtb|*-"$board"-*.dtb) board_dtbs="$board_dtbs $dtb" ;;
-        esac
-    done
-    # A kernel install must not fail over this, so the last boot-ctxr.bin stays.
-    if [ -z "$board_dtbs" ]; then
-        warn "WARNING: no device tree for $board in $DTBS, so m1n1/boot-ctxr.bin was left as it is"
-        exit 0
-    fi
-    DTBS=$board_dtbs
-fi
-
-umount=false
-
-m1n1config=/run/m1n1.conf
->"$m1n1config"
-
-if [ -e "$CONFIG" ]; then
-    info "Reading m1n1 config from $CONFIG:"
-    while read line; do
-        case "$line" in
-            "") ;;
-            \#*) ;;
-            chosen.*=*|display=*|mitigations=*)
-                echo "$line" >> "$m1n1config"
-                info "  Option: $line"
-                ;;
-            *)
-                warn "  Ignoring unknown option: $line"
-                ;;
-        esac
-    done <$CONFIG
-fi
-
-if [ -z "$TARGET" ]; then
+if [[ -z $TARGET ]]; then
+    # shellcheck disable=SC1091
+    source /usr/share/asahi-scripts/functions.sh
+    # functions.sh is POSIX sh; its ESP lookup pipes a file that may be absent.
+    set +o pipefail
     mount_sys_esp /run/.system-efi
-    TARGET="/run/.system-efi/m1n1/boot.bin"
-    umount=true
+    set -o pipefail
+    mounted=true
+    export TARGET=/run/.system-efi/m1n1/boot.bin
 fi
-
-# A Mach-O Mac's Stage 1 is padded and chainloads boot-ctxr.bin, so the update
-# goes there and boot.bin stays as it is.
-if [ -n "$board" ]; then
-    case "$TARGET" in
-        boot.bin|*/boot.bin)
-            TARGET="${TARGET%boot.bin}boot-ctxr.bin"
-            ;;
-    esac
+# The trial needs the real ESP mount; a plain write (an image build) does not.
+ESP_ROOT=$(findmnt -nro TARGET --target "$(dirname "$TARGET")" 2>/dev/null || true)
+ESP_DEVICE='' ESP_FSTYPE=''
+if [[ -n $ESP_ROOT ]]; then
+    ESP_DEVICE=$(findmnt -nro SOURCE --target "$ESP_ROOT" 2>/dev/null || true)
+    ESP_FSTYPE=$(findmnt -nro FSTYPE --target "$ESP_ROOT" 2>/dev/null || true)
 fi
-
-cat "$M1N1" $DTBS >"${TARGET}.new"
-gzip -c "$U_BOOT" >>"${TARGET}.new"
-cat "$m1n1config" >>"${TARGET}.new"
-
-# aura keeps 16 MiB for the Stage 2 a padded Stage 1 loads; a larger one can't load.
-if [ -n "$board" ] && [ "$(wc -c <"${TARGET}.new")" -gt 16777216 ]; then
-    rm -f "${TARGET}.new"
-    warn "WARNING: ${TARGET##*/} would be over the 16 MiB aura keeps for it, so it was left as it is"
-    $umount && umount /run/.system-efi
-    exit 0
-fi
-
-if [ -e "$TARGET" ]; then
-    # clobber "${TARGET}.old" only if "$TARGET" changes, use sha512sum to
-    # avoid dependency on diffutils
-    SHA512_CUR=$(sha512sum "$TARGET"     | cut -d' ' -f1)
-    SHA512_NEW=$(sha512sum "$TARGET.new" | cut -d' ' -f1)
-    [ "$SHA512_CUR" != "$SHA512_NEW" ] && cp --preserve=timestamps -f "$TARGET" "${TARGET}.old"
-fi
-
-mv -f "${TARGET}.new" "$TARGET"
-
-echo "m1n1 updated at ${TARGET}"
-$umount && umount /run/.system-efi
-true
+export ESP_ROOT ESP_DEVICE ESP_FSTYPE
+args=()
+[[ $mode != --commit && $mode != --guard ]] || args+=("$mode")
+python3 "$AURORA_BOOTCHAIN" "${args[@]}"

@@ -1,0 +1,10 @@
+[Unit]
+Description=Limit an uncommitted Aurora Stage 2 trial to twelve minutes
+ConditionPathExists=/proc/device-tree/chosen/aurora,trial
+
+[Timer]
+OnBootSec=12min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

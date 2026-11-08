@@ -1,6 +1,6 @@
 pkgname=uboot-aurora
 pkgver=2026.07.aurora7
-pkgrel=1
+pkgrel=2
 pkgdesc='Aurora common Apple Silicon U-Boot with Neo MTP handoff'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -20,6 +20,8 @@ build() {
   make O=build-aurora CROSS_COMPILE="${CROSS_COMPILE:-}" PYTHON3=/usr/bin/python3 -j"${OMARCHY_BUILD_JOBS:-10}"
 }
 package() {
+  # A new U-Boot reaches Stage 2 through the updater's aura-try trial.
+  depends=('aurora-stage2-trial')
   install -Dm644 u-boot/build-aurora/u-boot-nodtb.bin "$pkgdir/usr/lib/asahi-boot/u-boot-nodtb.bin"
   install -d "$pkgdir/usr/lib/asahi-boot-j700"
   ln -s ../asahi-boot/u-boot-nodtb.bin "$pkgdir/usr/lib/asahi-boot-j700/u-boot-nodtb.bin"

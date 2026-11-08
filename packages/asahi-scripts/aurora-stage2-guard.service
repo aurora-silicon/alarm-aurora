@@ -1,0 +1,7 @@
+[Unit]
+Description=Return an uncommitted Aurora trial to the configured Stage 2
+ConditionPathExists=/proc/device-tree/chosen/aurora,trial
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aurora/aurora-stage2-commit --guard
