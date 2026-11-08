@@ -32,6 +32,8 @@ class PinTests(unittest.TestCase):
         self.assertIn('sleep.target.wants', main)
         self.assertIn("'Requires=speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service'", text)
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate v2'", text)
+        # Provisioning, the seat follower and the self-check qualify the board first.
+        self.assertIn("f'ExecCondition={lx}/speakerguardd-gate prepare'", text)
         # The older daemons carry the same gate, the other way round.
         self.assertIn('for u in speakersafetyd speakerguardd; do', main)
         self.assertIn('60-speakerguardd-v2-gate.conf', main)
