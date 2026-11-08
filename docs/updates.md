@@ -31,7 +31,7 @@ only this `asahi-scripts` provides, so a stock asahi-alarm `asahi-scripts` canno
 With aura Stage 1 1.0.0b4 or later (`aura,stage1-version` in the live device tree), the updater leaves
 the working image in place. It writes `<target>.next` beside it, reads it back, checks every DTB header,
 this Mac's root compatible and its display aliases, and records the attempt under
-`/var/lib/aurora-stage2/attempts/<release>`. It then writes the ESP root file `aura-try` with exactly
+`/var/lib/aurora-stage2/attempts/<candidate sha256>`. It then writes the ESP root file `aura-try` with exactly
 `armed\n<ESP-relative .next path>\n` (through `aura-try.tmp`, synced and renamed, then the ESP block
 device is flushed). Stage 1 marks the try `spent` before loading the candidate, so any failure boots the
 configured image next time. Older Stage 1 installations keep the direct atomic replacement and
@@ -47,9 +47,13 @@ the candidate. `aurora-stage2-guard.timer` reboots a trial that has not committe
 covering a boot that feeds the hardware watchdog but never passes the checks.
 
 After a fallback the commit service logs one line, keeps the working image and leaves `.next` and
-`.next.json` for inspection; the recorded attempt means that kernel release is never armed again
-automatically. A later release gets its own trial and the previous candidate is kept as
-`.failed-<sha256>`. `journalctl -u aurora-stage2-commit -u aurora-stage2-guard` shows the outcome.
+`.next.json` for inspection; the recorded attempt means that exact candidate is never armed again
+automatically. Any change to the Stage 2 inputs (kernel device trees, aura, U-Boot or `/etc/m1n1.conf`)
+is a new candidate with its own trial, also on the same kernel release, and the previous candidate is
+kept as `.failed-<sha256>`. A commit marks its record `committed`, so reverting to that exact image is
+trialled again. Once a trial boot has committed, the rest of that boot is an ordinary boot and pacman
+updates can stage the next candidate. Records named after a kernel release (asahi-scripts 20261023-4)
+still block the candidate whose hash they contain. `journalctl -u aurora-stage2-commit -u aurora-stage2-guard` shows the outcome.
 `asahi-scripts`' install script applies `90-aurora-stage2.preset` on install and on the upgrade that brings
 the units (`systemctl --preset-mode=enable-only preset`), as Fedora's `%systemd_post` and `%triggerun` do.
 
