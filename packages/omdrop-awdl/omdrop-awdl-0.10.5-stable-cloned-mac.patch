@@ -1,0 +1,17 @@
+--- a/userspace/awdl-up
++++ b/userspace/awdl-up
+@@ -292,6 +292,14 @@
+ # address to settle instead of refusing on the first look.
+ wait_permaddr(){
+   local waited=0
++  # Aurora: Fedora's NetworkManager default gives each Wi-Fi network its own
++  # cloned MAC (wifi.cloned-mac-address=stable-ssid), so permaddr stays listed while the
++  # station is associated. Once it is associated the address no longer
++  # changes with scans, which is all the derivation below needs.
++  if [[ $(cat "/sys/class/net/$STA/operstate" 2>/dev/null) == up ]] &&
++     [[ $(nmcli -g GENERAL.STATE device show "$STA" 2>/dev/null) == 100* ]]; then
++    return 0
++  fi
+   while ip -d link show "$STA" | grep -q permaddr; do
+     [[ $waited -ge $WAIT_MAC ]] && return 1
+     sleep 2; waited=$(( waited + 2 ))
