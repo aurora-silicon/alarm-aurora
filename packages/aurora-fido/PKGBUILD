@@ -7,8 +7,8 @@ groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('MIT')
 _commit=582cdf8b6db4c9311e76c832da1811c0b1017d96
-depends=('python' 'python-cryptography' 'python-gobject' 'fprintd' 'aurora-sep' 'json-c' 'systemd' 'polkit')
-makedepends=('gcc' 'make' 'pkgconf')
+makedepends=('gcc' 'make' 'pkgconf' 'json-c')
+checkdepends=('python' 'python-cryptography')
 optdepends=('libnotify: the "Touch ID to sign in to <site>" notification'
             'libfido2: fido2-token and friends'
             'pam-u2f: sudo and login with the security key')
@@ -27,6 +27,9 @@ check() {
 }
 
 package() {
+  # Runtime dependencies here, as in aurora-boot: aurora-sep comes from the
+  # Aurora repository, which the build root does not have.
+  depends=('python' 'python-cryptography' 'python-gobject' 'fprintd' 'aurora-sep' 'json-c' 'systemd' 'polkit')
   # Installed off: no install script enables it. `sudo aurora-fido enable` turns it on.
   make -C "aurora-sep-userspace-$_commit/fido" install DESTDIR="$pkgdir" PREFIX=/usr \
     LIBEXECDIR=/usr/lib/aurora-fido
