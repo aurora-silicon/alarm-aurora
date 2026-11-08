@@ -438,7 +438,8 @@ class Recipes(unittest.TestCase):
         recipe = PKGBUILD.read_text()
         sources = recipe.split('sha256sums=', 1)[0]
         for path in sorted(PKGBUILD.parent.iterdir()):
-            if path.name in ('PKGBUILD', 'asahi-scripts.install') or path.name.startswith('.'):
+            if (not path.is_file() or path.name in ('PKGBUILD', 'asahi-scripts.install')
+                    or path.name.startswith('.') or path.suffix == '.pyc'):
                 continue
             with self.subTest(path.name):
                 self.assertRegex(sources, rf'(?m)^\s+{re.escape(path.name)}\)?$')

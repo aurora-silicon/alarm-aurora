@@ -2,11 +2,16 @@
 
 test_bootchain.py is fedora-aurora's suite for the shared bootchain.py;
 test_bootchain_arch.py covers the Arch layout and its trial transactions.
+Both need dtc: makepkg's check() and stage2.yml have it. Without it (the
+packages.yml metadata job) the suites are reported as skipped, not run.
 """
 import importlib.util
 from pathlib import Path
+import shutil
+import sys
 import unittest
 
+sys.dont_write_bytecode = True
 PACKAGE = Path(__file__).resolve().parents[1] / 'packages/asahi-scripts'
 modules = []
 for name in ('test_bootchain', 'test_bootchain_arch'):
@@ -16,7 +21,15 @@ for name in ('test_bootchain', 'test_bootchain_arch'):
     modules.append(module)
 
 
+@unittest.skip('requires dtc')
+class WithoutDtc(unittest.TestCase):
+    def test_bootchain_suites(self):
+        pass
+
+
 def load_tests(loader, tests, pattern):
+    if not (shutil.which('dtc') and shutil.which('fdtget')):
+        return loader.loadTestsFromTestCase(WithoutDtc)
     suite = unittest.TestSuite()
     for module in modules:
         suite.addTests(loader.loadTestsFromModule(module))
