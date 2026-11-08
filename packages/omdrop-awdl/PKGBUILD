@@ -24,11 +24,13 @@ conflicts=('brcmfmac-awdl-dkms')
 source=("omdrop-awdl-$_commit.tar.gz::https://codeload.github.com/netmojo-systems/omdrop-awdl/tar.gz/$_commit"
         "omdrop-plugin-$_plugin.tar.gz::https://codeload.github.com/netmojo-systems/omdrop-plugin/tar.gz/$_plugin"
         'omdrop-awdl-0.10.5-stable-cloned-mac.patch'
-        'omdrop-awdl-0.10.5-follow-infra-channel.patch')
+        'omdrop-awdl-0.10.5-follow-infra-channel.patch'
+        'omdrop-awdl-0.10.5-5ghz-social-channel.patch')
 sha256sums=('bc52318293615f773ef0f9a9523772a83bf73edaaf87b528e2a32856ff02d385'
             'db362d1fc13be701643cb5e4c390f292ea4e3ce006c0ebda5440b07763b90c41'
             'd207972480eed3484abf079c20127ff0a8d3cf8b7c0472327c3f36b1de3e84cc'
-            'a41302e308482cdb28eb741036dda172c8fc095a15ded34f145497254e548556')
+            'a41302e308482cdb28eb741036dda172c8fc095a15ded34f145497254e548556'
+            '46fe26c2da9a690ae5ca5fed8d8762f09a03f53e11a43508bd55d4f1d4f07af8')
 
 prepare() {
   cd "omdrop-awdl-$_commit"
@@ -37,6 +39,9 @@ prepare() {
   # With no /etc/omdrop/peer-chan, AWDL windows follow the Wi-Fi link's 5 GHz
   # channel (full shape), as macOS schedules them, and the advert follows too.
   patch -p1 < "$srcdir/omdrop-awdl-0.10.5-follow-infra-channel.patch"
+  # Set AWDL's 5 GHz social channel (default 149): with the firmware default 0
+  # a Mac hears us only on 2.4 GHz and will not route to us.
+  patch -p1 < "$srcdir/omdrop-awdl-0.10.5-5ghz-social-channel.patch"
   local r="$srcdir/omdrop-plugin-$_plugin/share/airdrop-receiver.service"
   # The receiver writes its identity into ~/.omdrop, which ProtectHome=read-only
   # keeps it from creating, so create both writable paths before the sandbox.
@@ -57,6 +62,7 @@ check() {
   done
   grep -q stable-ssid userspace/awdl-up
   grep -q '^follow_infra()' userspace/awdl-up
+  grep -q awdl_osoc_chan userspace/omdrop-broadcom.sh
   ! grep -q '@PLUGIN_DIR@' "$srcdir/omdrop-plugin-$_plugin/share/airdrop-receiver.service"
 }
 
