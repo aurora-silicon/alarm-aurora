@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=18
+pkgrel=19
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -31,13 +31,13 @@ sha256sums=('3909519a8c498c9da505d03883107db61cb3a7c5b9fa7e9878af78417e43dea4'
             'd43177d141a8355211acff51ab14db87b8b88640295bf4bdbc6fe7c64fc02042'
             '71305d392a68f623d351e0addf5a821fb0900b9a0fba7169c1ed62fd6bebe9ca'
             '371a0f8d874692a74581f884d7cc3db9e9e52fedaa7f099c0930a7c3a4080408'
-            '553f85d5836315dae874f73d54b56b437a828151cb37d37f7ea4a12027f6b567'
-            '6abed047c5402bb752823878ac8dbcd47982b79156ed4c8233bd9c94438ae5bc'
+            'e40e79ae7d9e54918078c620d425f59ac6ff201a706869637ddb4d4bca794d4c'
+            'cbcac4487988d17c13290d093c5728306fee3212eb68332c7cb41e10cc068866'
             'c4a546ba81e435434caae8abd10f59bd583aa089108d4dac036e0efda8182181'
             '2afed78be5e8e163de50be82dd74fd956113b56059487f83e32121f43d6002ec')
 
 package() {
-  depends=('coreutils' 'fprintd-aurora>=1.94.5' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'gawk' 'systemd' 'libfprint-aurora>=1.94.100-3' 'aurora-xart')
+  depends=('coreutils' 'fprintd-aurora>=1.94.5' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'gawk' 'systemd' 'libfprint-aurora>=1.94.100-6' 'aurora-touchid-rearm' 'aurora-xart')
   optdepends=('glib2-devel: fingerprint at the GNOME login screen (aurora-sep-greeter-fingerprint.service)')
   # Holds a packaged linux-aurora to one with the module-based SEP driver and
   # leaves a kernel from outside pacman alone; the units skip a kernel without

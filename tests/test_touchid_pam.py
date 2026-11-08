@@ -10,6 +10,17 @@ LINE = '-auth      sufficient   pam_fprintd.so\n'
 COMMENT = '# Touch ID (aurora-sep): a fingerprint, or else the password.\n'
 SUDO = ('#%PAM-1.0\nauth\t\tinclude\t\tsystem-auth\naccount\t\tinclude\t\tsystem-auth\n'
         'session\t\tinclude\t\tsystem-auth\nsession\t\toptional\tpam_systemd.so class=none\n')
+SYSTEM_AUTH = ('#%PAM-1.0\n\nauth       required                    pam_faillock.so      preauth\n'
+               '-auth      [success=2 default=ignore]  pam_systemd_home.so\n'
+               'auth       [success=1 default=bad]     pam_unix.so          try_first_pass nullok\n'
+               'auth       [default=die]               pam_faillock.so      authfail\n'
+               'auth       optional                    pam_permit.so\n'
+               'auth       required                    pam_env.so\n'
+               'auth       required                    pam_faillock.so      authsucc\n'
+               '\n-account   [success=1 default=ignore]  pam_systemd_home.so\n'
+               'account    required                    pam_unix.so\n')
+REARM = ('# Touch ID (aurora-sep): an accepted password re-arms a lockout.\n'
+         '-auth      optional     pam_aurora_touchid.so\n')
 POLKIT = ('#%PAM-1.0\n\nauth       include      system-auth\naccount    include      system-auth\n'
           'password   include      system-auth\nsession    include      system-auth\n')
 
@@ -22,6 +33,7 @@ class TouchIdPamTests(unittest.TestCase):
         self.pamd.mkdir(parents=True)
         self.vendor.mkdir(parents=True)
         (self.pamd / 'sudo').write_text(SUDO)
+        (self.pamd / 'system-auth').write_text(SYSTEM_AUTH)
         (self.vendor / 'polkit-1').write_text(POLKIT)
 
     def tearDown(self):
@@ -73,6 +85,24 @@ class TouchIdPamTests(unittest.TestCase):
         self.run_script()
         self.assertEqual((self.pamd / 'sudo').read_text().count('pam_fprintd.so'), 1)
         self.assertEqual((self.pamd / 'polkit-1').read_text().count('pam_fprintd.so'), 1)
+
+    def test_a_password_re_arms_after_the_last_auth_line_of_system_auth(self):
+        self.run_script()
+        text = (self.pamd / 'system-auth').read_text()
+        self.assertEqual(text, SYSTEM_AUTH.replace('authsucc\n', 'authsucc\n' + REARM, 1))
+        self.run_script()
+        self.assertEqual((self.pamd / 'system-auth').read_text(), text)
+
+    def test_an_owner_s_removal_of_the_re_arm_line_is_kept(self):
+        self.run_script()
+        (self.pamd / 'system-auth').write_text(SYSTEM_AUTH)
+        self.run_script()
+        self.assertEqual((self.pamd / 'system-auth').read_text(), SYSTEM_AUTH)
+
+    def test_remove_takes_the_re_arm_line_out(self):
+        self.run_script()
+        self.run_script('--remove')
+        self.assertEqual((self.pamd / 'system-auth').read_text(), SYSTEM_AUTH)
 
     def test_remove_restores_what_was_there(self):
         self.run_script()
