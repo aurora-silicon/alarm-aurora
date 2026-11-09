@@ -8,22 +8,24 @@ url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('MIT')
 _commit=72eaf547174745b9c1e008faeeaa1e98b80bc310
 makedepends=('gcc' 'make' 'pkgconf' 'openssl')
-checkdepends=('openssh' 'git')
+# ssh-sk-helper needs libfido2 for any security key, ours included.
+checkdepends=('openssh' 'libfido2' 'git')
 source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
 sha256sums=('d6d805b8f2c406a06a9e96e69a3ed9a0a62ada85c8b12a5185f6a9fce4330118')
 
 build() {
-  make -C "aurora-sep-userspace-$_commit/sk" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+  # makepkg exports CFLAGS/LDFLAGS; the Makefile appends its own (-fPIC, hidden visibility).
+  make -C "aurora-sep-userspace-$_commit/sk"
 }
 
 check() {
   # The OpenSSH flow against software P-256 stand-ins: no root, no hardware.
-  make -C "aurora-sep-userspace-$_commit/sk" check CFLAGS="$CFLAGS"
+  make -C "aurora-sep-userspace-$_commit/sk" check
 }
 
 package() {
   # aurora-sep comes from the Aurora repository, which the build root does not have.
-  depends=('openssl' 'openssh' 'systemd' 'aurora-sep')
+  depends=('openssl' 'openssh' 'libfido2' 'systemd' 'aurora-sep')
   # The udev rule gives the sep-key group /dev/sep-key; systemd's pacman hooks
   # create the group from sysusers.d and reload the rules.
   make -C "aurora-sep-userspace-$_commit/sk" install DESTDIR="$pkgdir" PREFIX=/usr LIBDIR=/usr/lib \
