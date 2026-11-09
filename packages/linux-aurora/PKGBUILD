@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=27
+pkgrel=28
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=d4d267839caa0aa9cbcd98a792351a52bd856b84
-_sha256=3fd24d573b597102f749e5ad010c3dbb684d9a695af21bd31c99e8fa7c705feb
+_commit=b1c9943b1d648469c05835ba4e74cd83a507ce20
+_sha256=772dc44e77f008bd87e73e6d506178b617503f8e021f7cf1c89280086d995321
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -53,18 +53,14 @@ makedepends=(
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
-        0001-restore-legacy-speaker-protection.patch
-        0002-mca-bound-pcm-buffer.patch
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '3fd24d573b597102f749e5ad010c3dbb684d9a695af21bd31c99e8fa7c705feb'
+            '772dc44e77f008bd87e73e6d506178b617503f8e021f7cf1c89280086d995321'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '6bd4a8f3f208ee85cc2c6fa4f1f02dae4a86c1252d6500f11f78d09dc9f9a427'
+            'a57ac8cf600e12224fa6cb24cd5e1dbaa75e89db482e427aceb8e7c31b385997'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
-            'a8b6015c48ea09f7946ddb1942ceab8d2560d8fb6b8113ce904b1fa5eafa327d'
-            '828d7a3c2878a8f2bc74b454bbdbdf05e46480202d809cc3b85b690095572680'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
 
 
