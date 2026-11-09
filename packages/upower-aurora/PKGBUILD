@@ -1,6 +1,6 @@
 pkgname=upower-aurora
 pkgver=1.91.5.aurora1
-pkgrel=2
+pkgrel=3
 _commit=d8a24ffc5b9a49f71a28517f7c8b92b16701597a
 pkgdesc='UPower with Aurora macsmc battery time reporting'
 arch=('aarch64')
@@ -33,5 +33,7 @@ check() {
 }
 
 package() {
+  # A swap from or back to stock upower keeps an edited UPower.conf in place.
+  depends+=('aurora-keep-config')
   meson install -C build --destdir "$pkgdir"
 }

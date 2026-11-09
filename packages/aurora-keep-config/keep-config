@@ -1,0 +1,39 @@
+#!/bin/bash
+# pacman PostTransaction hook (aurora-keep-config.hook, NeedsTargets).
+#
+# Swapping a distribution package for its Aurora build, or back, is a conflict
+# removal followed by a fresh install: pacman saves the owner's edited backup
+# file as .pacsave and the new package installs its default, so the edit stops
+# applying. An in-place upgrade (and dnf on Fedora) keeps the edited file.
+# Put it back, for each newly installed target's backup files, when
+#   - the file is the copy the new package just installed (unmodified), and
+#   - its .pacsave was renamed during this transaction: the removal renames
+#     the file, which sets its ctime, and db.lck is created when the
+#     transaction takes the lock. An older .pacsave stays as it is.
+# The new default is kept as .pacnew, as pacman does when it installs over an
+# existing configuration file.
+set -uo pipefail
+dbpath=$(pacman-conf DBPath) || exit 0
+lock=${dbpath%/}/db.lck
+[[ -f $lock ]] || exit 0
+status=0
+while read -r pkg; do
+  while IFS= read -r file; do
+    saved=$file.pacsave
+    [[ -f $saved && ! -L $saved && -f $file && ! -L $file ]] || continue
+    # Created no later than the rename; a coarse clock can make them equal.
+    [[ -n $(find "$lock" -maxdepth 0 ! -newermc "$saved") ]] || continue
+    if cmp -s -- "$saved" "$file"; then
+      mv -f -- "$saved" "$file" || status=1
+      continue
+    fi
+    if mv -f -- "$file" "$file.pacnew" && mv -f -- "$saved" "$file"; then
+      printf 'keep-config: %s: kept the edited copy, %s default saved as %s.pacnew\n' "$file" "$pkg" "$file"
+    else
+      status=1
+    fi
+  done < <(LC_ALL=C pacman -Qii -- "$pkg" | awk '
+    /^Backup Files/ { on = 1; sub(/^[^:]*: */, "") }
+    on { sub(/^ +/, ""); if (sub(/ \[unmodified\]$/, "")) print }')
+done
+exit $status
