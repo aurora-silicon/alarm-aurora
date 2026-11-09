@@ -35,7 +35,7 @@ class PinTests(unittest.TestCase):
         # upgrade tool beside the legacy daemons, and replaces only retired builds.
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
         self.assertIn("'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora'", audio)
-        self.assertIn("'speakerguardd-v2>=1.0.0alpha.1-26' 'aurora-speaker-upgrade>=0.1-0.3'", audio)
+        self.assertIn("'speakerguardd-v2>=1.0.0alpha.1-28' 'aurora-speaker-upgrade>=0.1-0.5'", audio)
         self.assertIn("conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
         self.assertIn("replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
         up = ROOT / 'packages/aurora-speaker-upgrade'
