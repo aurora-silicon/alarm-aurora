@@ -17,7 +17,7 @@ source=("aurora-audio-${_commit}.tar.gz::https://codeload.github.com/aurora-sili
         90-aurora-audio.conf aurora-audio.hook 0001-restore-legacy-speaker-graphs.patch
         aurora-audio-v2-cleanup)
 sha256sums=('4a5fc1eb37113742791eb632819fb09301f97b76a78586e96760442be6c87dd7' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953'
-            '06ec664457f32bba4747fd5498c52a4e68aad04acb84580171b87f378c214f9b' 'cc8fdbf68a0290382adefac0fa18ec2b0980a4b3cf75d7a3539b052867495978')
+            '06ec664457f32bba4747fd5498c52a4e68aad04acb84580171b87f378c214f9b' '589e21eb68c95ee43c9b9c2e8c702c133c0996f9eff79b5e227bbc5071b6c261')
 prepare() {
   patch -d "asahi-audio-$_commit" -Np1 < 0001-restore-legacy-speaker-graphs.patch
 }
