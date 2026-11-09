@@ -1,6 +1,6 @@
 # Plymouth carries
 
-Carry Arch's Plymouth 26.134.222-3 recipe as 26.134.222-6 for aarch64.
+Carry Arch's Plymouth 26.134.222-3 recipe as 26.134.222-8 for aarch64.
 The [ALARM package](https://archlinuxarm.org/packages/aarch64/plymouth)
 uses the Arch recipe without an ALARM override. The packaging and helper
 files come from Arch packaging commit
@@ -27,6 +27,19 @@ It orders `plymouth-start.service` after `systemd-udevd.service` instead of
 after the whole coldplug trigger. `aurora-boot`'s `aurora-early-kms` initcpio
 hook coldplugs the Apple display before `systemd-udev-trigger`, so the splash
 starts on appledrm in the initramfs. Retire the patch with the Fedora one.
+
+## Frame-buffer race
+
+`0001-ply-device-manager-Fix-race-in-fb_device_has_drm_dev.patch` is copied
+unchanged from Fedora's Plymouth 26.134.222 recipe (fedora-aurora
+`packages/plymouth`). When udev restarts on the real root, plymouth gets an
+add event for the fbdev of the DRM device it already drives; its udev query
+for the matching card could run before udev had enumerated it, so plymouth
+loaded the frame-buffer plugin and opened the same output a second time.
+DRM-emulated fbdevs are now recognised by their `drmfb` name. It is applied
+right after the XKB cherry-pick (which needs a clean tree for the same file)
+and, like the other carries, with no fuzz. Retire it when the tag includes
+it.
 
 ## SDR display handoff
 

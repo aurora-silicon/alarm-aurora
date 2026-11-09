@@ -1,0 +1,22 @@
+#!/bin/bash
+# Disposable CI container only. Build the Touch ID stack in one signed ALARM
+# root, then run test-touchid-upgrade against those packages.
+set -euo pipefail
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+stack=(libfprint-aurora fprintd-aurora aurora-xart aurora-touchid-rearm aurora-sep)
+bash "$root/scripts/ci-build-package" "${stack[0]}"
+for package in "${stack[@]:1}"; do
+  chroot "$root/out/container" /bin/bash -euo pipefail -c '
+    rm -rf /tmp/package-build
+    mkdir -p /tmp/package-build
+    cp -a "/src/packages/$1/." /tmp/package-build/
+    chown -R builder:builder /tmp/package-build
+    cd /tmp/package-build
+    runuser -u builder -- makepkg --syncdeps --noconfirm
+    for archive in ./*.pkg.tar.*; do
+      name=${archive##*/}
+      cp "$archive" "/src/out/packages/${name//:/_}"
+    done
+  ' package "$package"
+done
+chroot "$root/out/container" /bin/bash /src/scripts/test-touchid-upgrade /src/out/packages

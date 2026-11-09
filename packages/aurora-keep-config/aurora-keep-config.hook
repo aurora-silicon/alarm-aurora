@@ -1,0 +1,15 @@
+# Each pair is a distribution package and the Aurora build that conflicts with
+# it; both own the same backup files.
+[Trigger]
+Type = Package
+Operation = Install
+Target = upower
+Target = upower-aurora
+Target = networkmanager
+Target = networkmanager-aurora
+
+[Action]
+Description = Keeping configuration edited before a package swap...
+When = PostTransaction
+Exec = /usr/libexec/aurora/keep-config
+NeedsTargets
