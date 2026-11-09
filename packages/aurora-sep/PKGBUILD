@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=19
+pkgrel=20
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -11,7 +11,7 @@ install=aurora-sep.install
 # the Plasma power-button default is the owner's to edit.
 backup=('etc/xdg/powerdevilrc')
 source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'aurora-touchid-setup' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' 'aurora-touchid-setup.service' 'touchid-setup-needed' 'touchid-pam' 'aurora-sep-touchid-pam.hook' 'powerdevilrc' 'aurora-sep-modprobe.conf')
-sha256sums=('3909519a8c498c9da505d03883107db61cb3a7c5b9fa7e9878af78417e43dea4'
+sha256sums=('36d4137dc1d2130724f02dc3be8245c4110e2da026ac3c8cb6c9c6fbe5d1a0bb'
             'ef6e9067fe20b05c64bebe8445d1ea18b2f9800721522c3e84be21a2c47bb4eb'
             'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
             'c1a0d40762e3b9acc58f4d54b3a85b0947a6da7985e42cc3eaabe7a35b4b0e48'
@@ -28,7 +28,7 @@ sha256sums=('3909519a8c498c9da505d03883107db61cb3a7c5b9fa7e9878af78417e43dea4'
             '5936eb76db666496a8700dade7ac6bcb3785b517958dcea10685690f1822c86f'
             'ffab97b20bfd5f0eb1ab641179a131843349cf16890fff0cf2d893f0b5681b37'
             '0695bd9ce4c207241db13c3ea07819a032d8213417021378f5015ab9317cde12'
-            'd43177d141a8355211acff51ab14db87b8b88640295bf4bdbc6fe7c64fc02042'
+            '147f7233874a0056f6afd366a22ea34a3cc46852be2d76929dabfc8d7ff4c189'
             '71305d392a68f623d351e0addf5a821fb0900b9a0fba7169c1ed62fd6bebe9ca'
             '371a0f8d874692a74581f884d7cc3db9e9e52fedaa7f099c0930a7c3a4080408'
             'e40e79ae7d9e54918078c620d425f59ac6ff201a706869637ddb4d4bca794d4c'
