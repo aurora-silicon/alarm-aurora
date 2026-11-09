@@ -1,0 +1,44 @@
+# Arch Linux's lsp-plugins 1.2.37, LV2 bundle only, with one Aurora patch: the loudness compensator (loud_comp) reports the latency
+# of the FFT size in use. Upstream reads the spectral processor's latency before it applies the new FFT rank, and the dry delay line
+# is too short for the largest rank, so in FFT mode it reports 7680 frames at every size while delaying exactly the FFT size. Every
+# Asahi/Aurora speaker graph runs loud_comp at an FFT size of 1024: filter-chain then published 7.5x that node's real delay and AirPlay
+# receivers scheduled their audio about 150 ms early. Same patch as fedora-aurora's lsp-plugins 1.2.29-2.aurora1. check() runs an LV2
+# host that compares every latency port the speaker graphs use with the delay of an impulse.
+pkgname=lsp-plugins-lv2
+pkgver=1.2.37
+pkgrel=1.1
+pkgdesc='Collection of open-source plugins - LV2 (loud_comp latency fix)'
+arch=('aarch64')
+groups=('lv2-plugins')
+url='https://lsp-plug.in'
+license=('LGPL-3.0-or-later')
+depends=('cairo' 'fontconfig' 'freetype2' 'glibc' 'libglvnd' 'libsndfile' 'gcc-libs' 'libx11' 'libxrandr' 'lv2-host')
+makedepends=('gcc' 'make' 'php' 'lv2' 'libsndfile' 'cairo' 'libglvnd' 'libx11' 'libxrandr' 'freetype2' 'fontconfig' 'lilv')
+source=("https://github.com/lsp-plugins/lsp-plugins/releases/download/$pkgver/lsp-plugins-src-$pkgver.tar.gz"
+        1000-loud_comp-report-the-latency-of-the-FFT-size-in-use.patch
+        lsp-latency-check.c)
+sha512sums=('815dad2836722c51f1a3639a1586c94350e251082fd609489bcc90d8ea8c6b0727aa448220789f24fb8efdcb8b8e84c8e641f15388121993842d54a1a31f332e'
+            'SKIP'
+            'SKIP')
+sha256sums=('SKIP'
+            'f690481fca0a7f411aaaea6d7bb2fa0c986d10e90c70e785d6b39dfa00b6f62f'
+            'f29a30224c43b2424ba6b2cfc4e3ec21a14efc6ac669e344c5c7cc2a45fe4399')
+prepare() {
+  patch -d lsp-plugins -Np1 < 1000-loud_comp-report-the-latency-of-the-FFT-size-in-use.patch
+}
+build() {
+  make -C lsp-plugins config VERBOSE=1 FEATURES='lv2 ui xdg' PREFIX=/usr
+  make -C lsp-plugins VERBOSE=1
+}
+check() {
+  make -C lsp-plugins FEATURES='lv2 ui xdg' DESTDIR="$srcdir/check-root" install
+  gcc $CFLAGS -o lsp-latency-check lsp-latency-check.c $(pkg-config --cflags --libs lilv-0) -lm
+  LV2_PATH="$srcdir/check-root/usr/lib/lv2" ./lsp-latency-check
+}
+package() {
+  # LV2 bundle only, like Arch's lsp-plugins-lv2 split package
+  make -C lsp-plugins FEATURES='lv2 ui xdg' PREFIX=/usr DESTDIR="$srcdir/pkgroot" install
+  install -d "$pkgdir/usr/lib"
+  cp -a "$srcdir/pkgroot/usr/lib/lv2" "$pkgdir/usr/lib/"
+  install -Dm644 lsp-plugins/COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
