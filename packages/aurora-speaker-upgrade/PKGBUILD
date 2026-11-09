@@ -1,0 +1,25 @@
+pkgname=aurora-speaker-upgrade
+pkgver=0.1
+pkgrel=0.1
+pkgdesc='Move the speakers to speakerguardd v2 with this Mac'"'"'s own tuning (preview, ships disabled)'
+arch=('any')
+groups=('aurora-platform-apple-silicon')
+url='https://github.com/aurora-silicon/speakerguardd/tree/v2/packaging/upgrade'
+license=('MIT')
+_commit=3fbe180b5c634350c1ece5e0da650109abf40edd
+makedepends=('git' 'make' 'python' 'python-cryptography')
+depends=('python' 'python-cryptography' 'lzfse' 'util-linux' 'alsa-utils' 'systemd')
+# The switch needs speakerguardd v2; without it the tool refuses and the
+# legacy protection keeps the speakers.
+optdepends=('speakerguardd-v2: the protection it switches to')
+source=("speakerguardd::git+https://github.com/aurora-silicon/speakerguardd.git#commit=$_commit")
+sha256sums=('SKIP')
+check() {
+  cd speakerguardd
+  python3 -I -m unittest discover -s packaging/upgrade/tests
+}
+package() {
+  cd speakerguardd
+  make -C packaging/upgrade install DESTDIR="$pkgdir" PREFIX=/usr UNITDIR=/usr/lib/systemd/system V2UNIT=speakerguardd-v2.service
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
