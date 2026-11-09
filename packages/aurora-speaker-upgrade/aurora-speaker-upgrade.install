@@ -13,7 +13,7 @@ post_install() {
 post_upgrade() {
   # The preset is new to installs that had the disabled preview (0.1-0.1):
   # apply it once, on the upgrade that brings it.
-  if [ "$(vercmp "$2" 0.1-0.2)" -lt 0 ]; then
+  if [ "$(vercmp "$2" 0.1-0.3)" -lt 0 ]; then
     _preset_upgrade_unit
   fi
 }
