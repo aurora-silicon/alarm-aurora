@@ -6,13 +6,43 @@ ROOT = Path(__file__).resolve().parents[1]
 class PinTests(unittest.TestCase):
     def test_hardware_recipes_match_the_recorded_source_pins(self):
         pins = json.loads((ROOT / 'sources.json').read_text())
-        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-touchid-rearm', 'aurora-fido']:
+        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'speakerguardd-v2', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-touchid-rearm', 'aurora-fido']:
             self.assertIn(pins[name]['commit'], (ROOT / 'packages' / name / 'PKGBUILD').read_text())
         self.assertIn(pins['kernel-aurora']['commit'], (ROOT / 'packages/linux-aurora/PKGBUILD').read_text())
         firstboot = (ROOT / 'packages/aurora-firstboot/PKGBUILD').read_text()
         self.assertIn(pins['aurora-firstboot']['commit'], firstboot)
         self.assertIn(pins['aurora-firstboot']['sha256'], firstboot)
         self.assertRegex(firstboot, rf"(?m)^pkgver={re.escape(pins['aurora-firstboot']['version'])}$")
+    def test_speakerguardd_v2_is_opt_in_beside_the_legacy_stack(self):
+        pins = json.loads((ROOT / 'sources.json').read_text())['speakerguardd-v2']
+        text = (ROOT / 'packages/speakerguardd-v2/PKGBUILD').read_text()
+        self.assertIn(pins['sha256'], text)
+        self.assertRegex(text, r"(?m)^pkgname=\('speakerguardd-v2'\)$")
+        # Sorts above every retired preview build (RC7 was 1.0.0alpha.1-25).
+        self.assertRegex(text, r"(?m)^pkgver=1\.0\.0alpha\.1$")
+        self.assertGreater(int(re.search(r"(?m)^pkgrel=(\d+)$", text).group(1)), 25)
+        self.assertNotRegex(text, r'(?m)^\s*(conflicts|replaces|provides)=')
+        main = text.split('package_speakerguardd-v2() {', 1)[1].split('\n}', 1)[0]
+        # The gate in every unit decides; the older daemons carry it the other way round.
+        self.assertIn("f'ExecCondition={lx}/speakerguardd-gate v2'", text)
+        self.assertIn("f'ExecCondition={lx}/speakerguardd-gate prepare'", text)
+        self.assertIn('for u in speakersafetyd speakerguardd; do', main)
+        self.assertIn('packaging/session/gate.json', main)
+        # verify needs the macOS parity attestation (speakerguardd#114).
+        self.assertIn('packaging/session/parity.json', main)
+        self.assertNotIn('machines.json', main)
+        # Opt-in: the default audio stack does not pull it and replaces only the retired builds.
+        audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
+        self.assertIn("'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora'", audio)
+        self.assertNotIn("'speakerguardd-v2'", audio)
+        self.assertIn("conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
+        self.assertIn("replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
+        for pkg in (ROOT / 'packages').glob('*/PKGBUILD'):
+            if pkg.parent.name == 'speakerguardd-v2':
+                continue
+            body = pkg.read_text()
+            for m in re.finditer(r"(?ms)^\s*depends=\((.*?)\)", body):
+                self.assertNotIn('speakerguardd-v2', m.group(1), pkg)
     def test_aurora_sep_ships_the_touch_id_reset(self):
         sep = ROOT / 'packages/aurora-sep'
         self.assertIn("'aurora-xart')", (sep / 'PKGBUILD').read_text())
