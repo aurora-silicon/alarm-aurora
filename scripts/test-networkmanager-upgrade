@@ -3,6 +3,7 @@
 # networkmanager-aurora, then go back to stock; the edited NetworkManager.conf
 # stays active both ways, as dnf keeps it on Fedora.
 set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/testlib.sh"
 [[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
 packages=${1:?directory containing freshly built packages}
 proof=/src/out/networkmanager-upgrade
@@ -13,10 +14,6 @@ pacman -Q networkmanager | tee "$proof/stock.txt"
 candidate=("$packages"/networkmanager-aurora-[0-9]*.pkg.tar.*)
 keeper=("$packages"/aurora-keep-config-[0-9]*.pkg.tar.*)
 [[ ${#candidate[@]} == 1 && -f ${candidate[0]} && ${#keeper[@]} == 1 && -f ${keeper[0]} ]]
-# set -e ignores "! cmd", so negative checks use refute.
-refute() { if "$@"; then printf 'unexpected: %s\n' "$*" >&2; exit 1; fi; }
-# pacman -Q <name> also answers with a package that provides <name>.
-installed() { pacman -Qq | grep -qxF "$1"; }
 backup_state() { LC_ALL=C pacman -Qii "$1" | grep -Eo "$conf \[[a-z]+\]$" | cut -d' ' -f2; }
 [[ $(backup_state networkmanager) == '[unmodified]' ]]
 # The owner's settings; the connection profiles are not package files at all.
@@ -32,7 +29,7 @@ test -x /usr/bin/NetworkManager
 sha256sum --check "$proof/config.sha256"
 [[ $(backup_state networkmanager-aurora) == '[modified]' ]]
 test -f "$conf.pacnew"
-refute grep -Fx '# upgrade-test-preserved' "$conf.pacnew"
+nomatch -Fx '# upgrade-test-preserved' "$conf.pacnew"
 test ! -e "$conf.pacsave"
 grep -F "keep-config: $conf: kept the edited copy" "$proof/swap.log"
 pacman -Dk

@@ -109,7 +109,9 @@ jobs:
             RELEASE_TAG=$(python3 scripts/next-tag.py testing- < existing-tags)
           fi
           [[ $RELEASE_TAG =~ ^testing-[A-Za-z0-9._-]+$ ]]
-          ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists" >&2; exit 1
+          fi
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
