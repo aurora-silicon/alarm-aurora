@@ -6,7 +6,7 @@
 
 pkgname=plymouth
 pkgver=26.134.222
-pkgrel=7
+pkgrel=8
 pkgdesc='Graphical boot splash screen'
 arch=(aarch64)
 url='https://www.freedesktop.org/wiki/Software/Plymouth/'
@@ -51,6 +51,7 @@ source=(
   plymouth.initcpio_install
   plymouth-shutdown.initcpio_install
   50-plymouth.conf
+  0001-ply-device-manager-Fix-race-in-fb_device_has_drm_dev.patch
   0001-ply-terminal-Keep-terminal-input-nonblocking.patch
   test-terminal-input.c
   0001-systemd-units-Start-plymouthd-without-waiting-for-coldplug.patch
@@ -77,6 +78,7 @@ b2sums=(
   SKIP
   SKIP
   SKIP
+  SKIP
 )
 sha256sums=(
   SKIP
@@ -85,6 +87,7 @@ sha256sums=(
   SKIP
   SKIP
   SKIP
+  001b8a8ecf9fa610dcf4b521013d413d49533ff50e0865adf142ae5191a10de1
   121c8fc8d6347acf1621041c6489a4180698fbea981bddcef8b2ffa33062e38a
   d91afcdfd4cfa7ea433296cfb90336cfc1ab108a880ff5e1db8d973490cf67ab
   322319d0159bb844dc7b2310879f43fb7e180cacffd482be283d432ef16d2b3d
@@ -102,6 +105,11 @@ prepare() {
   # Fix default XKB keymap fallback overriding KEYMAP
   # https://gitlab.freedesktop.org/plymouth/plymouth/-/merge_requests/388
   git cherry-pick -n cea90be39d263e388003a07d125b469c0803d55c
+
+  # Fix race in fb_device_has_drm_device () causing the frame-buffer plugin
+  # to load for a DRM device the drm plugin already drives (Fedora's carry;
+  # after the cherry-pick, which needs a clean tree for the same file)
+  patch -Np1 -i "$srcdir/0001-ply-device-manager-Fix-race-in-fb_device_has_drm_dev.patch"
 
   patch -Np1 -i "$srcdir/0001-ply-terminal-Keep-terminal-input-nonblocking.patch"
 

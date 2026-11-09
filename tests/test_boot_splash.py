@@ -54,6 +54,18 @@ class BootSplashTests(unittest.TestCase):
         self.assertIn('patch -Np1 -i "$srcdir/0001-systemd-units-Start-plymouthd-without-waiting-for-coldplug.patch"',
                       (PLYMOUTH/'PKGBUILD').read_text())
 
+    def test_plymouth_keeps_drm_fbdevs_off_the_frame_buffer_plugin(self):
+        # Fedora's carry, byte for byte: a DRM-emulated fbdev is the DRM device
+        # plymouth already drives, whatever udev has enumerated so far.
+        name = '0001-ply-device-manager-Fix-race-in-fb_device_has_drm_dev.patch'
+        patch = (PLYMOUTH/name).read_text()
+        self.assertIn('drmfb', patch)
+        pkgbuild = (PLYMOUTH/'PKGBUILD').read_text()
+        apply = f'patch -Np1 -i "$srcdir/{name}"'
+        self.assertIn(apply, pkgbuild)
+        # git cherry-pick needs a clean tree for ply-device-manager.c.
+        self.assertGreater(pkgbuild.index(apply), pkgbuild.index('git cherry-pick -n cea90be39d263e388003a07d125b469c0803d55c'))
+
     def test_grub_stays_on_the_console_unless_the_owner_chose(self):
         arch = 'GRUB_TIMEOUT=5\nGRUB_TIMEOUT_STYLE=menu\n#GRUB_TERMINAL_OUTPUT=console'
         self.assertEqual(grub(arch), ['console', 'hidden', '1'])
