@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=28
+pkgrel=29
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -58,7 +58,7 @@ sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '772dc44e77f008bd87e73e6d506178b617503f8e021f7cf1c89280086d995321'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'a57ac8cf600e12224fa6cb24cd5e1dbaa75e89db482e427aceb8e7c31b385997'
+            'c5647c14ef3cdaa46aa64e705e6f32692d93d50d88a588793c978734fcd0dd12'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
@@ -155,7 +155,7 @@ build() {
   echo "Building base..."
   export LLVM="${AURORA_LLVM:-1}" RUSTUP_TOOLCHAIN=1.99.0
   export AURORA_BINDGEN_REAL="$srcdir/private-bindgen/rust-bindgen-0.73.2/target/release/bindgen"
-  _make O="$PWD/build/base" -j"${OMARCHY_BUILD_JOBS:-10}" Image modules dtbs
+  _make O="$PWD/build/base" -j"${OMARCHY_BUILD_JOBS:-10}" Image vmlinuz.efi modules dtbs
   # The launcher includes this tree's prctl.h, so its numbers match the kernel.
   make -C tools/aurora-userpages
 }
@@ -180,7 +180,9 @@ _package_kernel() {
   echo "Installing boot image..."
   # systemd expects to find the kernel here to allow hibernation
   # https://github.com/systemd/systemd/commit/edda44605f06a41fb86b7ab8128dcf99161d2344
-  install -Dm644 "$O"/arch/arm64/boot/Image "$modulesdir/vmlinuz"
+  # The EFI zboot image is about a quarter of the raw Image, and GRUB reads it
+  # through firmware block I/O, so the boot loader stage is shorter.
+  install -Dm644 "$O"/arch/arm64/boot/vmlinuz.efi "$modulesdir/vmlinuz"
   install -m644 "$O/.config" "$modulesdir/config"
 
   # Used by mkinitcpio to name the kernel
