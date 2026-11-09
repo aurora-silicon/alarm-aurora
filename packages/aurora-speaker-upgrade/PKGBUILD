@@ -1,12 +1,12 @@
 pkgname=aurora-speaker-upgrade
 pkgver=0.1
-pkgrel=0.5
+pkgrel=0.6
 pkgdesc='Move the speakers to speakerguardd v2 with this Mac'"'"'s own tuning (preview, ships disabled; the legacy protection stays the default, --revert goes back)'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd/tree/v2/packaging/upgrade'
 license=('MIT')
-_commit=a561b6fbcf595d1c5c844d9a696b47dec948366a
+_commit=ff88f9f98070e64e6df36b87cf622dd4d53b9dca
 makedepends=('git' 'make' 'python' 'python-cryptography')
 depends=('python' 'python-cryptography' 'util-linux' 'alsa-utils' 'systemd')
 # The switch needs speakerguardd v2; without it the tool refuses and the
