@@ -12,7 +12,8 @@ makedepends=('cmake' 'gcc' 'make')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/lzfse/lzfse/archive/refs/tags/lzfse-$pkgver.tar.gz")
 sha256sums=('cf85f373f09e9177c0b21dbfbb427efaedc02d035d2aade65eb58a3cbf9ad267')
 build() {
-  cmake -S lzfse-lzfse-$pkgver -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DLZFSE_BUNDLE_MODE=OFF
+  cmake -S lzfse-lzfse-$pkgver -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DLZFSE_BUNDLE_MODE=OFF \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5
   cmake --build build
 }
 check() {
