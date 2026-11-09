@@ -41,7 +41,7 @@ pkgname=(
   pulse-native-provider
 )
 pkgver=1.6.10
-pkgrel=1.3
+pkgrel=1.4
 epoch=1
 pkgdesc="Low-latency audio/video router and processor"
 url="https://pipewire.org"
@@ -126,6 +126,9 @@ source=(
   # A system sleep entered while such starts were refused suspends the PCM
   # before the retry: its -EBADFD after the resume is the normal recovery path.
   1008-alsa-a-start-on-a-suspended-PCM-is-expected-not-an-error.patch
+  # Display audio (HDMI/DP) nodes are named after the display, from its ELD,
+  # also when it was switched on after the card was set up (upstream efb5aa06).
+  1009-alsa-put-the-ELD-product-name-on-HDMI-DP-nodes.patch
 )
 b2sums=('3c4645252b9affb46852be4d3103fc94664f76df1a1b64b7a8aee011f26b38f10d5bd189fdef65b239c9e13e016dbd25070b791c7ec4e2870777231aac3a8bbd'
         'ea19c2cd60b7b9773b48b2a044c764fbec260ec356d4a0f66a31737015dad5f1509145bf97094988fc2ea55282e98d52df4448a80e46b9e3c2fef57345b87846'
@@ -137,7 +140,8 @@ b2sums=('3c4645252b9affb46852be4d3103fc94664f76df1a1b64b7a8aee011f26b38f10d5bd18
         'f4f0e167e387c34fbb7fbc56f2fb6cc6745388f9e519b5051bcaab8a9d1d9a83b666f123af2964eb4601162380b96edff47314f7c0b3799c16672331297f1a90'
         'b99949982a9c23dfd176dd558593795d26f09e8ae08fb59d786345e9d8c04b935c7b21f2e52d21f4d1b4641c25bc39f08f7544c1212317f923bc73955ddb2d45'
         '63f63c44d6022cad38cae9862efcf4cb71ca2c01e272a4e5d4818d1e856e30f7f779542a8bcf015a83940bb1ea2d1e3ec009d0dfc4d5d8b64d06f991da70cda6'
-        '4c839af6bb319eb95d096c16b34b40636b77acad8de768fc902d317d9873afccfd2882461e6a98572db0000733a4b0e2647e2d7ffbe4fe3e765e3f520f2417e9')
+        '4c839af6bb319eb95d096c16b34b40636b77acad8de768fc902d317d9873afccfd2882461e6a98572db0000733a4b0e2647e2d7ffbe4fe3e765e3f520f2417e9'
+        '46189ba943e5fa14aa5cce7c0a79ccf864ef6e29f39e5817ed23dd7eba30131d8b1168634a07938c80aec7809dd87ed44a51dc529610cef727cef773d5e36a8c')
 
 prepare() {
   cd pipewire
