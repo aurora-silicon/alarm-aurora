@@ -15,7 +15,11 @@ candidate=("$packages"/upower-aurora-[0-9]*.pkg.tar.*)
 printf '\n# upgrade-test-preserved\n' >> /etc/UPower/UPower.conf
 mkdir -p /var/lib/upower
 printf '1' > /var/lib/upower/charging-threshold-status
-sha256sum /etc/UPower/UPower.conf /var/lib/upower/charging-threshold-status > "$proof/state.sha256"
+sha256sum /var/lib/upower/charging-threshold-status > "$proof/state.sha256"
+# Removing a package for a conflict saves an edited backup file as .pacsave,
+# and the replacement installs its own copy; the edit must be kept there.
+sed 's|/etc/UPower/UPower.conf$|/etc/UPower/UPower.conf.pacsave|' \
+  <(sha256sum /etc/UPower/UPower.conf) > "$proof/config.sha256"
 # Local unsigned candidates are permitted only by this disposable test config.
 cp /etc/pacman.conf "$proof/pacman.conf"
 sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
@@ -26,12 +30,14 @@ pacman -Q upower-aurora | tee "$proof/aurora.txt"
 pacman -T 'upower=1.91.5' 'libupower-glib.so'
 test -x /usr/lib/upowerd
 test -x /usr/bin/upower
-sha256sum --check "$proof/state.sha256"
+sha256sum --check "$proof/state.sha256" "$proof/config.sha256"
+grep -Fx '# upgrade-test-preserved' /etc/UPower/UPower.conf.pacsave
+! grep -Fx '# upgrade-test-preserved' /etc/UPower/UPower.conf
 pacman -Dk
 # Back to the distribution's package, as an owner rolling back would.
 printf 'y\ny\ny\ny\ny\n' | pacman -S upower
 pacman -Q upower | diff -u "$proof/stock.txt" -
 ! pacman -Q upower-aurora 2>/dev/null
-sha256sum --check "$proof/state.sha256"
+sha256sum --check "$proof/state.sha256" "$proof/config.sha256"
 pacman -Dk
 printf 'PASS: upower-aurora replaces stock upower and rolls back\n'
