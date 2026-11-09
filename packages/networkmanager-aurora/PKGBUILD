@@ -8,7 +8,7 @@
 pkgname=networkmanager-aurora
 _pkgname=NetworkManager
 pkgver=1.58.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Network connection manager, keeping Wake-on-LAN devices that stay activated across sleep'
 url='https://networkmanager.dev/'
 arch=('aarch64')
@@ -172,6 +172,9 @@ _pick() {
 }
 
 package() {
+  # A swap from or back to stock networkmanager keeps an edited
+  # NetworkManager.conf in place.
+  depends+=('aurora-keep-config')
   meson install -C build --destdir "$pkgdir"
 
   cd "$pkgdir"

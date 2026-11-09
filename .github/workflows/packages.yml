@@ -44,8 +44,10 @@ jobs:
               paths=subprocess.check_output(['git','diff','--name-only',before,os.environ['GITHUB_SHA']],text=True).splitlines()
               if 'scripts/test-graphics-upgrade' in paths:
                   paths.append('packages/mesa-aurora/PKGBUILD')
-              if 'scripts/test-upower-upgrade' in paths:
+              if {'scripts/test-upower-upgrade','scripts/ci-build-keep-config'}.intersection(paths) or any(p.startswith('packages/aurora-keep-config/') for p in paths):
                   paths.append('packages/upower-aurora/PKGBUILD')
+              if 'scripts/test-networkmanager-upgrade' in paths:
+                  paths.append('packages/networkmanager-aurora/PKGBUILD')
               if {'scripts/test-touchid-upgrade','scripts/ci-test-touchid-upgrade'}.intersection(paths):
                   paths.append('packages/aurora-sep/PKGBUILD')
               if 'sources.json' in paths:
@@ -159,7 +161,12 @@ jobs:
                 chroot out/container /bin/bash /src/scripts/test-graphics-upgrade /tmp/package-build
               fi
               if [[ $1 == upower-aurora ]]; then
+                chroot out/container /bin/bash /src/scripts/ci-build-keep-config /tmp/package-build
                 chroot out/container /bin/bash /src/scripts/test-upower-upgrade /tmp/package-build
+              fi
+              if [[ $1 == networkmanager-aurora ]]; then
+                chroot out/container /bin/bash /src/scripts/ci-build-keep-config /tmp/package-build
+                chroot out/container /bin/bash /src/scripts/test-networkmanager-upgrade /tmp/package-build
               fi
             ' build '${{ matrix.package }}' 2>&1 | tee build.log
       - name: Build Flatpak GL in signed ALARM OCI root
@@ -195,6 +202,7 @@ jobs:
             out/graphics-upgrade/*.conf
             out/graphics-upgrade/stock-packages.tar
             out/upower-upgrade/
+            out/networkmanager-upgrade/
           include-hidden-files: true
           retention-days: 30
       # A failed attempt keeps its log under a name publication never reads.
@@ -209,6 +217,7 @@ jobs:
             out/graphics-upgrade/*.conf
             out/graphics-upgrade/stock-packages.tar
             out/upower-upgrade/
+            out/networkmanager-upgrade/
             out/container/tmp/package-build/src/linux-*/build/base/.config
           include-hidden-files: true
           retention-days: 14

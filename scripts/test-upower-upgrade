@@ -1,43 +1,69 @@
 #!/bin/bash
 # Disposable CI chroot only. Replace stock upower 1.91.5 with upower-aurora,
-# then go back to stock; configuration and saved state survive both.
+# then go back to stock; the edited configuration stays active and saved state
+# survives both, as dnf keeps them on Fedora.
 set -euo pipefail
 [[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
 packages=${1:?directory containing freshly built packages}
 proof=/src/out/upower-upgrade
+conf=/etc/UPower/UPower.conf
 mkdir -p "$proof"
 pacman -S --noconfirm --needed upower
 pacman -Q upower | tee "$proof/stock.txt"
 [[ $(pacman -Q upower | cut -d' ' -f2) == 1.91.5-* ]]
 candidate=("$packages"/upower-aurora-[0-9]*.pkg.tar.*)
-[[ ${#candidate[@]} == 1 && -f ${candidate[0]} ]]
+keeper=("$packages"/aurora-keep-config-[0-9]*.pkg.tar.*)
+[[ ${#candidate[@]} == 1 && -f ${candidate[0]} && ${#keeper[@]} == 1 && -f ${keeper[0]} ]]
+# backup_state <package>: the owner's view of the file, as pacman reports it.
+backup_state() { LC_ALL=C pacman -Qii "$1" | grep -Eo "$conf \[[a-z]+\]$" | cut -d' ' -f2; }
+[[ $(backup_state upower) == '[unmodified]' ]]
 # The configuration and the persisted charge-limit choice are the owner's.
-printf '\n# upgrade-test-preserved\n' >> /etc/UPower/UPower.conf
+printf '\n# upgrade-test-preserved\n' >> "$conf"
 mkdir -p /var/lib/upower
 printf '1' > /var/lib/upower/charging-threshold-status
 sha256sum /var/lib/upower/charging-threshold-status > "$proof/state.sha256"
-# Removing a package for a conflict saves an edited backup file as .pacsave,
-# and the replacement installs its own copy; the edit must be kept there.
-sed 's|/etc/UPower/UPower.conf$|/etc/UPower/UPower.conf.pacsave|' \
-  <(sha256sum /etc/UPower/UPower.conf) > "$proof/config.sha256"
+sha256sum "$conf" > "$proof/config.sha256"
 # Local unsigned candidates are permitted only by this disposable test config.
 cp /etc/pacman.conf "$proof/pacman.conf"
 sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
+# The first swap also brings in aurora-keep-config, as from the repository.
 # Answer the conflict-removal prompt; do not force files or ignore deps.
-printf 'y\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${candidate[0]}"
+printf 'y\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${keeper[0]}" "${candidate[0]}" | tee "$proof/swap.log"
 pacman -Q upower-aurora | tee "$proof/aurora.txt"
+pacman -Q aurora-keep-config
 ! pacman -Q upower 2>/dev/null
-pacman -T 'upower=1.91.5' 'libupower-glib.so'
+pacman -T 'upower=1.91.5' 'libupower-glib.so' 'aurora-keep-config'
 test -x /usr/lib/upowerd
 test -x /usr/bin/upower
+# The edit is still the active file; pacman sees the owner's change, and the
+# replacement's default is beside it as .pacnew, as after an in-place upgrade.
 sha256sum --check "$proof/state.sha256" "$proof/config.sha256"
-grep -Fx '# upgrade-test-preserved' /etc/UPower/UPower.conf.pacsave
-! grep -Fx '# upgrade-test-preserved' /etc/UPower/UPower.conf
+grep -Fx '# upgrade-test-preserved' "$conf"
+[[ $(backup_state upower-aurora) == '[modified]' ]]
+test -f "$conf.pacnew" && ! grep -Fx '# upgrade-test-preserved' "$conf.pacnew"
+test ! -e "$conf.pacsave"
+grep -F "keep-config: $conf: kept the edited copy" "$proof/swap.log"
 pacman -Dk
 # Back to the distribution's package, as an owner rolling back would.
-printf 'y\ny\ny\ny\ny\n' | pacman -S upower
+printf 'y\ny\ny\ny\ny\n' | pacman -S upower | tee "$proof/rollback.log"
 pacman -Q upower | diff -u "$proof/stock.txt" -
 ! pacman -Q upower-aurora 2>/dev/null
 sha256sum --check "$proof/state.sha256" "$proof/config.sha256"
+[[ $(backup_state upower) == '[modified]' ]]
+test ! -e "$conf.pacsave"
+grep -F "keep-config: $conf: kept the edited copy" "$proof/rollback.log"
 pacman -Dk
-printf 'PASS: upower-aurora replaces stock upower and rolls back\n'
+# A .pacsave the owner left from an earlier removal is not brought back: with
+# the stock default active, the swap installs the replacement's default.
+cp "$conf" "$conf.pacsave"
+cp "$conf.pacnew" "$conf"
+rm "$conf.pacnew"
+[[ $(backup_state upower) == '[unmodified]' ]]
+sha256sum "$conf.pacsave" > "$proof/stale.sha256"
+printf 'y\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${candidate[0]}" | tee "$proof/stale.log"
+[[ $(backup_state upower-aurora) == '[unmodified]' ]]
+sha256sum --check "$proof/stale.sha256" "$proof/state.sha256"
+test ! -e "$conf.pacnew" && test ! -e "$conf.pacsave.1"
+! grep -F 'keep-config:' "$proof/stale.log"
+pacman -Dk
+printf 'PASS: upower-aurora replaces stock upower and rolls back with the edited UPower.conf active\n'

@@ -108,6 +108,18 @@ adds `boot-ctxr.bin`, a copy of it, to the image's ESP, and `boot-ctxr-<board>.b
 script fails the image if any of them is over 16 MiB. Without the marker the image has no `boot-ctxr.bin`,
 and the installer refuses it on Mach-O Macs, so no Mac gets a `boot-ctxr.bin` that updates don't refresh.
 
+### Swapping a stock package for its Aurora build
+
+`upower-aurora` and `networkmanager-aurora` conflict with Arch's `upower` and `networkmanager`, so moving
+between them (either way) is a conflict removal and a fresh install, not an upgrade. pacman then saves an
+edited `/etc/UPower/UPower.conf` or `/etc/NetworkManager/NetworkManager.conf` as `.pacsave` and installs
+the default. Both packages depend on `aurora-keep-config`, whose PostTransaction hook puts the edited file
+back when the new package's copy is unmodified and the `.pacsave` was made in that transaction; the new
+default is left as `.pacnew`, as after an in-place upgrade (and as dnf does on Fedora). An older
+`.pacsave` is left alone. `scripts/test-upower-upgrade` and `scripts/test-networkmanager-upgrade` swap,
+roll back and check the edit stays active; `tests/test_keep_config.py` fails when another package gains
+backup files and a conflict without being listed.
+
 ## Workflows
 
 | Workflow | Trigger | Does |
