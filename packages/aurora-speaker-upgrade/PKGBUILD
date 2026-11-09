@@ -1,7 +1,7 @@
 pkgname=aurora-speaker-upgrade
 pkgver=0.1
-pkgrel=0.1
-pkgdesc='Move the speakers to speakerguardd v2 with this Mac'"'"'s own tuning (preview, ships disabled)'
+pkgrel=0.2
+pkgdesc='Move the speakers to speakerguardd v2 with this Mac'"'"'s own tuning (enabled by preset)'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd/tree/v2/packaging/upgrade'
@@ -13,13 +13,17 @@ depends=('python' 'python-cryptography' 'util-linux' 'alsa-utils' 'systemd')
 # legacy protection keeps the speakers.
 optdepends=('speakerguardd-v2: the protection it switches to'
             'lzfse: route 2 (Apple'"'"'s restore image) and LZFSE-compressed macOS files')
-source=("speakerguardd::git+https://github.com/aurora-silicon/speakerguardd.git#commit=$_commit")
-sha256sums=('SKIP')
+install=aurora-speaker-upgrade.install
+source=("speakerguardd::git+https://github.com/aurora-silicon/speakerguardd.git#commit=$_commit"
+        90-aurora-speaker-upgrade.preset)
+sha256sums=('SKIP'
+            '6dc0b069087f4e4a84f613bcf0b6df3a0ec320b8959ea327a6598595f19dfdc3')
 check() {
   cd speakerguardd
   python3 -I -m unittest discover -s packaging/upgrade/tests
 }
 package() {
+  install -Dm644 90-aurora-speaker-upgrade.preset "$pkgdir/usr/lib/systemd/system-preset/90-aurora-speaker-upgrade.preset"
   cd speakerguardd
   make -C packaging/upgrade install DESTDIR="$pkgdir" PREFIX=/usr UNITDIR=/usr/lib/systemd/system V2UNIT=speakerguardd-v2.service
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

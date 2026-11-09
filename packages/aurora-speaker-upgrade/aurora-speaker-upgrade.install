@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Apply the shipped preset, as Fedora's systemd_post does. A unit the user
+# already enabled or disabled stays as it is.
+_preset_upgrade_unit() {
+  systemctl --preset-mode=enable-only preset aurora-speaker-upgrade.service >/dev/null 2>&1 || :
+}
+
+post_install() {
+  _preset_upgrade_unit
+}
+
+post_upgrade() {
+  # The preset is new to installs that had the disabled preview (0.1-0.1):
+  # apply it once, on the upgrade that brings it.
+  if [ "$(vercmp "$2" 0.1-0.2)" -lt 0 ]; then
+    _preset_upgrade_unit
+  fi
+}
+
+pre_remove() {
+  systemctl --no-reload disable aurora-speaker-upgrade.service >/dev/null 2>&1 || :
+}
