@@ -11,9 +11,9 @@ post_install() {
 }
 
 post_upgrade() {
-  # The preset is new to installs that had the disabled preview (0.1-0.1):
-  # apply it once, on the upgrade that brings it.
-  if [ "$(vercmp "$2" 0.1-0.5)" -lt 0 ]; then
+  # The preset first ships in 0.1-0.8; installs of the disabled opt-in
+  # builds before it get it once, on the upgrade that brings it.
+  if [ "$(vercmp "$2" 0.1-0.8)" -lt 0 ]; then
     _preset_upgrade_unit
   fi
 }
