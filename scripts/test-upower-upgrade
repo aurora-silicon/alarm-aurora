@@ -1,0 +1,43 @@
+#!/bin/bash
+# Disposable CI chroot only. Replace stock upower 1.91.5 with upower-aurora,
+# then go back to stock; configuration and saved state survive both.
+set -euo pipefail
+[[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
+packages=${1:?directory containing freshly built packages}
+proof=/src/out/upower-upgrade
+mkdir -p "$proof"
+pacman -S --noconfirm --needed upower
+pacman -Q upower | tee "$proof/stock.txt"
+[[ $(pacman -Q upower | cut -d' ' -f2) == 1.91.5-* ]]
+candidate=("$packages"/upower-aurora-[0-9]*.pkg.tar.*)
+[[ ${#candidate[@]} == 1 && -f ${candidate[0]} ]]
+# The configuration and the persisted charge-limit choice are the owner's.
+printf '\n# upgrade-test-preserved\n' >> /etc/UPower/UPower.conf
+mkdir -p /var/lib/upower
+printf '1' > /var/lib/upower/charging-threshold-status
+sha256sum /var/lib/upower/charging-threshold-status > "$proof/state.sha256"
+# Removing a package for a conflict saves an edited backup file as .pacsave,
+# and the replacement installs its own copy; the edit must be kept there.
+sed 's|/etc/UPower/UPower.conf$|/etc/UPower/UPower.conf.pacsave|' \
+  <(sha256sum /etc/UPower/UPower.conf) > "$proof/config.sha256"
+# Local unsigned candidates are permitted only by this disposable test config.
+cp /etc/pacman.conf "$proof/pacman.conf"
+sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
+# Answer the conflict-removal prompt; do not force files or ignore deps.
+printf 'y\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${candidate[0]}"
+pacman -Q upower-aurora | tee "$proof/aurora.txt"
+! pacman -Q upower 2>/dev/null
+pacman -T 'upower=1.91.5' 'libupower-glib.so'
+test -x /usr/lib/upowerd
+test -x /usr/bin/upower
+sha256sum --check "$proof/state.sha256" "$proof/config.sha256"
+grep -Fx '# upgrade-test-preserved' /etc/UPower/UPower.conf.pacsave
+! grep -Fx '# upgrade-test-preserved' /etc/UPower/UPower.conf
+pacman -Dk
+# Back to the distribution's package, as an owner rolling back would.
+printf 'y\ny\ny\ny\ny\n' | pacman -S upower
+pacman -Q upower | diff -u "$proof/stock.txt" -
+! pacman -Q upower-aurora 2>/dev/null
+sha256sum --check "$proof/state.sha256" "$proof/config.sha256"
+pacman -Dk
+printf 'PASS: upower-aurora replaces stock upower and rolls back\n'
