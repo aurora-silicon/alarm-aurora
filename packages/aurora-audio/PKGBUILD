@@ -1,6 +1,6 @@
 pkgname=aurora-audio
 pkgver=4.1.aurora2
-pkgrel=15
+pkgrel=16
 pkgdesc='Aurora Apple Silicon PipeWire/WirePlumber DSP profiles including J700'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -9,8 +9,10 @@ license=('MIT')
 _commit=c967141161bea3badc7754e23d80b39ffb1bdafd
 makedepends=('make' 'patch')
 provides=("asahi-audio=$pkgver" "asahi-audio-aurora=$pkgver")
-conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2')
-replaces=('asahi-audio-aurora' 'speakerguardd-v2')
+# Only the retired v2 preview builds (up to RC7, 1.0.0alpha.1-25) are replaced;
+# speakerguardd-v2 RC8 and later is an opt-in package that installs beside this.
+conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')
+replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')
 backup=('etc/mkinitcpio.conf.d/90-aurora-audio.conf')
 install=aurora-audio.install
 source=("aurora-audio-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/asahi-audio/tar.gz/$_commit"

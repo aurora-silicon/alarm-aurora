@@ -6,6 +6,11 @@ source. aurora-audio 4.1.aurora2-12 restores the Asahi speaker graphs and
 replaces the v2 package. Earlier parity entries below are historical;
 NixOS's equivalent rollback still needs separate validation.
 
+Update 2026-11-09: speakerguardd-v2 RC8 (1.0.0alpha.1-26) returns as an opt-in
+package. Nothing in the default install pulls it; aurora-audio replaces only the
+retired builds up to 1.0.0alpha.1-25, and the gate keeps speakersafetyd in charge
+until aurora-speaker-upgrade (disabled) switches a Mac on the dual-interface kernel.
+
 The Fedora main snapshot is the packaging baseline. Package release labels
 track the same merged content using each distribution's existing version scheme.
 
