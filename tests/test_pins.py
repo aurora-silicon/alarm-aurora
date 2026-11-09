@@ -31,11 +31,11 @@ class PinTests(unittest.TestCase):
         # verify needs the macOS parity attestation (speakerguardd#114).
         self.assertIn('packaging/session/parity.json', main)
         self.assertNotIn('machines.json', main)
-        # Switch-on (Ryan + DJ go): the default audio stack pulls v2 and the
+        # Switch-on: the default audio stack pulls v2 and the
         # upgrade tool beside the legacy daemons, and replaces only retired builds.
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
         self.assertIn("'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora'", audio)
-        self.assertIn("'speakerguardd-v2>=1.0.0alpha.1-28' 'aurora-speaker-upgrade>=0.1-0.5'", audio)
+        self.assertIn("'speakerguardd-v2>=1.0.0alpha.1-30' 'aurora-speaker-upgrade>=0.1-0.7'", audio)
         self.assertIn("conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
         self.assertIn("replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
         up = ROOT / 'packages/aurora-speaker-upgrade'
