@@ -1,0 +1,18 @@
+pkgname=aurora-keep-config
+pkgver=1
+pkgrel=1
+pkgdesc='Keep configuration edited before a swap between a distribution package and its Aurora build'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('bash' 'coreutils' 'findutils' 'gawk' 'pacman')
+source=(keep-config aurora-keep-config.hook LICENSE)
+sha256sums=('1b5aa2febe48935ca4a45b75239328f9ae8bc629b7a78c9d80f5e2056cf8dc1d'
+            '951c47e32d5f0f12b006fdac67fa37aa44cca24bf52f78b2f2de1ad9feb07c0f'
+            '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+
+package() {
+  install -Dm755 keep-config "$pkgdir/usr/libexec/aurora/keep-config"
+  install -Dm644 aurora-keep-config.hook "$pkgdir/usr/share/libalpm/hooks/aurora-keep-config.hook"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

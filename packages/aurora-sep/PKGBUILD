@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=19
+pkgrel=22
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -10,8 +10,8 @@ install=aurora-sep.install
 # Touch ID's polkit and sudo stacks are written by touchid-pam (see there), and
 # the Plasma power-button default is the owner's to edit.
 backup=('etc/xdg/powerdevilrc')
-source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'aurora-touchid-setup' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' 'aurora-touchid-setup.service' 'touchid-setup-needed' 'touchid-pam' 'aurora-sep-touchid-pam.hook' 'powerdevilrc' 'aurora-sep-modprobe.conf')
-sha256sums=('3909519a8c498c9da505d03883107db61cb3a7c5b9fa7e9878af78417e43dea4'
+source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'aurora-touchid-setup' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' 'aurora-touchid-setup.service' 'touchid-setup-needed' 'touchid-pam' 'aurora-sep-touchid-pam.hook' 'powerdevilrc' 'aurora-sep-modprobe.conf' 'aurora-sep')
+sha256sums=('c7585707724e4737f5732c07d5bb4ed6c90cf4655042966433ecaaf7ec8ca1a5'
             'ef6e9067fe20b05c64bebe8445d1ea18b2f9800721522c3e84be21a2c47bb4eb'
             'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
             'c1a0d40762e3b9acc58f4d54b3a85b0947a6da7985e42cc3eaabe7a35b4b0e48'
@@ -28,13 +28,14 @@ sha256sums=('3909519a8c498c9da505d03883107db61cb3a7c5b9fa7e9878af78417e43dea4'
             '5936eb76db666496a8700dade7ac6bcb3785b517958dcea10685690f1822c86f'
             'ffab97b20bfd5f0eb1ab641179a131843349cf16890fff0cf2d893f0b5681b37'
             '0695bd9ce4c207241db13c3ea07819a032d8213417021378f5015ab9317cde12'
-            'd43177d141a8355211acff51ab14db87b8b88640295bf4bdbc6fe7c64fc02042'
+            'b098d5aa33ca28317d974e7c82695cc23d36531fd8b340e83a8bfe2ea9d3466f'
             '71305d392a68f623d351e0addf5a821fb0900b9a0fba7169c1ed62fd6bebe9ca'
             '371a0f8d874692a74581f884d7cc3db9e9e52fedaa7f099c0930a7c3a4080408'
             'e40e79ae7d9e54918078c620d425f59ac6ff201a706869637ddb4d4bca794d4c'
             'cbcac4487988d17c13290d093c5728306fee3212eb68332c7cb41e10cc068866'
             'c4a546ba81e435434caae8abd10f59bd583aa089108d4dac036e0efda8182181'
-            '2afed78be5e8e163de50be82dd74fd956113b56059487f83e32121f43d6002ec')
+            '2afed78be5e8e163de50be82dd74fd956113b56059487f83e32121f43d6002ec'
+            'f8a2eadd5b55be5aedda79e5d1a629b93f13a64fb4ebb8f280aa86d22b6d3a06')
 
 package() {
   depends=('coreutils' 'fprintd-aurora>=1.94.5' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'gawk' 'systemd' 'libfprint-aurora>=1.94.100-6' 'aurora-touchid-rearm' 'aurora-xart')
@@ -47,6 +48,7 @@ package() {
   install -Dm755 aurora-sep-ready "$pkgdir/usr/libexec/aurora-sep-ready"
   install -Dm755 aurora-sep-greeter-fingerprint "$pkgdir/usr/libexec/aurora-sep-greeter-fingerprint"
   install -Dm755 sensor-present "$pkgdir/usr/libexec/aurora-sep-sensor-present"
+  install -Dm755 aurora-sep "$pkgdir/usr/bin/aurora-sep"
   install -Dm755 aurora-touchid-setup "$pkgdir/usr/bin/aurora-touchid-setup"
   for name in extract-mesa-calibration touchid-setup-needed; do
     install -Dm755 "$name" "$pkgdir/usr/libexec/aurora/$name"
