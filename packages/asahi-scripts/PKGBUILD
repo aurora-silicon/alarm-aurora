@@ -7,7 +7,7 @@
 # The aurora repository is listed first, so this shadows asahi-alarm's updates.
 #
 # update-m1n1 is Fedora's trial-then-commit Stage 2 updater
-# (aurora-silicon/fedora-aurora#193, #207): bootchain.py and test_bootchain.py are
+# (aurora-silicon/fedora-aurora#193, #207, #232): bootchain.py and test_bootchain.py are
 # fedora-aurora's packages/update-m1n1 files byte for byte, as are the units and
 # the preset; bootchain_arch.py only gives them Arch's paths. A kernel update
 # composes <stage2>.next, arms aura's one-shot aura-try and keeps the live image
@@ -15,7 +15,7 @@
 # the tag's 95-m1n1-install.hook so that a kernel removal runs it too.
 pkgname=asahi-scripts
 pkgver=20261023
-pkgrel=6
+pkgrel=7
 pkgdesc='Asahi Linux maintenance scripts'
 arch=('any')
 url='http://asahilinux.org'
@@ -44,9 +44,9 @@ sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
             '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9'
             'f5fab46d6c0abd20875f1f4f375eca9235d2e465944968755e366a049b097dc5'
             'dca1868d158651ed329ad463962d51bf07ab6ac5935ced8a468f522381dec0e4'
-            '69b37d1909eddecddae667023b082cd163d547e989b8d4c30e116504ac02383c'
+            '0f756f417a9e6379656ca50faaa69f47c881a27671aa98b76d68a560562a897c'
             'e4a1c2248f7c57e70e08e212138d3d6b4ce835366282247e343f4224804b4c23'
-            'd7232c6c90b938141fcfa4a68dc6f5f46328a5005a79e9561d9a73ba7c61ab47'
+            'c566a7c4f892ba391384366df20bff76ea76a207835f335b90c42e85287e5761'
             'b5c8f410cd2b1420a3e1cf2e82c81c44d9caa909cb306d7bcae95d12fbb828e3'
             'b7039f9c926217008f8b5c936e665107592934a58595e408f017a3708a7a7c4d'
             '351b305d08d164b6d6532a294c4d30dd3db30ac27f61d1578b2d4548e93f69db'
@@ -57,9 +57,9 @@ b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641
         '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93'
         '4547e46fbdfae65d94f3b05c8ba338e437211100cfcd781a1152e77e521897e5825e2e3928be9ba10749f2f878bf3159492745b84480e8751069a0b4b3cf3ee7'
         '3c4b539322edb95e0398af78d726501a6c5907f5568b47ef8c9f4fde837af3441d61b0d00a131966f353b3e2c59dbfdb650f9e7ce143ea3f182e3169a968a832'
-        '16b31b5c0bddfe1cfa5dc04269ffb72b6371e60bc6208c51afa780f76569f2650c2528ae62f9ad3e4cc7630c002d76c12b2f7d62c069b671d573b47582616392'
+        '60b974ec5ceba2a770e9662d487f0bf60fa8b8ae8d578b1a2db1bfb50c35f9353d53f5a194f0c101f42794d83b014c5123ffff1fb1f68d8ec2ba1214927c188b'
         '7f136e00163473d211f9cd0a2589d721fff30b32f0cb64a2655bfef70406ccfa017fe8fa5662675de9e9f2ea653a4afd4afb6c0a610ece0930138c3d1af48905'
-        '8a98daa463026069a8668bf1a094d89b16944c0f4f099452a7c8e5950d70912ee8b62bac9d4688007e40f9b1423a7cfe0854d593bf7d9c4eed2c7f7257f68891'
+        '801c7e6878de848e4c8a79fbde79336f32e1d77d34d33af8cfb1ca37a96532b313b37413ab55d243e1aa70e3bf12d80aebdbee4807812cee84c1c6f2a75eda3b'
         '2df51003ee22ab14ca3477da665d70011bfcf2e869e51b99c40718d6b59eac46b6482026a6ec4ea9e05d3702a7c005788d5d6a1cca729ec17b87c3fcc3c23b67'
         '48e1dc3755cf78788892c4641aeaddb1d061ecf010119f55889434f5187ee1d706a65f6ca6168cca796ddc3ef260403c6de2275142242e65dc9c76c1100fd79f'
         '5e215383236fdb525a67ddb8be325b0568dd3272b49f45d5bb554d9ca9f0556daae38e0ad3f12d096b325e1cc288cb5848b077f6d92fb3182bf0ee2e5866a860'
