@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=29
+pkgrel=30
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
