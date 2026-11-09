@@ -63,6 +63,8 @@ jobs:
           for file in packages/*/PKGBUILD scripts/*; do
             [[ $file == *.py ]] || bash -n "$file"
           done
+      - name: No recipe builds an older version than the published feed
+        run: python3 scripts/check-published-versions.py
   fex-overlay:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
