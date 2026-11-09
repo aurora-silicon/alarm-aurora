@@ -13,6 +13,10 @@ pkgrel=27
 # the PR's attached qualification evidence before channel publication.
 _commit=d4d267839caa0aa9cbcd98a792351a52bd856b84
 _sha256=3fd24d573b597102f749e5ad010c3dbb684d9a695af21bd31c99e8fa7c705feb
+# TODO: config carries CONFIG_APPLE_SOC_SLEEP=y (aurora-silicon/linux#1334, the
+# sleep driver renamed for all Apple SoCs) and CONFIG_RTC_DRV_APPLE_PMU=y
+# (aurora-silicon/linux#1333, the PMU RTC as J700's rtc0). Move the pin to the
+# sleep series only with both merged into it.
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -60,7 +64,7 @@ sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '3fd24d573b597102f749e5ad010c3dbb684d9a695af21bd31c99e8fa7c705feb'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '8babd908f559161f6cab24a19fff41792937bbefd7a4dd1b7c37f850b6576ac3'
+            '16306b6b6cc42349e5d2dd2cd7f469ec4ed9f0e889a0de23da2b218ff3e45b6d'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             'a8b6015c48ea09f7946ddb1942ceab8d2560d8fb6b8113ce904b1fa5eafa327d'
