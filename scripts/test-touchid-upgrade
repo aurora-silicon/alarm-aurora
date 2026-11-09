@@ -1,0 +1,64 @@
+#!/bin/bash
+# Disposable CI chroot only; no device access. Replace stock libfprint and
+# fprintd with the Touch ID stack, then go back to stock. Enrolments, SEP
+# state and the PAM stacks survive both transactions.
+set -euo pipefail
+[[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
+packages=${1:?directory containing freshly built packages}
+proof=/src/out/touchid-upgrade
+mkdir -p "$proof"
+stock=(libfprint fprintd sudo polkit pambase)
+stack=(libfprint-aurora fprintd-aurora aurora-xart aurora-touchid-rearm aurora-sep)
+pacman -S --noconfirm --needed "${stock[@]}"
+pacman -Q "${stock[@]}" | tee "$proof/before.txt"
+[[ $(pacman -Q libfprint | cut -d' ' -f2) == 1.94.100-* ]]
+[[ $(pacman -Q fprintd | cut -d' ' -f2) == 1.94.5-* ]]
+pam=(/etc/pam.d/sudo /etc/pam.d/system-auth)
+sha256sum "${pam[@]}" > "$proof/pam.sha256"
+test ! -e /etc/pam.d/polkit-1
+candidates=()
+for name in "${stack[@]}"; do
+  found=("$packages/$name"-[0-9]*.pkg.tar.*)
+  [[ ${#found[@]} == 1 && -f ${found[0]} ]] || { echo "need exactly one $name package" >&2; exit 1; }
+  candidates+=("${found[0]}")
+done
+# Synthetic records stand in for enrolments, identity and calibration files.
+mkdir -p /var/lib/fprint/upgrade-test /var/lib/aurora-sep
+printf 'synthetic fingerprint record\n' > /var/lib/fprint/upgrade-test/print
+printf 'synthetic identity and calibration\n' > /var/lib/aurora-sep/upgrade-test
+sha256sum /var/lib/fprint/upgrade-test/print /var/lib/aurora-sep/upgrade-test > "$proof/state.sha256"
+# Local unsigned candidates are permitted only by this disposable test config.
+cp /etc/pacman.conf "$proof/pacman.conf"
+sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
+# Answer the conflict-removal prompts; do not force files or ignore deps.
+printf 'y\ny\ny\ny\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${candidates[@]}"
+pacman -Q "${stack[@]}" | tee "$proof/after.txt"
+! pacman -Q libfprint 2>/dev/null
+! pacman -Q fprintd 2>/dev/null
+pacman -T 'libfprint=1.94.100' 'libfprint-2.so' 'fprintd=1.94.5'
+pacman -Dk
+sha256sum --check "$proof/state.sha256"
+# The pacman hook offered Touch ID to sudo and polkit, and the re-arm to
+# every password stack.
+grep -Fx -- '-auth      sufficient   pam_fprintd.so' /etc/pam.d/sudo
+grep -Fx -- '-auth      sufficient   pam_fprintd.so' /etc/pam.d/polkit-1
+grep -Fx -- '-auth      optional     pam_aurora_touchid.so' /etc/pam.d/system-auth
+test -f /usr/lib/security/pam_aurora_touchid.so
+# aurora-sep status: installed and runnable; no SEP here, so exit status 2.
+[[ $(stat -c %a /usr/bin/aurora-sep) == 755 ]]
+status=0
+AURORA_SEP_NO_SYSTEM=1 aurora-sep status > "$proof/aurora-sep-status.txt" || status=$?
+cat "$proof/aurora-sep-status.txt"
+[[ $status == 2 ]]
+# Back to the distribution's packages: removing aurora-sep undoes its PAM
+# lines, and stock libfprint and fprintd replace the Aurora builds.
+pacman -R --noconfirm aurora-sep aurora-xart aurora-touchid-rearm
+printf 'y\ny\ny\ny\ny\ny\ny\ny\n' | pacman -S libfprint fprintd
+pacman -Q "${stock[@]}" | diff -u "$proof/before.txt" -
+! pacman -Q libfprint-aurora 2>/dev/null
+! pacman -Q fprintd-aurora 2>/dev/null
+sha256sum --check "$proof/pam.sha256"
+test ! -e /etc/pam.d/polkit-1
+sha256sum --check "$proof/state.sha256"
+pacman -Dk
+printf 'PASS: Touch ID stack replaces stock libfprint and fprintd and rolls back\n'
