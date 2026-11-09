@@ -3,6 +3,7 @@
 # fprintd with the Touch ID stack, then go back to stock. Enrolments, SEP
 # state and the PAM stacks survive both transactions.
 set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/testlib.sh"
 [[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
 packages=${1:?directory containing freshly built packages}
 proof=/src/out/touchid-upgrade
@@ -33,8 +34,8 @@ sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
 # Answer the conflict-removal prompts; do not force files or ignore deps.
 printf 'y\ny\ny\ny\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${candidates[@]}"
 pacman -Q "${stack[@]}" | tee "$proof/after.txt"
-! pacman -Q libfprint 2>/dev/null
-! pacman -Q fprintd 2>/dev/null
+refute installed libfprint
+refute installed fprintd
 pacman -T 'libfprint=1.94.100' 'libfprint-2.so' 'fprintd=1.94.5'
 pacman -Dk
 sha256sum --check "$proof/state.sha256"
@@ -55,8 +56,8 @@ cat "$proof/aurora-sep-status.txt"
 pacman -R --noconfirm aurora-sep aurora-xart aurora-touchid-rearm
 printf 'y\ny\ny\ny\ny\ny\ny\ny\n' | pacman -S libfprint fprintd
 pacman -Q "${stock[@]}" | diff -u "$proof/before.txt" -
-! pacman -Q libfprint-aurora 2>/dev/null
-! pacman -Q fprintd-aurora 2>/dev/null
+refute installed libfprint-aurora
+refute installed fprintd-aurora
 sha256sum --check "$proof/pam.sha256"
 test ! -e /etc/pam.d/polkit-1
 sha256sum --check "$proof/state.sha256"

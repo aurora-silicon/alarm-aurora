@@ -2,6 +2,7 @@
 set -euo pipefail
 trap 'status=$?; echo "Aurora image failed ($status) at line $LINENO: $BASH_COMMAND" >&2; exit "$status"' ERR
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+source "$root/scripts/testlib.sh"
 # An image serves every Mac, whichever one builds it.
 export AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent
 profile=${1:?arch-kde, arch-gnome or arch-minimal required}
@@ -119,7 +120,8 @@ done
 for branch in 25.08 26.08; do
   chroot "$mountroot" flatpak info --system "org.freedesktop.Platform.GL.aurora/aarch64/$branch"
 done
-! chroot "$mountroot" pacman -Q upower >/dev/null 2>&1
+# Stock upower is gone; upower-aurora (which provides upower) replaced it.
+refute installed "$mountroot" upower
 chroot "$mountroot" userdel -r alarm
 chroot "$mountroot" usermod -L root
 rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"
