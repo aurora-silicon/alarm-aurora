@@ -7,6 +7,8 @@ timeout only held the boot (aurora-sep.service, 120 s on a J614c).
 """
 
 import os
+import shlex
+import shutil
 import subprocess
 import tempfile
 import time
@@ -27,9 +29,14 @@ class NoSepTest(unittest.TestCase):
         # the J614c, where the module loads but probes nothing.
         bin_dir = tmp / 'bin'
         bin_dir.mkdir()
-        for name in ('modprobe', 'keyctl'):
+        # Its scratch folder is in /run, which only root may write; the test
+        # runs unprivileged, so give it one in the test's own folder.
+        scratch = shlex.quote(f'{tmp}/aurora-sep-load.XXXXXX')
+        stubs = {'modprobe': 'exit 0', 'keyctl': 'exit 1',
+                 'mktemp': f'exec {shlex.quote(shutil.which("mktemp"))} -d {scratch}'}
+        for name, body in stubs.items():
             stub = bin_dir / name
-            stub.write_text('#!/bin/sh\nexit 1\n' if name == 'keyctl' else '#!/bin/sh\nexit 0\n')
+            stub.write_text(f'#!/bin/sh\n{body}\n')
             stub.chmod(0o755)
         self.env = dict(os.environ, PATH=f'{bin_dir}:{os.environ["PATH"]}',
                         AURORA_SEP_SESSION='1', AURORA_SEP_SYSFS=str(self.sysfs),
