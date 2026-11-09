@@ -36,7 +36,10 @@ class BootSplashTests(unittest.TestCase):
         script = (BOOT/'aurora-early-kms').read_text()
         self.assertIn('*Capple,display-subsystem*|*Capple,dcp*)', script)
         self.assertIn('"$dev"/supplier:*', script)
-        self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm --settle'))
+        self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm'))
+        # It queues the display ahead of the coldplug but never waits for it.
+        self.assertNotIn('--settle', script)
+        self.assertNotIn('udevadm settle', script)
         subprocess.run(['bash', '-n', str(BOOT/'aurora-early-kms')], check=True)
         pkgbuild = (BOOT/'PKGBUILD').read_text()
         for line in ('install -Dm644 aurora-early-kms.install "$pkgdir/usr/lib/initcpio/install/aurora-early-kms"',
