@@ -26,5 +26,11 @@ package() {
   install -Dm644 90-aurora-speaker-upgrade.preset "$pkgdir/usr/lib/systemd/system-preset/90-aurora-speaker-upgrade.preset"
   cd speakerguardd
   make -C packaging/upgrade install DESTDIR="$pkgdir" PREFIX=/usr UNITDIR=/usr/lib/systemd/system V2UNIT=speakerguardd-v2.service
+  # speakerguardd-v2 installs its helpers in /usr/lib/speakerguardd-v2 on Arch
+  # (Fedora: /usr/libexec/speakerguardd-v2); without this the tool reports v2
+  # as not installed and never switches.
+  local up="$pkgdir/usr/lib/aurora-speaker-upgrade/aurora_speaker_upgrade/upgrade.py"
+  sed -i 's#^LIBEXEC = ("/usr/libexec/speakerguardd-v2",#LIBEXEC = ("/usr/lib/speakerguardd-v2", "/usr/libexec/speakerguardd-v2",#' "$up"
+  grep -q '^LIBEXEC = ("/usr/lib/speakerguardd-v2",' "$up"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
