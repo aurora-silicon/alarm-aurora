@@ -1,0 +1,26 @@
+# Arch Linux ARM ships no lzfse; aurora-speaker-upgrade reads Apple's
+# LZFSE-compressed restore images (and LZFSE-compressed macOS files) with it.
+pkgname=lzfse
+pkgver=1.0
+pkgrel=1
+pkgdesc='LZFSE compression library and command line tool'
+arch=('aarch64')
+url='https://github.com/lzfse/lzfse'
+license=('BSD-3-Clause')
+depends=('glibc')
+makedepends=('cmake' 'gcc' 'make')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/lzfse/lzfse/archive/refs/tags/lzfse-$pkgver.tar.gz")
+sha256sums=('cf85f373f09e9177c0b21dbfbb427efaedc02d035d2aade65eb58a3cbf9ad267')
+build() {
+  cmake -S lzfse-lzfse-$pkgver -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DLZFSE_BUNDLE_MODE=OFF
+  cmake --build build
+}
+check() {
+  cd build
+  printf 'aurora lzfse round trip %.0s' $(seq 200) > in
+  ./lzfse -encode -i in -o in.lzfse && ./lzfse -decode -i in.lzfse -o out && cmp in out
+}
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 lzfse-lzfse-$pkgver/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
