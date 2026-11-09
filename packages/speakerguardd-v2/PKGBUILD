@@ -5,10 +5,10 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=26
+pkgrel=27
 # RC8 pin: the one place to move (with the first sha256sums entry and
 # sources.json speakerguardd-v2).
-_commit=f4bb2fdb44066fc081669b4b43c9db4d766a45e1
+_commit=416b1f513b9d9e924d7e4de16385ba19f7364a92
 _src=speakerguardd-$_commit
 pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview)'
 arch=('aarch64')
@@ -18,7 +18,7 @@ license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
-sha256sums=('26111dc541af8bcb4c435b91cd6ac12b440a7790de8f576c99edc0870cfd37f4'
+sha256sums=('f1e542a63b0a6bf68ea275ba08565d876a990f82658df950a5ecba13bdf8f175'
             '4f8114220e567ff577cdd55d8086180b9376544acacad7087e1becedb2fb7d2c')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
@@ -77,7 +77,7 @@ must('speakerguardd-v2-session.service', f'ExecCondition={lx}/speakerguardd-prov
 if not re.search(r'^CapabilityBoundingSet=.*\bCAP_SYS_ADMIN\b', Path('speakerguardd-v2.service').read_text(), re.M):
     raise SystemExit('speakerguardd-v2.service: CapabilityBoundingSet lacks CAP_SYS_ADMIN')
 Path('legacy-gate.conf').write_text(Path('packaging/systemd/legacy-gate.conf').read_text().replace('/usr/libexec/speakerguardd/', lx + '/'))
-must('legacy-gate.conf', f'ExecCondition={lx}/speakerguardd-gate legacy')
+must('legacy-gate.conf', f'ExecCondition=+{lx}/speakerguardd-gate legacy')
 PYUNIT
 }
 
