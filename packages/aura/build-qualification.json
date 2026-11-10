@@ -1,5 +1,5 @@
 {
-  "source_commit": "9a173ff5bf6264d56fdc4a6d2dae96ed482cb195",
+  "source_commit": "21a70e6e210b7a562c2526c25d2ae334d5eb90e4",
   "hardware_tested": false,
   "stage1_auto_enrollment": false,
   "publication_gate": "native build, matched Stage1/Stage2 Neo boot, repair and upgrade qualification"

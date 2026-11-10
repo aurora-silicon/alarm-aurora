@@ -1,17 +1,17 @@
 # Aurora bootloader; ordinary updates refresh ESP Stage 2, never enroll Stage 1.
 pkgname=aura
-pkgver=1.0.0b5
-pkgrel=2
+pkgver=1.0.0b10
+pkgrel=1
 pkgdesc='Aurora Silicon bootloader for Apple Silicon'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aura'
 license=('MIT' 'GPL-2.0-only')
-_commit=9a173ff5bf6264d56fdc4a6d2dae96ed482cb195
+_commit=21a70e6e210b7a562c2526c25d2ae334d5eb90e4
 # 1 once the pinned source has no monitor (aura#77); prepare() checks it. Such an
 # aura moves the kernel into the CTXR window, so it requires a kernel built with
 # CONFIG_ARM64_CTXR_EXECMEM, which linux-aurora provides as aurora-ctxr-execmem.
-_monitor_free=0
+_monitor_free=1
 _ctxr_kernel=()
 if (( _monitor_free )); then _ctxr_kernel=('aurora-ctxr-execmem'); fi
 _compat=1.6.1.aurora19
@@ -21,7 +21,7 @@ replaces=('m1n1-neo')
 makedepends=('git' 'clang' 'lld' 'llvm' 'rustup' 'make' 'python')
 options=('!strip' '!debug')
 source=("aura::git+$url.git#commit=$_commit" build-qualification.json validate-qualification.py)
-sha256sums=('SKIP' '5149469a3a47cfa9ff8c187cbc75e97c391aa6526dac65b57331ce2ea74c9040' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
+sha256sums=('SKIP' 'c41074fcdb062c18977d6cd3bd576482de0fc11fdea3b2bba3bea0a664a27719' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
 prepare() {
   rustup toolchain install 1.99.0 --profile minimal --target aarch64-unknown-none-softfloat
   [[ $(git -C aura rev-parse HEAD) == "$_commit" ]]
@@ -35,6 +35,9 @@ prepare() {
 build() {
   cd aura
   export RUSTUP_TOOLCHAIN=1.99.0
+  # Label the build with the release, as Fedora and NixOS do: the pin need not
+  # be the release's tag, and git describe would add -g<commit> then.
+  export AURA_VERSION_TAG=$pkgver
   make clean
   make -j"${OMARCHY_BUILD_JOBS:-10}" RELEASE=1 CHAINLOADING=1 USE_CLANG=1 BUILTIN_LOGO=aurora
   install -Dm644 build/aura.bin "$srcdir/stage1/aura-raw.bin"
@@ -46,7 +49,8 @@ build() {
 package() {
   # Required on the installed system, not to build the bootloader. A Mach-O Mac
   # needs the update-m1n1 that leaves boot.bin alone, or this aura could overwrite it.
-  depends=('asahi-scripts>=20260127.1' 'aurora-stage2-ctxr-slot' 'uboot-aurora' "${_ctxr_kernel[@]}")
+  # A new aura reaches Stage 2 through the updater's aura-try trial.
+  depends=('asahi-scripts>=20260127.1' 'aurora-stage2-ctxr-slot' 'aurora-stage2-trial' 'uboot-aurora' "${_ctxr_kernel[@]}")
   # Building a PR candidate does not assert release/hardware qualification.
   install -Dm644 aura/build/aura.bin "$pkgdir/usr/lib/asahi-boot/m1n1.bin"
   install -d "$pkgdir/usr/lib/m1n1-neo"

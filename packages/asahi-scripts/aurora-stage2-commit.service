@@ -1,0 +1,15 @@
+[Unit]
+Description=Commit a successful Aurora Stage 2 trial
+# Avoid the target's implicit ordering before its wanted services.
+DefaultDependencies=no
+After=local-fs.target multi-user.target
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/aurora/aurora-stage2-commit
+
+[Install]
+WantedBy=multi-user.target

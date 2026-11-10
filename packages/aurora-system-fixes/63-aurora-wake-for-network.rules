@@ -1,0 +1,6 @@
+# Wake for network access follows the power adapter, as on macOS: re-apply
+# the policy when the adapter state changes and when a wired interface or a
+# Wi-Fi phy appears (a dock, a driver reload, boot).
+SUBSYSTEM=="power_supply", ACTION=="change", ATTR{type}=="Mains", RUN+="/usr/lib/aurora/aurora-wake-for-network"
+SUBSYSTEM=="net", ACTION=="add", ENV{DEVTYPE}!="wlan", RUN+="/usr/lib/aurora/aurora-wake-for-network"
+SUBSYSTEM=="ieee80211", ACTION=="add", RUN+="/usr/lib/aurora/aurora-wake-for-network"

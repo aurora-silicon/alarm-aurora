@@ -1,6 +1,7 @@
 #!/bin/bash
 # Disposable CI chroot only. Exercise libalpm replacement and exact rollback.
 set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/testlib.sh"
 [[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
 packages=${1:?directory containing freshly built packages}
 commit=$(python3 -c 'import json; print(json.load(open("/src/sources.json"))["mesa-aurora"]["commit"])')
@@ -25,7 +26,7 @@ printf 'y\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U \
   "$packages"/opencl-rusticl-aurora-*.pkg.tar.* \
   "$packages"/vulkan-lavapipe-aurora-*.pkg.tar.*
 pacman -Q | sort > "$proof/after.txt"
-! pacman -Q mesa opencl-mesa vulkan-asahi vulkan-swrast 2>/dev/null
+for name in mesa opencl-mesa vulkan-asahi vulkan-swrast; do refute installed "$name"; done
 pacman -Q mesa-aurora vulkan-aurora opencl-rusticl-aurora vulkan-lavapipe-aurora
 pacman -T 'opencl-driver' 'opencl-mesa' 'opencl-rusticl-mesa' 'libgbm.so' 'mesa'
 test -f /usr/lib/libgbm.so
@@ -33,7 +34,7 @@ test -f /usr/include/gbm.h
 pkg-config --exists gbm egl
 strings /usr/lib/libvulkan_asahi.so | grep -F "(git-${commit:0:10}), Borealis"
 ldd /usr/lib/libRusticlOpenCL.so.1.0.0 > "$proof/rusticl-ldd.txt"
-! grep -F 'not found' "$proof/rusticl-ldd.txt"
+nomatch -F 'not found' "$proof/rusticl-ldd.txt"
 # Enumerating without a GPU still loads the real ICD and Rusticl platform.
 clinfo --list | tee "$proof/clinfo.txt"
 grep -i rusticl "$proof/clinfo.txt"
@@ -64,7 +65,7 @@ while pending:
 Path(sys.argv[1]).write_text(''.join(name + '\n' for name in sorted(closure)))
 PYCLOSURE
 ldd /usr/lib/libvulkan_lvp.so > "$proof/lavapipe-ldd.txt"
-! grep -F 'not found' "$proof/lavapipe-ldd.txt"
+nomatch -F 'not found' "$proof/lavapipe-ldd.txt"
 while IFS= read -r library; do
   owner=$(pacman -Qoq "$(readlink -f "$library")")
   grep -Fx "$owner" "$proof/lavapipe-dependency-closure.txt" || {
