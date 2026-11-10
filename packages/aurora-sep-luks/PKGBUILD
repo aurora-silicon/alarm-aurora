@@ -1,0 +1,44 @@
+pkgname=aurora-sep-luks
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Unlock LUKS2 volumes with the Apple Secure Enclave (aurora-sep-cryptenroll + cryptsetup token)'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/aurora-sep-userspace'
+license=('MIT')
+_commit=63a51a73377dafc1aafdbe86d398d505fa939ff7
+makedepends=('gcc' 'make' 'pkgconf' 'cryptsetup' 'json-c')
+source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
+sha256sums=('426152b4504a4f98c141344387c3ddbabf6beac0c129d3cb7d482af057d1ecef')
+
+build() {
+  make -C "aurora-sep-userspace-$_commit/luks" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+}
+
+check() {
+  # Kernel "user" keys stand in for the SEP. 77: the build root blocks the
+  # kernel keyring (seccomp), skipped. Kernels with af_alg_restrict refuse an
+  # unprivileged ccm(aes) bind with ENOENT, which stops the test at its seal
+  # step after the encoding checks have passed; that alone is not a failure
+  # here. The LUKS2 file-image tests need root and run in
+  # aurora-sep-userspace's CI. Any other failure fails the build.
+  local log="$srcdir/test-seal.log" status=0
+  make -C "aurora-sep-userspace-$_commit/luks" test/test-seal CFLAGS="$CFLAGS"
+  "aurora-sep-userspace-$_commit/luks/test/test-seal" >"$log" 2>&1 || status=$?
+  cat "$log"
+  if [[ $status == 1 && $(grep -c '^FAIL' "$log") == 1 ]] &&
+     grep -qx 'seal failed: No such file or directory' "$log"; then
+    echo "AF_ALG ccm(aes) is restricted in this build root; seal round trip not run"
+  elif [[ $status != 0 && $status != 77 ]]; then
+    return 1
+  fi
+}
+
+package() {
+  # Runtime dependencies here, as in aurora-fido: aurora-sep comes from the
+  # Aurora repository, which the build root does not have.
+  depends=('cryptsetup' 'json-c' 'aurora-sep')
+  # Nothing is enrolled by installing: aurora-sep-cryptenroll is run per volume.
+  make -C "aurora-sep-userspace-$_commit/luks" install DESTDIR="$pkgdir" PREFIX=/usr TOKENDIR=/usr/lib/cryptsetup
+  install -Dm644 "aurora-sep-userspace-$_commit/docs/luks-sep.md" "$pkgdir/usr/share/doc/$pkgname/luks-sep.md"
+  install -Dm644 "aurora-sep-userspace-$_commit/LICENSES/MIT.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

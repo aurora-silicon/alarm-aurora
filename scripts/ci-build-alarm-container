@@ -5,6 +5,7 @@ set -euo pipefail
 [[ $(uname -m) == aarch64 && $(id -u) == 0 ]]
 [[ -e /.dockerenv || -e /run/.containerenv ]]
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+source "$root/scripts/testlib.sh"
 package=${1:?package name required}
 [[ $package =~ ^[a-z0-9][a-z0-9-]*$ && -f $root/packages/$package/PKGBUILD ]]
 pacman-key --init
@@ -44,8 +45,11 @@ if [[ $package == aurora-flatpak-gl ]]; then
   env FLATPAK_GL_DRIVERS=host bash -c 'source "$1"; [[ $FLATPAK_GL_DRIVERS == host ]]' \
     profile "$glroot/etc/profile.d/aurora-flatpak-gl.sh"
   "$helper" disable
-  ! flatpak remotes --system --columns=name | grep -qx aurora-gl
-  ! flatpak list --system --runtime --columns=ref | grep -F org.freedesktop.Platform.GL.aurora/
+  # A flatpak failure fails here rather than reading as "nothing listed".
+  remotes=$(flatpak remotes --system --columns=name)
+  runtimes=$(flatpak list --system --runtime --columns=ref)
+  nomatch -x aurora-gl <<< "$remotes"
+  nomatch -F org.freedesktop.Platform.GL.aurora/ <<< "$runtimes"
   [[ ! -e $overrides ]]
   echo 'Aurora Flatpak GL fresh install, upgrade and removal checks passed.'
 fi

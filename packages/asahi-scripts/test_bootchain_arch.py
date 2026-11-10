@@ -108,10 +108,16 @@ class ArchLayout(unittest.TestCase):
         self.apply()
         self.assertTrue(self.target.read_bytes().startswith(b'AURA' + new))
 
-    def test_missing_marker_is_generation_zero(self):
+    def test_missing_marker_is_generation_one(self):
         self.kernel('7.1.0-1-1-ARCH', generation=None)
         self.kernel('7.3.0-1-1-ARCH')
-        with self.assertRaisesRegex(bootchain.Refused, r'7.1.0-1-1-ARCH \(generation 0\)'):
+        self.apply()
+        self.assertTrue(self.target.read_bytes().startswith(b'AURA'))
+
+    def test_missing_marker_still_refuses_a_later_generation(self):
+        self.kernel('7.1.0-1-1-ARCH', generation=None)
+        self.kernel('7.3.0-1-1-ARCH', generation=2)
+        with self.assertRaisesRegex(bootchain.Refused, r'7.1.0-1-1-ARCH \(generation 1\)'):
             self.apply()
         self.unchanged()
 
