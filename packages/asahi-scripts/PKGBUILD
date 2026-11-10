@@ -7,7 +7,7 @@
 # The aurora repository is listed first, so this shadows asahi-alarm's updates.
 #
 # update-m1n1 is Fedora's trial-then-commit Stage 2 updater
-# (aurora-silicon/fedora-aurora#193, #207, #232): bootchain.py and test_bootchain.py are
+# (aurora-silicon/fedora-aurora#193, #207, #232, #251): bootchain.py and test_bootchain.py are
 # fedora-aurora's packages/update-m1n1 files byte for byte, as are the units and
 # the preset; bootchain_arch.py only gives them Arch's paths. A kernel update
 # composes <stage2>.next, arms aura's one-shot aura-try and keeps the live image
@@ -15,7 +15,7 @@
 # the tag's 95-m1n1-install.hook so that a kernel removal runs it too.
 pkgname=asahi-scripts
 pkgver=20261023
-pkgrel=7
+pkgrel=8
 pkgdesc='Asahi Linux maintenance scripts'
 arch=('any')
 url='http://asahilinux.org'
@@ -44,10 +44,10 @@ sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
             '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9'
             'f5fab46d6c0abd20875f1f4f375eca9235d2e465944968755e366a049b097dc5'
             'dca1868d158651ed329ad463962d51bf07ab6ac5935ced8a468f522381dec0e4'
-            '0f756f417a9e6379656ca50faaa69f47c881a27671aa98b76d68a560562a897c'
+            '601d22c6fc13f8b070498e073ea7e97ead8517715e3d1c3980b09df6d3780a8f'
             'e4a1c2248f7c57e70e08e212138d3d6b4ce835366282247e343f4224804b4c23'
-            'c566a7c4f892ba391384366df20bff76ea76a207835f335b90c42e85287e5761'
-            'b5c8f410cd2b1420a3e1cf2e82c81c44d9caa909cb306d7bcae95d12fbb828e3'
+            '54d747828134224be8cfa75c650eb5cf1832d0322f9fbd7cc321f6247a576107'
+            '7318b8cc9ca2fc13924f28df29a3c98a1252f790df16df18538ee62359f9ed70'
             'b7039f9c926217008f8b5c936e665107592934a58595e408f017a3708a7a7c4d'
             '351b305d08d164b6d6532a294c4d30dd3db30ac27f61d1578b2d4548e93f69db'
             '928be314b2b5a6d44ef95ff974074ed6aea3be0e2f3a7256298b0b3e1b15a46f'
