@@ -5,7 +5,7 @@ pkgdesc='Unlock LUKS2 volumes with the Apple Secure Enclave (aurora-sep-cryptenr
 arch=('aarch64')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('MIT')
-_commit=90795b4cd1c82c14b28dc85e4e7b151608dfefb3
+_commit=a8f9562ca1c979ea5a90b452565cd4b449343e72
 makedepends=('gcc' 'make' 'pkgconf' 'cryptsetup' 'json-c' 'pam')
 optdepends=('mkinitcpio: open SEP-sealed volumes, root included, in a systemd-based initramfs (aurora-sep hook)')
 install=aurora-sep-luks.install
@@ -13,7 +13,7 @@ install=aurora-sep-luks.install
 backup=('etc/aurora-sep/fde.conf')
 source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit"
         'sep-fde-pam' 'aurora-sep-fde-pam.hook')
-sha256sums=('5bc44eaea5fba6f5d2bca5221822eaba0e1ecc028a2e1ba0e5d4e064db22b2c9'
+sha256sums=('514357c51bdfb01ed63753032d81381ab413544febebca910441b9178d7edfc3'
             '7a16323a650506a74bbaa4159bdb136e14a24c058c03e26cf40185f0ea0d2802'
             'f555e8358efc2acb9a52a463f78f29e26d3cd53c508c3fdccc2f004a6008342e')
 
