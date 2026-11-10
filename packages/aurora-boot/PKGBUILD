@@ -1,12 +1,12 @@
 pkgname=aurora-boot
 pkgver=20261018
-pkgrel=13
+pkgrel=14
 pkgdesc='Aurora Alarm boot integration'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
 source=('90-aurora.conf' 'initialize-keyring' 'aurora-alarm-keyring.service' 'aurora-boot.hook' '80-aurora-image.preset' 'aurora-usb4.install' 'aurora-display.install' 'aurora-early-kms.install' 'aurora-early-kms' 'aurora-early-kms.service' '40-aurora-console.cfg' 'aurora-grub.hook')
-sha256sums=('9e0d1f9c7f1410ab2d84dce18e4fa4b5b5fc025b778bd567da6e617e7fc5c69a' 'fec1107e24cda3e1197d9a803792b79e18ccdd839b5cf78cf862e7ee46a27e5b' 'f358a3db63a0a7d293607e56d519d747158d6ff8bc9704d12c8340745fe0f9e1' '5d60a9aae7c951dbb1de4c9723bed35b03376cb6f6bd74280da10cf48cf025e7' '92eddf89ceab1c399a7601d16571d6b22f515b6a7148fd25300dcdb9f4ea6ec2' '83c9f4a85658401161aa860544cbf4e4ddeb2e26c0759e2605dc775774d41d2d' 'c76ddae94811c2b1f55be9a0ec1622c9c66496b929de322e0ea45628f714a710' 'd9caa95331268cbbee60e3420635054f9c29d1717a87a2f7f56b56555afd0753' '5c95b707d4a36c6d96c71564a042d05be10035f5b9c4071752a586863c268cac' 'af791540c692e1d3c4c016e20839252e91ad4701651a4677e3c898808f1626ed' '127b4c2a4637c2d9ad6396fc8f32add74f0dba769950b80966921d30620d34e4' '8b01cb12b3ba9c6f429298cced567121d65d60b9d821d968e067381da7536ec2')
+sha256sums=('9e0d1f9c7f1410ab2d84dce18e4fa4b5b5fc025b778bd567da6e617e7fc5c69a' 'fec1107e24cda3e1197d9a803792b79e18ccdd839b5cf78cf862e7ee46a27e5b' 'f358a3db63a0a7d293607e56d519d747158d6ff8bc9704d12c8340745fe0f9e1' '5d60a9aae7c951dbb1de4c9723bed35b03376cb6f6bd74280da10cf48cf025e7' '92eddf89ceab1c399a7601d16571d6b22f515b6a7148fd25300dcdb9f4ea6ec2' '83c9f4a85658401161aa860544cbf4e4ddeb2e26c0759e2605dc775774d41d2d' 'c76ddae94811c2b1f55be9a0ec1622c9c66496b929de322e0ea45628f714a710' 'd9caa95331268cbbee60e3420635054f9c29d1717a87a2f7f56b56555afd0753' '5c95b707d4a36c6d96c71564a042d05be10035f5b9c4071752a586863c268cac' 'af791540c692e1d3c4c016e20839252e91ad4701651a4677e3c898808f1626ed' '1f82359775d046b787756ca06b6ce274c67b169b0e0bff7578670fea5f9039fe' '8b01cb12b3ba9c6f429298cced567121d65d60b9d821d968e067381da7536ec2')
 package() {
   depends=('mkinitcpio' 'grub' 'asahi-scripts' 'aura' 'uboot-aurora' 'aurora-firmware' 'aurora-firstboot' 'aurora-power-budget' 'aurora-neo-platform-config' 'speakersafetyd-aurora-profiles' 'aurora-keyring' 'asahi-alarm-keyring')
   install -Dm644 90-aurora.conf "$pkgdir/etc/mkinitcpio.conf.d/90-aurora.conf"
