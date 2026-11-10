@@ -1,11 +1,12 @@
 pkgname=fprintd-aurora
 pkgver=1.94.5
-pkgrel=3
+pkgrel=4
 pkgdesc='D-Bus fingerprint service with Aurora enrolment and durable-delete handling'
 arch=('aarch64')
 license=('GPL-2.0-or-later' 'GFDL-1.1-or-later')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
-provides=("fprintd=$pkgver")
+# libfprint-aurora reports DATA_FULL only to a daemon carrying 0004.
+provides=("fprintd=$pkgver" 'fprintd-aurora-no-enroll-gc=1')
 conflicts=('fprintd')
 replaces=('fprintd')
 depends=('libfprint' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
@@ -13,16 +14,21 @@ makedepends=('meson' 'ninja' 'gettext' 'gtk-doc' 'glib2-devel' 'systemd' 'python
 source=('https://gitlab.freedesktop.org/libfprint/fprintd/-/archive/v1.94.5/fprintd-v1.94.5.tar.gz'
         '0001-preserve-print-on-device-delete-failure.patch' 'test_account_gate.py'
         '0002-report-lockout-and-fall-back-to-the-password.patch'
-        '0003-say-why-the-reader-needs-the-password.patch')
+        '0003-say-why-the-reader-needs-the-password.patch'
+        '0004-aurora-report-data-full-without-garbage-collection.patch'
+        'test_enroll_capacity.py')
 sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c' 'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a' '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83'
             'b29df6766dafadbdc2dac34b5fc0396ac24a7628e822018285189cf30f52c34e'
-            '1db338603ce2bbf15688c909d4c24120c7933755ca390358b940ac4579cb82d3')
+            '1db338603ce2bbf15688c909d4c24120c7933755ca390358b940ac4579cb82d3'
+            '14b1e47887fe641e3232e3ca1aa561cd769c2fe7c9696300b0c58ddaca18af9d'
+            '10fa4d0a957576901e493b5f60f271eefc529668e4946b78424fbd3b8c2e1803')
 
 prepare() {
   cd "fprintd-v$pkgver"
   patch -Np1 -i "$srcdir/0001-preserve-print-on-device-delete-failure.patch"
   patch -Np1 -i "$srcdir/0002-report-lockout-and-fall-back-to-the-password.patch"
   patch -Np1 -i "$srcdir/0003-say-why-the-reader-needs-the-password.patch"
+  patch -Np1 -i "$srcdir/0004-aurora-report-data-full-without-garbage-collection.patch"
 }
 
 build() {
@@ -49,6 +55,9 @@ check() {
   grep -q 'verify-lockout' "$srcdir/fprintd-v$pkgver/pam/pam_fprintd.c"
   grep -q 'verify-password-required-after-boot' "$srcdir/fprintd-v$pkgver/src/device.c"
   grep -q 'Your password is required to enable Touch ID.' "$srcdir/fprintd-v$pkgver/pam/pam_fprintd.c"
+  # 0004: apple-sep DATA_FULL reports enroll-data-full without collecting a print.
+  python "$srcdir/test_enroll_capacity.py" "$srcdir/fprintd-v$pkgver/src/device.c" \
+    --enroll-utils "$srcdir/fprintd-v$pkgver/utils/enroll.c"
 }
 
 package() {

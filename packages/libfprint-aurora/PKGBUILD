@@ -1,6 +1,6 @@
 pkgname=libfprint-aurora
 pkgver=1.94.100
-pkgrel=7
+pkgrel=8
 pkgdesc='Fingerprint reader library with the Aurora SEP driver'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -21,6 +21,7 @@ source=("libfprint-$_commit.tar.gz::https://gitlab.freedesktop.org/api/v4/projec
   '0007-aurora-name-retry-causes-and-keep-waiting.patch'
   '0008-aurora-report-the-touch-id-lockout-as-locked-out.patch'
   '0009-aurora-say-why-touch-id-needs-the-password.patch'
+  '0010-aurora-report-fingerprint-storage-full.patch'
   'test_interface.py'
   'test_lockout_reason.py'
   'apple-sep.h'
@@ -36,6 +37,7 @@ sha256sums=('94ff7f3689d14da28389a4d9cad5fb523065bbed3e6c8e3694522fde1316e780'
             'e14bc4fb3a63ee28d3418d7c7e4823d3bd86e9da784f6e34fd2bef8b11a5f510'
             '0c75bf129d7416ac534caec4a780dc25a50c478180747213f71c1148e279796b'
             'd3f31fb55bf9c55173123c48192f85b9dd1e8f0db1157d7bb77a785d90490253'
+            'f7b0e051d6773f444991ec68307c44186a544e0025e7bef5f0f0e74ea85e1503'
             '73b95e4c39a2fe8c5496cd38545cc67df20c89cc1a88fc3aedf216e997b41da4'
             'a0bf00b31fe6a3fc999a1f2838aed2143ae0da591469a859e713597033afedbf'
             'ce2ac6209e5034f402536b72f59d1048b6bb77ca98490d8c7d509bb187ee7a21'
@@ -53,6 +55,7 @@ prepare() {
   patch -Np1 -i "$srcdir/0007-aurora-name-retry-causes-and-keep-waiting.patch"
   patch -Np1 -i "$srcdir/0008-aurora-report-the-touch-id-lockout-as-locked-out.patch"
   patch -Np1 -i "$srcdir/0009-aurora-say-why-touch-id-needs-the-password.patch"
+  patch -Np1 -i "$srcdir/0010-aurora-report-fingerprint-storage-full.patch"
   install -Dm644 "$srcdir/apple-sep.h" aurora-uapi/linux/apple-sep.h
 }
 
@@ -69,6 +72,9 @@ check() {
 }
 
 package() {
+  # 0010 reports DATA_FULL; an unguarded fprintd would answer it by deleting
+  # a SEP print it does not know, which may belong to another OS.
+  depends+=('fprintd-aurora-no-enroll-gc>=1')
   meson install -C build --destdir "$pkgdir"
   install -Dm644 "$srcdir/fprintd-lid-switch.conf" "$pkgdir/usr/lib/systemd/system/fprintd.service.d/50-libfprint-lid-switch.conf"
 }
