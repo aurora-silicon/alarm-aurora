@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Opt in to the Aurora Omarchy password-switch protocol, or undo our edit."""
+"""Enable or remove the managed polkit PAM password-switch option."""
 import hashlib
 import json
 import os
