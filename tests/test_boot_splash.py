@@ -35,6 +35,10 @@ class BootSplashTests(unittest.TestCase):
         self.assertIn('\nExecStart=/usr/libexec/aurora/aurora-early-kms\n', unit)
         script = (BOOT/'aurora-early-kms').read_text()
         self.assertIn('*Capple,display-subsystem*|*Capple,dcp*)', script)
+        # appledrm waits for every DCP: an external DCP's Type-C chain comes up with it.
+        self.assertIn('*Capple,*atcphy*|*Capple,*-i2cC*|*Capple,i2c)', script)
+        for module in ('i2c-pasemi-platform', 'phy-apple-atc', 'phy-ti-cd2e22', 'tps6598x'):
+            self.assertIn(f'\n  add_module {module}?\n', install)
         self.assertIn('"$dev"/supplier:*', script)
         self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm'))
         # It queues the display ahead of the coldplug but never waits for it.
