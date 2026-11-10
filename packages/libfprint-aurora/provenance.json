@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/aurora-silicon/aurora-sep-userspace",
-  "commit": "0b561dd77db67fb23b642517ee07d13a390e9875",
+  "commit": "12f26f61b562d40048a9e7e47129d8341175b5c8",
   "files": {
     "0002-aurora-report-unusable-captures-as-retries.patch": "6a594471084ce5d6e65e3edaccc7f10a62dd3bb1cfc2bcdfa6b3f2357906620a",
     "0003-hide-lid-covered-readers-while-the-lid-is-closed.patch": "58b3ec841207942bd48819a8e91a8cc7992e5ffae34285b7e9d3617c2750043f",
