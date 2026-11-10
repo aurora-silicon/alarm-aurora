@@ -1,0 +1,86 @@
+#!/usr/bin/python3
+"""Opt in to the Aurora Omarchy password-switch protocol, or undo our edit."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+import tempfile
+
+pam = Path(os.environ.get('AURORA_POLKIT_PAM', '/etc/pam.d/polkit-1'))
+state = Path(os.environ.get('AURORA_POLKIT_STATE', '/var/lib/aurora-omarchy-polkit'))
+sep_marker = Path(os.environ.get('AURORA_SEP_POLKIT_MARKER', '/var/lib/aurora-sep/pam-polkit-1.sha256'))
+record = state / 'pam-edit.json'
+option = 'polkit-password-switch'
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+def atomic(path, data, mode):
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix='.' + path.name + '.')
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fchmod(stream.fileno(), mode)
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+def write_pam(before, after):
+    managed = sep_marker.is_file() and sep_marker.read_text().strip() == digest(before)
+    atomic(pam, after, stat.S_IMODE(pam.stat().st_mode))
+    if managed:
+        atomic(sep_marker, (digest(after) + '\n').encode(), 0o644)
+
+def enable():
+    if record.exists():
+        raise SystemExit('An Aurora PAM edit is already recorded; disable it first')
+    if pam.is_symlink() or not pam.is_file():
+        raise SystemExit('Expected a regular polkit PAM file')
+    before = pam.read_bytes()
+    lines = before.decode().splitlines(keepends=True)
+    matches = [i for i, line in enumerate(lines) if re.match(r'^\s*-?auth\s+[^\n#]*\spam_fprintd\.so(?:\s|$)', line)]
+    if len(matches) != 1 or option in lines[matches[0]]:
+        raise SystemExit('Expected exactly one fingerprint auth line without the option')
+    i = matches[0]
+    old = lines[i]
+    if not old.endswith('\n') or '#' in old:
+        raise SystemExit('Fingerprint auth line must end with a newline and contain no comment')
+    new = old[:-1].rstrip() + ' ' + option + '\n'
+    lines[i] = new
+    state.mkdir(mode=0o700, parents=True, exist_ok=True)
+    atomic(record, json.dumps({'old': old, 'new': new}).encode(), 0o600)
+    try:
+        write_pam(before, ''.join(lines).encode())
+    except BaseException:
+        if pam.read_bytes() == before:
+            record.unlink(missing_ok=True)
+        raise
+    print('Enabled password switch in', pam)
+
+def disable():
+    if not record.exists():
+        return
+    if pam.is_symlink() or not pam.is_file():
+        raise SystemExit('PAM file is missing or a symlink; recorded edit was not removed')
+    data = json.loads(record.read_text())
+    before = pam.read_bytes()
+    lines = before.decode().splitlines(keepends=True)
+    if lines.count(data['new']) != 1:
+        raise SystemExit('Managed PAM line changed; remove the switch option manually')
+    lines[lines.index(data['new'])] = data['old']
+    write_pam(before, ''.join(lines).encode())
+    record.unlink()
+    print('Removed password switch from', pam)
+
+if sys.argv[1:] == ['--enable']:
+    enable()
+elif sys.argv[1:] == ['--disable']:
+    disable()
+else:
+    raise SystemExit('Usage: aurora-polkit-pam --enable|--disable')
