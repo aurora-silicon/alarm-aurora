@@ -1,0 +1,197 @@
+--- a/pam/pam_fprintd.c
++++ b/pam/pam_fprintd.c
+@@ -44,6 +44,8 @@
+ #ifdef __linux__
+ #include <signal.h>
+ #include <sys/signalfd.h>
++#include <sys/random.h>
++#include <sys/socket.h>
+ #include <poll.h>
+ #endif
+ 
+@@ -407,11 +409,94 @@
+ 
+ typedef int fd_int;
+ PF_DEFINE_AUTO_CLEAN_FUNC (fd_int, fd_cleanup);
++
++#define PASSWORD_SWITCH_PATH "/org/omarchy/Polkit/FingerprintSwitch/"
++#define PASSWORD_SWITCH_INTERFACE "org.omarchy.Polkit.FingerprintSwitch"
++#define PASSWORD_SWITCH_INFO "fprintd:password-switch:"
++
++#ifdef SO_PEERPIDFD
++struct password_switch
++{
++  struct ucred agent;
++  int agent_pidfd;
++  bool requested;
++};
++
++static void
++password_switch_cleanup (struct password_switch *state)
++{
++  fd_cleanup (&state->agent_pidfd);
++}
++
++typedef struct password_switch password_switch;
++PF_DEFINE_AUTO_CLEAN_FUNC (password_switch, password_switch_cleanup);
++
++static int
++request_password_switch (sd_bus_message *message,
++                         void           *userdata,
++                         sd_bus_error   *error)
++{
++  password_switch *state = userdata;
++  sd_bus_creds *credentials = NULL;
++  struct pollfd agent = { state->agent_pidfd, POLLIN, 0 };
++  pid_t pid;
++  uid_t uid;
++
++  (void) error;
++  if (!sd_bus_message_has_signature (message, ""))
++    return 0;
++
++  if (sd_bus_query_sender_creds (message, SD_BUS_CREDS_PID | SD_BUS_CREDS_EUID,
++                                 &credentials) >= 0 &&
++      sd_bus_creds_get_pid (credentials, &pid) >= 0 &&
++      sd_bus_creds_get_euid (credentials, &uid) >= 0 &&
++      pid == state->agent.pid && uid == state->agent.uid &&
++      poll (&agent, 1, 0) == 0)
++    state->requested = true;
++
++  sd_bus_creds_unref (credentials);
++  return 0;
++}
++
++static void
++offer_password_switch (sd_bus                 *bus,
++                       pam_handle_t           *pamh,
++                       password_switch        *state,
++                       sd_bus_slot           **slot)
++{
++  unsigned char random[16];
++  char token[sizeof random * 2 + 1];
++  char path[sizeof PASSWORD_SWITCH_PATH + sizeof token];
++  char message[sizeof PASSWORD_SWITCH_INFO + sizeof token];
++  socklen_t peer_size = sizeof state->agent;
++  socklen_t pidfd_size = sizeof state->agent_pidfd;
++
++  if (getsockopt (STDIN_FILENO, SOL_SOCKET, SO_PEERCRED, &state->agent, &peer_size) < 0 ||
++      state->agent.pid <= 0 ||
++      getsockopt (STDIN_FILENO, SOL_SOCKET, SO_PEERPIDFD, &state->agent_pidfd, &pidfd_size) < 0 ||
++      getrandom (random, sizeof random, GRND_NONBLOCK) != sizeof random)
++    return;
++
++  for (size_t i = 0; i < sizeof random; i++)
++    snprintf (token + 2 * i, 3, "%02x", (unsigned) random[i]);
++
++  /* The PAM conversation delivers the request token to its polkit agent. */
++  snprintf (path, sizeof path, "%s%s", PASSWORD_SWITCH_PATH, token);
++  if (sd_bus_match_signal (bus, slot, NULL, path, PASSWORD_SWITCH_INTERFACE,
++                           "UsePassword", request_password_switch, state) < 0)
++    return;
++
++  snprintf (message, sizeof message, "%s%s", PASSWORD_SWITCH_INFO, token);
++  if (!send_info_msg (pamh, message))
++    *slot = sd_bus_slot_unref (*slot);
++}
++#endif
+ #endif
+ 
+ static int
+ do_verify (sd_bus      *bus,
+-           verify_data *data)
++           verify_data *data,
++           bool         allow_password_switch)
+ {
+   pf_autoptr (sd_bus_slot) verify_status_slot = NULL;
+   pf_autoptr (sd_bus_slot) verify_finger_selected_slot = NULL;
+@@ -420,6 +505,13 @@
+   sigset_t signals;
+   fd_int signal_fd = -1;
+ #endif
++#if defined(__linux__) && defined(SO_PEERPIDFD)
++  pf_auto (password_switch) switch_state = { .agent_pidfd = -1 };
++  pf_autoptr (sd_bus_slot) password_switch_slot = NULL;
++  bool offered_password_switch = false;
++#else
++  (void) allow_password_switch;
++#endif
+   int r;
+ 
+   /* Get some properties for the device */
+@@ -538,12 +630,24 @@
+           r = sd_bus_process (bus, NULL);
+           if (r < 0)
+             break;
++#if defined(__linux__) && defined(SO_PEERPIDFD)
++          /* A switch request ends the scan and lets PAM ask for the password. */
++          if (switch_state.requested)
++            return PAM_AUTHINFO_UNAVAIL;
++#endif
+           if (data->verify_ret != FPRINTD_PAM_INCOMPLETE)
+             break;
+           if (!data->verify_started)
+             continue;
+           if (data->result != NULL)
+             break;
++#if defined(__linux__) && defined(SO_PEERPIDFD)
++          if (allow_password_switch && !offered_password_switch)
++            {
++              offered_password_switch = true;
++              offer_password_switch (bus, data->pamh, &switch_state, &password_switch_slot);
++            }
++#endif
+           if (r == 0)
+             {
+ #ifdef __linux__
+@@ -781,7 +885,7 @@
+ }
+ 
+ static int
+-do_auth (pam_handle_t *pamh, const char *username)
++do_auth (pam_handle_t *pamh, const char *username, bool allow_password_switch)
+ {
+   pf_autoptr (verify_data) data = NULL;
+   pf_autoptr (sd_bus) bus = NULL;
+@@ -816,7 +920,7 @@
+ 
+   if (claim_device (pamh, bus, data->dev, username))
+     {
+-      int ret = do_verify (bus, data);
++      int ret = do_verify (bus, data, allow_password_switch);
+ 
+       /* Simply disconnect from bus if we return PAM_SUCCESS */
+       if (ret != PAM_SUCCESS)
+@@ -858,6 +962,8 @@
+                      const char **argv)
+ {
+   const char *username;
++  const char *service = NULL;
++  bool allow_password_switch = false;
+   int i;
+ 
+   bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
+@@ -873,7 +979,9 @@
+     {
+       if (argv[i] != NULL)
+         {
+-          if (str_equal (argv[i], "debug"))
++          if (str_equal (argv[i], "polkit-password-switch"))
++            allow_password_switch = true;
++          else if (str_equal (argv[i], "debug"))
+             {
+               pam_syslog (pamh, LOG_DEBUG, "debug on");
+               debug = true;
+@@ -935,7 +1043,11 @@
+         }
+     }
+ 
+-  return do_auth (pamh, username);
++  if (pam_get_item (pamh, PAM_SERVICE, (const void **) &service) != PAM_SUCCESS ||
++      !str_equal (service, "polkit-1"))
++    allow_password_switch = false;
++
++  return do_auth (pamh, username, allow_password_switch);
+ }
+ 
+ PAM_EXTERN int
