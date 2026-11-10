@@ -23,6 +23,9 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT / 'scripts'))
 import updatelib as lib  # noqa: E402
 
+# gh with retries of transient GitHub API failures (HTTP 5xx/429, timeouts): scripts/gh-retry
+GH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gh-retry')
+
 TAG = re.compile(r'testing-[A-Za-z0-9._-]+')
 SITE_BUDGET = 900_000_000
 CHANNELS = ('testing', 'stable')
@@ -54,7 +57,7 @@ def verify_attestations(directory, repository):
     actual = {path.name: lib.sha256_file(path) for path in directory.iterdir() if path.name != 'SHA256SUMS'}
     if listed != actual:
         raise ValueError(f'{directory}: SHA256SUMS does not list exactly the downloaded assets')
-    result = subprocess.run(['gh', 'attestation', 'verify', str(directory / 'manifest.json'), '--repo', repository,
+    result = subprocess.run([GH, 'attestation', 'verify', str(directory / 'manifest.json'), '--repo', repository,
                              '--signer-workflow', f'{repository}/.github/workflows/publish.yml',
                              '--deny-self-hosted-runners', '--format', 'json'],
                             check=True, capture_output=True, text=True)

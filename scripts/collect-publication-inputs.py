@@ -9,6 +9,11 @@ import shutil
 import subprocess
 import zipfile
 
+import os
+
+# gh with retries of transient GitHub API failures (HTTP 5xx/429, timeouts): scripts/gh-retry
+GH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gh-retry')
+
 SHARED = ('.github/workflows/packages.yml', 'scripts/ci-build-package', 'scripts/ci-build-fex-guest',
           'scripts/ci-build-alarm-container',
           'scripts/fetch-base.py', 'images/base.json', 'keys/archlinuxarm-build-system.asc')
@@ -83,7 +88,7 @@ def collect_archive(archive, artifact, output):
 
 
 def gh_json(*args):
-    return json.loads(subprocess.check_output(['gh', 'api', *args]))
+    return json.loads(subprocess.check_output([GH, 'api', *args]))
 
 
 def newest_per_name(artifacts):
@@ -108,7 +113,7 @@ def verify_attestation(path, repository, commit):
     # Every snapshot re-attests the packages it carries, so a long-lived package
     # collects more attestations than gh's default 30, and the build's own one,
     # the oldest, would be left out of the search.
-    subprocess.run(['gh', 'attestation', 'verify', str(path), '--repo', repository,
+    subprocess.run([GH, 'attestation', 'verify', str(path), '--repo', repository,
                     '--signer-workflow', f'{repository}/.github/workflows/packages.yml',
                     '--source-digest', commit, '--deny-self-hosted-runners', '--limit', '1000'],
                    check=True, stdout=subprocess.DEVNULL)
@@ -186,7 +191,7 @@ def collect_plan(root, plan, repository, output, base_dir=None, require_attestat
             raise ValueError(f'{name}: artifact {item["artifact"]} is not the planned output of run {run}')
         archive = downloads / f'{artifact["id"]}.zip'
         with archive.open('wb') as stream:
-            subprocess.run(['gh', 'api', f'repos/{repository}/actions/artifacts/{artifact["id"]}/zip'],
+            subprocess.run([GH, 'api', f'repos/{repository}/actions/artifacts/{artifact["id"]}/zip'],
                            stdout=stream, check=True)
         staging = downloads / f'{artifact["id"]}'
         staging.mkdir(exist_ok=True)
@@ -258,7 +263,7 @@ def main():
     for run, artifact in artifacts:
         archive = downloads / f'{artifact["id"]}.zip'
         with archive.open('xb') as stream:
-            subprocess.run(['gh', 'api', f'repos/{args.repository}/actions/artifacts/{artifact["id"]}/zip'], stdout=stream, check=True)
+            subprocess.run([GH, 'api', f'repos/{args.repository}/actions/artifacts/{artifact["id"]}/zip'], stdout=stream, check=True)
         packages = collect_archive(archive, artifact, args.output)
         if packages:
             populated.add(artifact['name'])
