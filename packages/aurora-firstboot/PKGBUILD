@@ -1,19 +1,29 @@
-pkgname=aurora-firstboot
+pkgbase=aurora-firstboot
+pkgname=(aurora-firstboot aurora-power-budget)
 pkgver=0.1.13
-pkgrel=2
+pkgrel=3
 pkgdesc='Aurora per-install root encryption and Linux owner setup'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/aurora-platform'
-_commit=6e127f8b2191c11dc7a584c363660610fc793c5f
-source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/$_commit")
-sha256sums=('5919aa97e5fcea18fb98cf5b65a21113d861a0c8cad858edc80f8a56a570ac60')
-package() {
+_commit=8fc36c44f7353c7c1c0ffa3aff3ae0aa69f9ce54
+source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/$_commit")
+sha256sums=('e259efa1cd0673480b1c429f3e1c4da6521bc9b6edb6ae85c806e7c7092d70e9')
+package_aurora-firstboot() {
   depends=('bash' 'cryptsetup>=2.8' 'btrfs-progs' 'util-linux' 'coreutils' 'systemd' 'python' 'shadow' 'sudo' 'kbd' 'procps-ng' 'mkinitcpio')
   make -C "aurora-platform-$_commit" install-common install-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr
   install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-firstboot.preset" <<'EOF'
 enable aurora-firstboot.service
 enable aurora-initrd-keymap.path
+EOF
+}
+package_aurora-power-budget() {
+  pkgdesc='CPU power budget for the power-saver profile on Apple silicon'
+  depends=('python' 'systemd' 'power-profiles-daemon')
+  make -C "aurora-platform-$_commit" install-power DESTDIR="$pkgdir" PREFIX=/usr
+  install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-power-budget.preset" <<'EOF'
+enable aurora-power-budget.service
 EOF
 }

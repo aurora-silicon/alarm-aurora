@@ -1,13 +1,13 @@
 # Aurora bootloader; ordinary updates refresh ESP Stage 2, never enroll Stage 1.
 pkgname=aura
-pkgver=1.0.0b8
+pkgver=1.0.0b10.r20261110
 pkgrel=2
 pkgdesc='Aurora Silicon bootloader for Apple Silicon'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aura'
 license=('MIT' 'GPL-2.0-only')
-_commit=30e93e890055eb289f544972404ad7b7c4affc3a
+_commit=2296392f5ecea44a4a9d3c01eb3ec308ef1ad5e8
 # 1 once the pinned source has no monitor (aura#77); prepare() checks it. Such an
 # aura moves the kernel into the CTXR window, so it requires a kernel built with
 # CONFIG_ARM64_CTXR_EXECMEM, which linux-aurora provides as aurora-ctxr-execmem.
@@ -21,7 +21,7 @@ replaces=('m1n1-neo')
 makedepends=('git' 'clang' 'lld' 'llvm' 'rustup' 'make' 'python')
 options=('!strip' '!debug')
 source=("aura::git+$url.git#commit=$_commit" build-qualification.json validate-qualification.py)
-sha256sums=('SKIP' '89edceba36030a067ef72d7a408b6280dc370a01f7f74c5183df2c8f22f9d75c' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
+sha256sums=('SKIP' '6d4f9c508b9cbb876166d013ec1d8e9e12005fddd33da97deb548f960248895d' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
 prepare() {
   rustup toolchain install 1.99.0 --profile minimal --target aarch64-unknown-none-softfloat
   [[ $(git -C aura rev-parse HEAD) == "$_commit" ]]
@@ -35,6 +35,9 @@ prepare() {
 build() {
   cd aura
   export RUSTUP_TOOLCHAIN=1.99.0
+  # The pin is not a release tag: label the build <VERSION>-g<commit>, as the
+  # Fedora and NixOS archive builds do (a tagged pin is labelled with its release).
+  export AURA_VERSION_TAG="$(cat VERSION)-g${_commit:0:8}"
   make clean
   make -j"${OMARCHY_BUILD_JOBS:-10}" RELEASE=1 CHAINLOADING=1 USE_CLANG=1 BUILTIN_LOGO=aurora
   install -Dm644 build/aura.bin "$srcdir/stage1/aura-raw.bin"

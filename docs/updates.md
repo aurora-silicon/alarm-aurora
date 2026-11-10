@@ -61,7 +61,7 @@ the units (`systemctl --preset-mode=enable-only preset`), as Fedora's `%systemd_
 
 `linux-aurora` ships `/usr/lib/modules/<release>/dtb-abi` (`packages/linux-aurora/dtb-abi`, the same value
 as fedora-aurora's `packages/kernel-aurora/dtb-abi`). Trees may change within a generation; only a change
-older kernels cannot boot with needs a higher one. A kernel without the file counts as generation zero and
+older kernels cannot boot with needs a higher one. A kernel without the file counts as generation 1 (declaring it changed no device tree) and
 a malformed value is refused. While any installed kernel (another kernel package, or a
 `/boot/vmlinuz-<name>` GRUB still offers whose package is gone) has a lower generation than the newest
 kernel's trees, `update-m1n1` refuses: Stage 2 stays as it is, and the message lists those kernels with a
@@ -107,6 +107,18 @@ adds `boot-ctxr.bin`, a copy of it, to the image's ESP, and `boot-ctxr-<board>.b
 `boot-<board>.bin`, for each Mach-O board. The installer picks the board's file over the combined one. The
 script fails the image if any of them is over 16 MiB. Without the marker the image has no `boot-ctxr.bin`,
 and the installer refuses it on Mach-O Macs, so no Mac gets a `boot-ctxr.bin` that updates don't refresh.
+
+### Swapping a stock package for its Aurora build
+
+`upower-aurora` and `networkmanager-aurora` conflict with Arch's `upower` and `networkmanager`, so moving
+between them (either way) is a conflict removal and a fresh install, not an upgrade. pacman then saves an
+edited `/etc/UPower/UPower.conf` or `/etc/NetworkManager/NetworkManager.conf` as `.pacsave` and installs
+the default. Both packages depend on `aurora-keep-config`, whose PostTransaction hook puts the edited file
+back when the new package's copy is unmodified and the `.pacsave` was made in that transaction; the new
+default is left as `.pacnew`, as after an in-place upgrade (and as dnf does on Fedora). An older
+`.pacsave` is left alone. `scripts/test-upower-upgrade` and `scripts/test-networkmanager-upgrade` swap,
+roll back and check the edit stays active; `tests/test_keep_config.py` fails when another package gains
+backup files and a conflict without being listed.
 
 ## Workflows
 

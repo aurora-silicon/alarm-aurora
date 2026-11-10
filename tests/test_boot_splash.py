@@ -35,8 +35,15 @@ class BootSplashTests(unittest.TestCase):
         self.assertIn('\nExecStart=/usr/libexec/aurora/aurora-early-kms\n', unit)
         script = (BOOT/'aurora-early-kms').read_text()
         self.assertIn('*Capple,display-subsystem*|*Capple,dcp*)', script)
+        # appledrm waits for every DCP: an external DCP's Type-C chain comes up with it.
+        self.assertIn('*Capple,*atcphy*|*Capple,*-i2cC*|*Capple,i2c)', script)
+        for module in ('i2c-pasemi-platform', 'phy-apple-atc', 'phy-ti-cd2e22', 'tps6598x'):
+            self.assertIn(f'\n  add_module {module}?\n', install)
         self.assertIn('"$dev"/supplier:*', script)
-        self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm --settle'))
+        self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm'))
+        # It queues the display ahead of the coldplug but never waits for it.
+        self.assertNotIn('--settle', script)
+        self.assertNotIn('udevadm settle', script)
         subprocess.run(['bash', '-n', str(BOOT/'aurora-early-kms')], check=True)
         pkgbuild = (BOOT/'PKGBUILD').read_text()
         for line in ('install -Dm644 aurora-early-kms.install "$pkgdir/usr/lib/initcpio/install/aurora-early-kms"',
@@ -53,6 +60,28 @@ class BootSplashTests(unittest.TestCase):
         self.assertIn('\n+After=systemd-vconsole-setup.service systemd-udevd.service dracut-pre-trigger.service\n', patch)
         self.assertIn('patch -Np1 -i "$srcdir/0001-systemd-units-Start-plymouthd-without-waiting-for-coldplug.patch"',
                       (PLYMOUTH/'PKGBUILD').read_text())
+
+    def test_plymouth_keeps_drm_fbdevs_off_the_frame_buffer_plugin(self):
+        # Fedora's carry, byte for byte: a DRM-emulated fbdev is the DRM device
+        # plymouth already drives, whatever udev has enumerated so far.
+        name = '0001-ply-device-manager-Fix-race-in-fb_device_has_drm_dev.patch'
+        patch = (PLYMOUTH/name).read_text()
+        self.assertIn('drmfb', patch)
+        pkgbuild = (PLYMOUTH/'PKGBUILD').read_text()
+        apply = f'patch -Np1 -i "$srcdir/{name}"'
+        self.assertIn(apply, pkgbuild)
+        # git cherry-pick needs a clean tree for ply-device-manager.c.
+        self.assertGreater(pkgbuild.index(apply), pkgbuild.index('git cherry-pick -n cea90be39d263e388003a07d125b469c0803d55c'))
+
+    def test_a_serial_console_does_not_force_the_text_splash(self):
+        def cmdline(defaults):
+            script = defaults + '\n. "$1"\nprintf "%s" "${GRUB_CMDLINE_LINUX-}"'
+            return subprocess.run(['sh', '-c', script, 'sh', str(DROPIN)], check=True,
+                                  capture_output=True, text=True).stdout
+        self.assertEqual(cmdline('GRUB_CMDLINE_LINUX=""'), 'plymouth.ignore-serial-consoles')
+        self.assertEqual(cmdline('GRUB_CMDLINE_LINUX="rw"'), 'rw plymouth.ignore-serial-consoles')
+        # Already there, on either line: added once only.
+        self.assertEqual(cmdline('GRUB_CMDLINE_LINUX_DEFAULT="quiet plymouth.ignore-serial-consoles"'), '')
 
     def test_grub_stays_on_the_console_unless_the_owner_chose(self):
         arch = 'GRUB_TIMEOUT=5\nGRUB_TIMEOUT_STYLE=menu\n#GRUB_TERMINAL_OUTPUT=console'

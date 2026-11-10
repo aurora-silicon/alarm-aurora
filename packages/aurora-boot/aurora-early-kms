@@ -2,12 +2,16 @@
 # Runs in the initramfs after systemd-udevd starts and before
 # systemd-udev-trigger coldplugs every device (aurora-early-kms.service).
 #
-# Coldplug the Apple display subsystem, its DCPs and their device-link
-# suppliers (for example the Type-C PHY that an external DCP drives) first,
-# then the DRM devices. udev loads appledrm and the supplier drivers through
-# the normal modalias rules, so modprobe.d blacklists still apply, and the
-# DRM cards are initialized before the rest of the coldplug queue, so
-# Plymouth starts on appledrm instead of waiting for the real root.
+# Queue the Apple display subsystem, its DCPs and their device-link
+# suppliers (for example the Type-C PHY that an external DCP drives) ahead
+# of the rest of the coldplug, so udev loads appledrm and the supplier
+# drivers first, through the normal modalias rules (modprobe.d blacklists
+# still apply), then the DRM cards that exist already (the boot
+# framebuffer's simpledrm card), so Plymouth can start on it. Do not wait
+# for any of them: the display processors take a second or more to start,
+# the external ones included, and the root file system does not need them.
+# Plymouth adds appledrm's card from its udev add event when the driver
+# registers it.
 set -u
 devices=()
 for dev in /sys/bus/platform/devices/*; do
@@ -15,6 +19,9 @@ for dev in /sys/bus/platform/devices/*; do
   read -r alias < "$dev/modalias" || continue
   case $alias in
     *Capple,display-subsystem*|*Capple,dcp*) ;;
+    # appledrm waits for every DCP; an external one binds only after its
+    # Type-C PHY, whose retimer or PD controller sits on an I2C bus.
+    *Capple,*atcphy*|*Capple,*-i2cC*|*Capple,i2c) ;;
     *) continue ;;
   esac
   devices+=("$(cd -P "$dev" && pwd)")
@@ -23,6 +30,5 @@ for dev in /sys/bus/platform/devices/*; do
   done
 done
 (( ${#devices[@]} )) || exit 0
-udevadm trigger --action=add --settle "${devices[@]}"
-udevadm settle --timeout=5
-udevadm trigger --action=add --subsystem-match=drm --settle
+udevadm trigger --action=add "${devices[@]}"
+udevadm trigger --action=add --subsystem-match=drm
