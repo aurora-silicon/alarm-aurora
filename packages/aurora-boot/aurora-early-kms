@@ -19,6 +19,9 @@ for dev in /sys/bus/platform/devices/*; do
   read -r alias < "$dev/modalias" || continue
   case $alias in
     *Capple,display-subsystem*|*Capple,dcp*) ;;
+    # appledrm waits for every DCP; an external one binds only after its
+    # Type-C PHY, whose retimer or PD controller sits on an I2C bus.
+    *Capple,*atcphy*|*Capple,*-i2cC*|*Capple,i2c) ;;
     *) continue ;;
   esac
   devices+=("$(cd -P "$dev" && pwd)")

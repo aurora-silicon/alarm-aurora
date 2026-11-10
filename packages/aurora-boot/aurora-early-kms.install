@@ -6,6 +6,13 @@
 build() {
   add_module appledrm?
   add_module mux-apple-display-crossbar?
+  # The external DCPs' Type-C chain: without it appledrm (which waits for
+  # every DCP) registers only on the real root, and the panel is black from
+  # the internal DCP's start until then.
+  add_module i2c-pasemi-platform?
+  add_module phy-apple-atc?
+  add_module phy-ti-cd2e22?
+  add_module tps6598x?
   add_binary bash
   add_binary udevadm
   add_file /usr/libexec/aurora/aurora-early-kms
