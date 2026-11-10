@@ -10,19 +10,22 @@ import time
 
 HERE = Path(__file__).resolve().parent
 OFFER = re.compile(rb"fprintd:password-switch:([0-9a-f]{32})\n")
-INTERFACE = "org.omarchy.Polkit.FingerprintSwitch"
-PREFIX = "/org/omarchy/Polkit/FingerprintSwitch/"
+INTERFACE = "net.reactivated.Fprint.PasswordSwitch"
+PREFIX = "/net/reactivated/Fprint/PasswordSwitch/"
 
 
 @contextmanager
 def reader(mode):
+    global stop_log
+    temporary = tempfile.TemporaryDirectory()
+    stop_log = Path(temporary.name) / "verify-stop"
     daemon = subprocess.Popen(
         ["dbus-daemon", "--session", "--nofork", "--print-address=1"],
         stdout=subprocess.PIPE, text=True,
     )
     address = daemon.stdout.readline().strip()
     mock = subprocess.Popen(
-        ["/usr/bin/python3", str(HERE / "mock-fprintd.py"), address, mode],
+        ["/usr/bin/python3", str(HERE / "mock-fprintd.py"), address, mode, str(stop_log)],
         stdout=subprocess.PIPE, text=True,
     )
     try:
@@ -32,6 +35,7 @@ def reader(mode):
         for process in (mock, daemon):
             process.terminate()
             process.wait(timeout=3)
+        temporary.cleanup()
 
 
 @contextmanager
@@ -136,6 +140,7 @@ with reader("wait") as address:
         started = time.monotonic()
         agent = signal(address, first)
         password_prompt(output)
+        assert stop_log.read_text() == "stop\n", "switch must stop verification before password prompt"
         assert time.monotonic() - started < 1
         peer.sendall(b"wrong-password\n")
         result(output, helper, 7)

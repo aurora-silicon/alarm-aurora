@@ -35,7 +35,8 @@ class Device(dbus.service.Object):
 
     @dbus.service.method(device)
     def VerifyStop(self):
-        pass
+        with open(sys.argv[3], "a") as log:
+            log.write("stop\n")
 
     @dbus.service.method(device, in_signature="s")
     def VerifyStart(self, finger):

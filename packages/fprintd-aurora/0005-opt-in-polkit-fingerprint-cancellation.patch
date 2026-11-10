@@ -14,8 +14,8 @@
  typedef int fd_int;
  PF_DEFINE_AUTO_CLEAN_FUNC (fd_int, fd_cleanup);
 +
-+#define PASSWORD_SWITCH_PATH "/org/omarchy/Polkit/FingerprintSwitch/"
-+#define PASSWORD_SWITCH_INTERFACE "org.omarchy.Polkit.FingerprintSwitch"
++#define PASSWORD_SWITCH_PATH "/net/reactivated/Fprint/PasswordSwitch/"
++#define PASSWORD_SWITCH_INTERFACE "net.reactivated.Fprint.PasswordSwitch"
 +#define PASSWORD_SWITCH_INFO "fprintd:password-switch:"
 +
 +#ifdef SO_PEERPIDFD
@@ -126,7 +126,7 @@
 +#if defined(__linux__) && defined(SO_PEERPIDFD)
 +          /* A switch request ends the scan and lets PAM ask for the password. */
 +          if (switch_state.requested)
-+            return PAM_AUTHINFO_UNAVAIL;
++            break;
 +#endif
            if (data->verify_ret != FPRINTD_PAM_INCOMPLETE)
              break;
@@ -144,7 +144,19 @@
            if (r == 0)
              {
  #ifdef __linux__
-@@ -781,7 +885,7 @@
+@@ -604,6 +708,11 @@
+                                  NULL,
+                                  NULL);
+ 
++#if defined(__linux__) && defined(SO_PEERPIDFD)
++      if (switch_state.requested)
++        return PAM_AUTHINFO_UNAVAIL;
++#endif
++
+       if (data->timed_out)
+         {
+           return PAM_AUTHINFO_UNAVAIL;
+@@ -781,7 +890,7 @@
  }
  
  static int
@@ -153,7 +165,7 @@
  {
    pf_autoptr (verify_data) data = NULL;
    pf_autoptr (sd_bus) bus = NULL;
-@@ -816,7 +920,7 @@
+@@ -816,7 +925,7 @@
  
    if (claim_device (pamh, bus, data->dev, username))
      {
@@ -162,7 +174,7 @@
  
        /* Simply disconnect from bus if we return PAM_SUCCESS */
        if (ret != PAM_SUCCESS)
-@@ -858,6 +962,8 @@
+@@ -858,6 +967,8 @@
                       const char **argv)
  {
    const char *username;
@@ -171,7 +183,7 @@
    int i;
  
    bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
-@@ -873,7 +979,9 @@
+@@ -873,7 +984,9 @@
      {
        if (argv[i] != NULL)
          {
@@ -182,7 +194,7 @@
              {
                pam_syslog (pamh, LOG_DEBUG, "debug on");
                debug = true;
-@@ -935,7 +1043,11 @@
+@@ -935,7 +1048,11 @@
          }
      }
  
