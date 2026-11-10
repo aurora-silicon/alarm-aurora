@@ -1,6 +1,6 @@
 pkgname=aurora-boot
 pkgver=20261018
-pkgrel=13
+pkgrel=14
 pkgdesc='Aurora Alarm boot integration'
 arch=('any')
 license=('MIT')
