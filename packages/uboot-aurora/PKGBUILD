@@ -1,12 +1,12 @@
 pkgname=uboot-aurora
-pkgver=2026.07.aurora8
+pkgver=2026.07.aurora9
 pkgrel=1
 pkgdesc='Aurora common Apple Silicon U-Boot with Neo MTP handoff'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/u-boot'
 license=('GPL-2.0-or-later')
-_commit=48c6b2c5f24e9a245c82d402ad11767ece9e384b
+_commit=6363e77fe6287b79219a4d06947b0076bdd765fb
 provides=("uboot-asahi=$pkgver")
 conflicts=('uboot-asahi' 'uboot-asahi-j700')
 replaces=('uboot-asahi-j700')
