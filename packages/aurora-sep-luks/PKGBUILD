@@ -6,8 +6,7 @@ arch=('aarch64')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('MIT')
 _commit=63a51a73377dafc1aafdbe86d398d505fa939ff7
-depends=('cryptsetup' 'json-c' 'aurora-sep')
-makedepends=('gcc' 'make' 'pkgconf')
+makedepends=('gcc' 'make' 'pkgconf' 'cryptsetup' 'json-c')
 source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
 sha256sums=('426152b4504a4f98c141344387c3ddbabf6beac0c129d3cb7d482af057d1ecef')
 
@@ -22,6 +21,9 @@ check() {
 }
 
 package() {
+  # Runtime dependencies here, as in aurora-fido: aurora-sep comes from the
+  # Aurora repository, which the build root does not have.
+  depends=('cryptsetup' 'json-c' 'aurora-sep')
   # Nothing is enrolled by installing: aurora-sep-cryptenroll is run per volume.
   make -C "aurora-sep-userspace-$_commit/luks" install DESTDIR="$pkgdir" PREFIX=/usr TOKENDIR=/usr/lib/cryptsetup
   install -Dm644 "aurora-sep-userspace-$_commit/docs/luks-sep.md" "$pkgdir/usr/share/doc/$pkgname/luks-sep.md"
