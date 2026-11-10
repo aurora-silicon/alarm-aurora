@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       packages: ${{ steps.plan.outputs.packages }}
+      touchid: ${{ steps.plan.outputs.touchid }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -41,8 +42,17 @@ jobs:
               names=sorted(set(requested))
           elif os.environ['GITHUB_EVENT_NAME'] in ('push','pull_request') and before.strip('0'):
               paths=subprocess.check_output(['git','diff','--name-only',before,os.environ['GITHUB_SHA']],text=True).splitlines()
+              # Every upgrade test sources the shared checks.
+              if 'scripts/testlib.sh' in paths:
+                  paths += ['scripts/test-graphics-upgrade','scripts/test-upower-upgrade','scripts/test-networkmanager-upgrade','scripts/test-touchid-upgrade']
               if 'scripts/test-graphics-upgrade' in paths:
                   paths.append('packages/mesa-aurora/PKGBUILD')
+              if {'scripts/test-upower-upgrade','scripts/ci-build-keep-config'}.intersection(paths) or any(p.startswith('packages/aurora-keep-config/') for p in paths):
+                  paths.append('packages/upower-aurora/PKGBUILD')
+              if 'scripts/test-networkmanager-upgrade' in paths:
+                  paths.append('packages/networkmanager-aurora/PKGBUILD')
+              if {'scripts/test-touchid-upgrade','scripts/ci-test-touchid-upgrade'}.intersection(paths):
+                  paths.append('packages/aurora-sep/PKGBUILD')
               if 'sources.json' in paths:
                   previous=json.loads(subprocess.check_output(['git','show',before+':sources.json'],text=True))
                   current=json.loads(Path('sources.json').read_text())
@@ -57,12 +67,17 @@ jobs:
               if not core.intersection(paths):
                   names=sorted({p.split('/')[1] for p in paths if p.startswith('packages/') and p.split('/')[1] in names})
           print('packages='+json.dumps(names))
+          # Any change to the Touch ID stack also replaces stock libfprint and fprintd with it.
+          touchid={'libfprint-aurora','fprintd-aurora','aurora-xart','aurora-touchid-rearm','aurora-sep'}
+          print('touchid='+json.dumps(bool(touchid.intersection(names))))
           PY
       - run: |
           python3 -m unittest discover -s tests -p 'test_*.py'
           for file in packages/*/PKGBUILD scripts/*; do
             [[ $file == *.py ]] || bash -n "$file"
           done
+      - name: No recipe builds an older version than the published feed
+        run: python3 scripts/check-published-versions.py
   fex-overlay:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
@@ -90,6 +105,31 @@ jobs:
         with:
           name: fex-overlay-upgrade-proof
           path: ${{ runner.temp }}/proof/
+  touchid-upgrade:
+    needs: metadata
+    if: needs.metadata.outputs.touchid == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Replace stock libfprint and fprintd with the Touch ID stack and roll back
+        run: |
+          set -euo pipefail
+          docker run --rm --privileged -v "$PWD:/src" -w /src \
+            registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
+              dnf install -y python3 gnupg2 tar gzip util-linux coreutils
+              bash scripts/ci-test-touchid-upgrade
+            ' 2>&1 | tee touchid-upgrade.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: touchid-upgrade-proof
+          path: |
+            touchid-upgrade.log
+            out/touchid-upgrade/
+          retention-days: 30
   build:
     needs: metadata
     if: needs.metadata.outputs.packages != '[]'
@@ -122,6 +162,14 @@ jobs:
               fi
               if [[ $1 == mesa-aurora ]]; then
                 chroot out/container /bin/bash /src/scripts/test-graphics-upgrade /tmp/package-build
+              fi
+              if [[ $1 == upower-aurora ]]; then
+                chroot out/container /bin/bash /src/scripts/ci-build-keep-config /tmp/package-build
+                chroot out/container /bin/bash /src/scripts/test-upower-upgrade /tmp/package-build
+              fi
+              if [[ $1 == networkmanager-aurora ]]; then
+                chroot out/container /bin/bash /src/scripts/ci-build-keep-config /tmp/package-build
+                chroot out/container /bin/bash /src/scripts/test-networkmanager-upgrade /tmp/package-build
               fi
             ' build '${{ matrix.package }}' 2>&1 | tee build.log
       - name: Build Flatpak GL in signed ALARM OCI root
@@ -156,6 +204,8 @@ jobs:
             out/graphics-upgrade/*.sha256
             out/graphics-upgrade/*.conf
             out/graphics-upgrade/stock-packages.tar
+            out/upower-upgrade/
+            out/networkmanager-upgrade/
           include-hidden-files: true
           retention-days: 30
       # A failed attempt keeps its log under a name publication never reads.
@@ -169,6 +219,8 @@ jobs:
             out/graphics-upgrade/*.sha256
             out/graphics-upgrade/*.conf
             out/graphics-upgrade/stock-packages.tar
+            out/upower-upgrade/
+            out/networkmanager-upgrade/
             out/container/tmp/package-build/src/linux-*/build/base/.config
           include-hidden-files: true
           retention-days: 14

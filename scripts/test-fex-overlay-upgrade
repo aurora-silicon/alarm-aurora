@@ -1,6 +1,7 @@
 #!/bin/bash
 # Disposable systemd CI container. Real libalpm extraction onto a ro overlay.
 set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/testlib.sh"
 [[ -e /.dockerenv && -d /run/systemd/system ]]
 proof=/proof
 mkdir -p "$proof" /usr/share/guestos/fex-mesa/usr
@@ -27,12 +28,12 @@ pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-1.pkg.tar.gz
 systemctl daemon-reload
 systemctl start aurora-fex-mesa.service
 systemctl is-active aurora-fex-mesa.service
-! touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
+refute touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
 findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-before.txt"
 pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-2.pkg.tar.gz"
 systemctl is-active aurora-fex-mesa.service
 grep -x 1-2 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
-! touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
+refute touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
 [[ ! -e /run/aurora-fex-mesa.upgrade ]]
 pacman -Qkk mesa-aurora-fex-guest
 findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-after.txt"
@@ -52,8 +53,8 @@ umount /usr/share/guestos/aurora-fex-mesa
 systemctl start aurora-fex-mesa.service
 systemctl stop aurora-fex-mesa.service
 pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-3.pkg.tar.gz"
-! systemctl is-active aurora-fex-mesa.service
-! mountpoint -q /usr/share/guestos/aurora-fex-mesa
+refute systemctl is-active aurora-fex-mesa.service
+refute mountpoint -q /usr/share/guestos/aurora-fex-mesa
 pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-1.pkg.tar.gz"
 systemctl start aurora-fex-mesa.service
 grep -x 1-1 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer

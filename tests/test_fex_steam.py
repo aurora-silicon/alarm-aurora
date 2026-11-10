@@ -46,6 +46,52 @@ class FexSteamTests(unittest.TestCase):
             if '://' not in source:
                 self.assertEqual(hashlib.sha256((ROOT / 'packages/fex-emu' / source).read_bytes()).hexdigest(), digest)
 
+    def test_fex_defaults_to_the_arch_rootfs_image(self):
+        d = ROOT / 'packages/fex-emu'
+        text = (d / 'PKGBUILD').read_text()
+        # FEX reads its global config from DATA_DIRECTORY, by default
+        # ${CMAKE_INSTALL_PREFIX}/share/fex-emu; a user's Config.json overrides it.
+        self.assertNotIn('-DDATA_DIRECTORY', text)
+        build = text.split('\nbuild() {', 1)[1].split('\n}', 1)[0]
+        self.assertEqual(build.count('-DCMAKE_INSTALL_PREFIX=/usr '), 2)
+        config = json.loads((d / 'Config.json').read_text())
+        image = '/usr/share/fex-emu/RootFS/default.erofs'
+        self.assertEqual(config, {'Config': {'RootFS': image}})
+        self.assertIn(f'\nWhat={image}\n', (d / 'fex-guest-rootfs.mount').read_text())
+        package = text.split('\npackage_fex-emu() {', 1)[1].split('\n}', 1)[0]
+        self.assertIn('install -Dm644 Config.json "$pkgdir/usr/share/fex-emu/Config.json"', package)
+        self.assertEqual(field('fex-emu', 'package_fex-emu', 'backup'), ['usr/share/fex-emu/Config.json'])
+
+    def test_fex_depends_on_its_rootfs_and_what_mounts_it(self):
+        # pacman installs no optional dependencies: FEXBash needs the image and
+        # erofsfuse (Arch's erofs-utils has no FUSE client) after `pacman -S fex-emu`.
+        depends = field('fex-emu', 'package_fex-emu', 'depends')
+        for name in ('fex-emu-rootfs-arch', 'erofsfuse', 'squashfuse'):
+            self.assertIn(name, depends)
+        optdepends = field('fex-emu', 'package_fex-emu', 'optdepends')
+        self.assertFalse([o for o in optdepends if o.startswith('fex-emu-rootfs-arch')])
+        d = ROOT / 'packages/fex-emu'
+        text = (d / 'PKGBUILD').read_text()
+        patch = '0001-FEXInterpreter-name-the-distribution-RootFS-package.patch'
+        self.assertIn(patch, field('fex-emu', None, 'source'))
+        self.assertIn(f'patch -Np1 -i "$srcdir/{patch}"', text.split('\nprepare() {', 1)[1].split('\n}', 1)[0])
+        patched = (d / patch).read_text()
+        self.assertIn('add_compile_definitions(ROOTFS_PACKAGE="${ROOTFS_PACKAGE}")', patched)
+        self.assertIn('Install the {} package for the default RootFS', patched)
+        build = text.split('\nbuild() {', 1)[1].split('\n}', 1)[0]
+        main = build.split('cmake --build build', 1)[0]
+        self.assertIn('-DROOTFS_PACKAGE=fex-emu-rootfs-arch', main)
+        # A 4K page process can't read /dev/fuse on Aurora kernels: FEXServer
+        # runs erofsfuse with native pages.
+        native = '0002-FEXServer-run-the-RootFS-image-FUSE-helper-with-native-pages.patch'
+        self.assertIn(native, field('fex-emu', None, 'source'))
+        self.assertIn(f'patch -Np1 -i "$srcdir/{native}"', text.split('\nprepare() {', 1)[1].split('\n}', 1)[0])
+        patched = (d / native).read_text()
+        self.assertIn('+++ b/Source/Tools/FEXServer/SquashFS.cpp', patched)
+        for line in ('+    prctl(PR_AURORA_SET_DEFAULT_PAGE_SIZE, 0UL, 0UL, 0UL, 0UL);',
+                     '+    prctl(PR_AURORA_SET_EXEC_PAGE_SIZE, 0UL, 0UL, 0UL, 0UL);'):
+            self.assertIn(line, patched)
+
     def test_fex_emu_takes_over_fex_emu_and_not_fex(self):
         self.assertEqual(field('fex-emu', None, 'pkgname'), ['fex-emu', 'fex-emu-steam'])
         # pacman -Syu moves an Asahi FEX-Emu install to fex-emu; `fex` is not

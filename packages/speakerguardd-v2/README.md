@@ -5,36 +5,28 @@ speakerguardd 1.0 (`1.0.0-alpha`), the in-graph speaker protection from the
 upgrade of the 0.1 daemon, so it is packaged under its own name and installs
 beside the older daemons, speakerguardd 0.1 and speakersafetyd.
 
-## Install everywhere, gate by board
+## Opt-in (release candidate 8)
 
-Every Mac carries both stacks: aurora-platform and aurora-audio require
-speakerguardd-v2 beside the older daemons. Nothing replaces or obsoletes
-anything. At every boot the fleet gate (`speakerguardd-gate`, the
-`ExecCondition=` of every unit of both stacks) starts exactly one of them:
+Nothing in the default install pulls this package: aurora-audio requires only
+speakersafetyd and speakerguardd 0.1, and replaces/conflicts only with the
+retired preview builds (up to 1.0.0alpha.1-25). Installing it changes nothing
+by itself. At every boot the fleet gate (`speakerguardd-gate`, the
+`ExecCondition=` of every unit of both stacks) starts exactly one stack:
 
-- **v2** on a board whose protection unit is at parity and that passed an
-  audible run on the shipped tree, when the kernel has the v2 interface (the
-  "Speaker Protection" control);
-- **the older daemons** everywhere else, as long as the kernel has no v2
-  interface. On a v2 kernel they have nothing to own, so a board outside
-  the gate then runs neither, and the kernel holds its speakers at its
-  floor.
+- on a kernel with only the legacy interface ("Speaker Volume Unlock"), the
+  older daemons;
+- on the dual-interface kernel (linux 98cb6a86 and later: "Speaker Protection
+  Interface"), the older daemons unless `aurora-speaker-upgrade` has switched
+  this Mac (`/var/lib/aurora-speaker-upgrade/interface` says `v2`) and the
+  Mac's own tuning passed compilation, the macOS parity attestation and the
+  wiring self-check; then v2;
+- on a v2-only kernel (lab fleet kernels), v2 when qualified, else the
+  kernel's floor.
 
-The kernel is the switch. Every fleet kernel today lacks the v2 interface,
-so every Mac stays on the older daemons. The kernel that brings the
-interface moves every gated Mac at once (option A: it lands once lsm2 and
-atsp reach parity). The gate's data is speakerguardd's own
-(`/usr/share/speakerguardd/gate.json`: the units at parity and the qualified
-boards per unit), so it is the same in every distribution and never edited
-here. Nothing about a board is entered by hand: the protection unit is the
-one the Mac's own tuning names, and the channel map, card, amplifiers and
-sense lanes are derived from its device tree and tuning at run time
-(`wiring.py`), so a new Mac needs no table entry. The cutover adds lsm2 and atsp to `units_at_parity` and drops the
-per-board run, which makes the gate every board with a parity unit.
-
-`speakerguardd-gate explain` (beside the supervisor) prints the decision.
-For qualification itself, an administrator can name an unqualified board in
-`/etc/speakerguardd/allow-unqualified`.
+There is no board list: qualification is derived from the Mac's own tuning,
+device tree and self-check. `speakerguardd-gate explain` prints the decision.
+aurora-speaker-upgrade ships disabled; `aurora-speaker-upgrade --check` is a
+dry run that writes nothing.
 
 ## No manual steps
 
@@ -75,9 +67,8 @@ Overrides, all optional, go in `/etc/speakerguardd/provision.conf`:
 
 | | Back to the older daemons |
 |---|---|
-| Any distribution | Boot a kernel without the v2 interface. The gate starts the older daemons again, with no package change |
-| One Mac, without a kernel change | `systemctl disable speakerguardd-v2.service`. On a v2 kernel this leaves the speakers at the kernel's floor, because the older daemons cannot drive that kernel |
-| NixOS | `aurora.speakerguardd.v2.enable = false;` removes v2 and its gate, and the older daemons run as before |
+| Any distribution, dual kernel | `aurora-speaker-upgrade --revert`: the setting goes, the kernel returns to "Speaker Volume Unlock" and the older daemons take the speakers |
+| Any distribution | `pacman -R speakerguardd-v2`: its gate drop-ins go with it and the older daemons run as before |
 
 The older daemons stay installed throughout, so the rollback needs no
 download.

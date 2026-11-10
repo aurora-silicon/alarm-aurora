@@ -1,0 +1,183 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Disposable CI chroot only (the signed ALARM root scripts/ci-build-package
+# builds in). Every boot input is synthetic and the "ESP" is a directory: no
+# host device, mount or Mac is touched. Run after building asahi-scripts:
+#   chroot out/container /bin/bash /src/scripts/test-stage2-transactions /tmp/package-build
+#
+# Real pacman transactions run the packaged hook and update-m1n1: a first
+# kernel writes Stage 2, a newer same-generation kernel replaces it with a
+# backup, a newer DT ABI generation is refused while older kernels stay
+# installed, and removing them (the hook runs on removal too) lets it through.
+# The trial states (arm, commit on the trial boot, fallback, guard reboot) need
+# a booted Mac's /proc/device-tree, so the installed helper's suites model them
+# against synthetic proc/sys trees, as fedora-aurora's test does.
+set -euo pipefail
+[[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
+packages=${1:?directory containing the freshly built asahi-scripts package}
+proof=/src/out/stage2-transactions
+rm -rf "$proof"
+mkdir -p "$proof"
+log() { printf '%s\n' "$*" | tee -a "$proof/summary.txt"; }
+pacman -S --noconfirm --needed dtc python util-linux systemd > "$proof/bootstrap.log" 2>&1
+# Images remove ALARM's generic kernel; so does this root.
+if pacman -Q linux-aarch64 >/dev/null 2>&1; then
+  pacman -R --noconfirm linux-aarch64 >> "$proof/bootstrap.log" 2>&1
+fi
+# Local unsigned candidates are permitted only by this disposable test config.
+cp /etc/pacman.conf "$proof/pacman.conf"
+sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
+# A failing PostTransaction hook is reported, not fatal: record pacman's status
+# and check what each transaction left behind instead.
+pac() {
+  local rc=0
+  pacman --config "$proof/pacman.conf" --noconfirm "$@" || rc=$?
+  echo "pacman exit status $rc"
+}
+
+# Kernel fixtures install their trees and DT ABI marker with linux-aurora's own
+# package() lines, so the recipe's layout is the one the updater reads.
+recipe=/src/packages/linux-aurora/PKGBUILD
+# shellcheck disable=SC2016 # the recipe's own lines, matched literally
+dtbs_line=$(grep -E '^  install -Dt "\$modulesdir/dtbs" ' "$recipe")
+# shellcheck disable=SC2016
+abi_line=$(grep -E '^  install -m644 "\$srcdir/dtb-abi" "\$modulesdir/dtb-abi"$' "$recipe")
+fixtures=/tmp/stage2-fixtures
+rm -rf "$fixtures"
+kernel_fixture() {
+  local name=$1 release=$2 generation=$3 value=$4 dir=$fixtures/$1
+  mkdir -p "$dir"
+  printf '%s\n' "$generation" > "$dir/dtb-abi"
+  dtc -q -I dts -O dtb -o "$dir/t8112-j413.dtb" - <<EOF
+/dts-v1/; / { compatible = "apple,j413", "apple,t8112";
+fixture { value = <$value>; }; };
+EOF
+  cat > "$dir/PKGBUILD" <<EOF
+pkgname=linux-fixture-$name
+pkgver=1
+pkgrel=1
+pkgdesc='Synthetic Stage 2 transaction fixture, not a bootable kernel'
+arch=(aarch64)
+license=(MIT)
+options=(!debug !strip)
+source=(dtb-abi t8112-j413.dtb)
+sha256sums=(SKIP SKIP)
+package() {
+  local modulesdir="\$pkgdir/usr/lib/modules/$release"
+  local O="\$srcdir/o"
+  install -Dm644 "\$srcdir/t8112-j413.dtb" "\$O/arch/arm64/boot/dts/apple/t8112-j413.dtb"
+  printf 'fixture-%s' "$name" | install -Dm644 /dev/stdin "\$modulesdir/vmlinuz"
+$dtbs_line
+$abi_line
+}
+EOF
+}
+inputs_fixture() {
+  local release=$1 dir=$fixtures/inputs-$1
+  mkdir -p "$dir"
+  cat > "$dir/PKGBUILD" <<EOF
+pkgname=stage2-inputs-fixture
+pkgver=1
+pkgrel=$release
+pkgdesc='Synthetic aura and U-Boot Stage 2 inputs, not a bootloader'
+arch=(any)
+license=(MIT)
+options=(!debug !strip)
+package() {
+  printf 'aura-$release' | install -Dm644 /dev/stdin "\$pkgdir/usr/lib/asahi-boot/m1n1.bin"
+  printf 'u-boot' | install -Dm644 /dev/stdin "\$pkgdir/usr/lib/asahi-boot/u-boot-nodtb.bin"
+}
+EOF
+}
+kernel_fixture a 7.3.0-1-ARCH 1 1
+kernel_fixture b 7.3.0-2-ARCH 1 2
+kernel_fixture c 7.3.0-3-ARCH 2 3
+inputs_fixture 1
+inputs_fixture 2
+chown -R builder:builder "$fixtures"
+for dir in "$fixtures"/*/; do
+  (cd "$dir" && runuser -u builder -- makepkg --nodeps --noconfirm -f) >> "$proof/fixture-build.log" 2>&1
+done
+fixture() { printf '%s\n' "$fixtures/$1"/*.pkg.tar.*; }
+
+mkdir -p /boot/efi/m1n1 /etc/default
+# An explicit target: no ESP is mounted. No Apple compatible: an image-style
+# plain write, so the trial is never armed here.
+cat > /etc/default/update-m1n1 <<'CONFIG'
+TARGET=/boot/efi/m1n1/boot.bin
+AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent
+CONFIG
+stage2=/boot/efi/m1n1/boot.bin
+contains() { python3 -c 'import sys; sys.exit(open(sys.argv[2], "rb").read() not in open(sys.argv[1], "rb").read())' "$@"; }
+starts() { python3 -c 'import sys; sys.exit(not open(sys.argv[1], "rb").read().startswith(sys.argv[2].encode()))' "$@"; }
+
+pac -U "$packages"/asahi-scripts-*.pkg.tar.* > "$proof/install-updater.log" 2>&1
+pacman -Q asahi-scripts | tee -a "$proof/summary.txt"
+pacman -T aurora-stage2-trial aurora-stage2-ctxr-slot
+cmp /usr/bin/update-m1n1 /src/packages/asahi-scripts/update-m1n1
+cmp /usr/libexec/aurora/bootchain.py /src/packages/asahi-scripts/bootchain.py
+cmp /usr/share/libalpm/hooks/95-m1n1-install.hook /src/packages/asahi-scripts/95-m1n1-install.hook
+systemctl --root=/ is-enabled aurora-stage2-commit.service aurora-stage2-guard.timer | tee "$proof/units-enabled.txt"
+[[ $(sort -u "$proof/units-enabled.txt") == enabled ]]
+systemd-analyze verify /usr/lib/systemd/system/aurora-stage2-commit.service \
+  /usr/lib/systemd/system/aurora-stage2-guard.service /usr/lib/systemd/system/aurora-stage2-guard.timer \
+  > "$proof/units-verify.log" 2>&1
+log 'updater installed; units enabled by preset and verified'
+
+rc=0; update-m1n1 --bogus > "$proof/bad-option.log" 2>&1 || rc=$?
+[[ $rc == 2 ]]
+
+# Stage 2 inputs without any kernel: refused, nothing written.
+pac -U "$(fixture inputs-1)" > "$proof/inputs-1.log" 2>&1
+grep -F 'no remaining installed kernels' "$proof/inputs-1.log"
+[[ ! -e $stage2 ]]
+log 'inputs without a kernel: refused, no Stage 2 written'
+
+pac -U "$(fixture a)" > "$proof/kernel-a.log" 2>&1
+pacman -Q linux-fixture-a
+starts "$stage2" aura-1
+contains "$stage2" "$fixtures/a/t8112-j413.dtb"
+cp "$stage2" "$proof/stage2-a.bin"
+log "kernel a (generation 1): Stage 2 written, $(sha256sum < "$stage2" | cut -c1-12)"
+
+pac -U "$(fixture b)" > "$proof/kernel-b.log" 2>&1
+pacman -Q linux-fixture-b
+contains "$stage2" "$fixtures/b/t8112-j413.dtb"
+cmp "$proof/stage2-a.bin" "$stage2.old"
+cp "$stage2" "$proof/stage2-b.bin"
+log 'kernel b (generation 1, a retained): newest trees written, previous image kept as boot.bin.old'
+
+pac -U "$(fixture c)" > "$proof/kernel-c.log" 2>&1
+grep -F '7.3.0-1-ARCH (generation 1), 7.3.0-2-ARCH (generation 1)' "$proof/kernel-c.log"
+grep -F "sudo pacman -R \$(pacman -Qqo '/usr/lib/modules/7.3.0-1-ARCH/vmlinuz' '/usr/lib/modules/7.3.0-2-ARCH/vmlinuz')" "$proof/kernel-c.log"
+pacman -Q linux-fixture-c
+cmp "$proof/stage2-b.bin" "$stage2"
+cmp "$proof/stage2-a.bin" "$stage2.old"
+[[ ! -e /boot/efi/aura-try && ! -e $stage2.next ]]
+log 'kernel c (generation 2) with generation 1 kernels retained: refused, Stage 2 and backup unchanged'
+
+pac -R linux-fixture-c > "$proof/remove-c.log" 2>&1
+if pacman -Q linux-fixture-c 2>/dev/null; then exit 1; fi
+cmp "$proof/stage2-b.bin" "$stage2"
+pac -U "$(fixture c)" > "$proof/kernel-c-again.log" 2>&1
+grep -F 'require an older generation' "$proof/kernel-c-again.log"
+cmp "$proof/stage2-b.bin" "$stage2"
+pac -R linux-fixture-a linux-fixture-b > "$proof/remove-a-b.log" 2>&1
+if pacman -Q linux-fixture-a 2>/dev/null; then exit 1; fi
+contains "$stage2" "$fixtures/c/t8112-j413.dtb"
+cmp "$proof/stage2-b.bin" "$stage2.old"
+log 'removing the generation 1 kernels runs the hook: generation 2 trees written'
+
+pac -U "$(fixture inputs-2)" > "$proof/inputs-2.log" 2>&1
+pacman -Q stage2-inputs-fixture | grep -Fx 'stage2-inputs-fixture 1-2'
+starts "$stage2" aura-2
+contains "$stage2" "$fixtures/c/t8112-j413.dtb"
+log 'aura input upgrade: Stage 2 rebuilt through the hook'
+
+# The installed helper against synthetic trial, fallback and guard boots.
+export BOOTCHAIN_MODULE=/usr/libexec/aurora/bootchain.py BOOTCHAIN_ARCH_MODULE=/usr/libexec/aurora/bootchain_arch.py
+python3 /src/packages/asahi-scripts/test_bootchain.py -v > "$proof/installed-shared-tests.log" 2>&1
+python3 /src/packages/asahi-scripts/test_bootchain_arch.py -v > "$proof/installed-arch-tests.log" 2>&1
+grep -E '^Ran [0-9]+ tests' "$proof"/installed-*-tests.log | tee -a "$proof/summary.txt"
+pacman -Q asahi-scripts stage2-inputs-fixture linux-fixture-c > "$proof/installed.txt"
+log 'Arch Linux ARM Stage 2 transactions and installed trial suites passed'

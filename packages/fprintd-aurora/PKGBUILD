@@ -1,6 +1,6 @@
 pkgname=fprintd-aurora
 pkgver=1.94.5
-pkgrel=1
+pkgrel=3
 pkgdesc='D-Bus fingerprint service with Aurora enrolment and durable-delete handling'
 arch=('aarch64')
 license=('GPL-2.0-or-later' 'GFDL-1.1-or-later')
@@ -11,24 +11,47 @@ replaces=('fprintd')
 depends=('libfprint' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
 makedepends=('meson' 'ninja' 'gettext' 'gtk-doc' 'glib2-devel' 'systemd' 'python' 'perl')
 source=('https://gitlab.freedesktop.org/libfprint/fprintd/-/archive/v1.94.5/fprintd-v1.94.5.tar.gz'
-        '0001-preserve-print-on-device-delete-failure.patch' 'test_account_gate.py')
-sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c' 'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a' '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83')
+        '0001-preserve-print-on-device-delete-failure.patch' 'test_account_gate.py'
+        '0002-report-lockout-and-fall-back-to-the-password.patch'
+        '0003-say-why-the-reader-needs-the-password.patch')
+sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c' 'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a' '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83'
+            'b29df6766dafadbdc2dac34b5fc0396ac24a7628e822018285189cf30f52c34e'
+            '1db338603ce2bbf15688c909d4c24120c7933755ca390358b940ac4579cb82d3')
 
 prepare() {
   cd "fprintd-v$pkgver"
   patch -Np1 -i "$srcdir/0001-preserve-print-on-device-delete-failure.patch"
+  patch -Np1 -i "$srcdir/0002-report-lockout-and-fall-back-to-the-password.patch"
+  patch -Np1 -i "$srcdir/0003-say-why-the-reader-needs-the-password.patch"
 }
 
 build() {
+  # 0002 matches libfprint-aurora's FP_DEVICE_ERROR_LOCKED_OUT (0008, pkgrel 6),
+  # the value after FP_DEVICE_ERROR_TOO_HOT. Each package builds in its own clean
+  # ALARM root with stock libfprint headers, which lack it; package() requires
+  # libfprint-aurora>=1.94.100-7, so the daemon always runs on the library
+  # that reports it.
+  if ! grep -q FP_DEVICE_ERROR_LOCKED_OUT /usr/include/libfprint-2/fp-device.h; then
+    export CFLAGS="$CFLAGS -DFP_DEVICE_ERROR_LOCKED_OUT=(FP_DEVICE_ERROR_TOO_HOT+1)"
+  fi
+  # 0003 likewise matches 0009 (pkgrel 7): the two password reasons follow it.
+  if ! grep -q FP_DEVICE_ERROR_PASSWORD_REQUIRED_AFTER_BOOT /usr/include/libfprint-2/fp-device.h; then
+    export CFLAGS="$CFLAGS -DFP_DEVICE_ERROR_PASSWORD_REQUIRED=(FP_DEVICE_ERROR_TOO_HOT+2)"
+    export CFLAGS="$CFLAGS -DFP_DEVICE_ERROR_PASSWORD_REQUIRED_AFTER_BOOT=(FP_DEVICE_ERROR_TOO_HOT+3)"
+  fi
   arch-meson "fprintd-v$pkgver" build -Dgtk_doc=true -Dpam=true -Dpam_modules_dir=/usr/lib/security
   meson compile -C build
 }
 
 check() {
   python "$srcdir/test_account_gate.py" "$srcdir/fprintd-v$pkgver/src/device.c"
+  grep -q 'verify-lockout' "$srcdir/fprintd-v$pkgver/src/device.c"
+  grep -q 'verify-lockout' "$srcdir/fprintd-v$pkgver/pam/pam_fprintd.c"
+  grep -q 'verify-password-required-after-boot' "$srcdir/fprintd-v$pkgver/src/device.c"
+  grep -q 'Your password is required to enable Touch ID.' "$srcdir/fprintd-v$pkgver/pam/pam_fprintd.c"
 }
 
 package() {
-  depends=('libfprint-aurora>=1.94.100-3' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
+  depends=('libfprint-aurora>=1.94.100-7' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
   meson install -C build --destdir "$pkgdir"
 }

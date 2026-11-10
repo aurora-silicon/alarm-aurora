@@ -1,0 +1,37 @@
+# speakersafetyd 2.0.1 (the release Fedora and ALARM ship) with one downstream
+# fix, byte-identical to fedora-aurora's speakersafetyd 2.0.1-1.aurora1: a sense
+# period read after a startup probe closed the speakers no longer panics the
+# daemon (0002). 0001 is Fedora's j504 config backport. [aurora] precedes the
+# other repositories in pacman.conf, so this build is the one installed.
+pkgname=speakersafetyd
+pkgver=2.0.1
+pkgrel=1.1
+pkgdesc='Speaker protection daemon for embedded Linux systems (Aurora build)'
+arch=('aarch64')
+license=('MIT')
+url='https://crates.io/crates/speakersafetyd'
+makedepends=('rust' 'cargo')
+depends=('alsa-lib' 'gcc-libs' 'glibc' 'systemd')
+source=("$pkgname-$pkgver.tar.gz::https://static.crates.io/crates/$pkgname/$pkgname-$pkgver.crate"
+        0001-j504-Write-the-full-speaker-names-in-conf.patch
+        0002-skip-a-sense-period-read-after-a-probe-closed-the-speakers.patch)
+sha256sums=('30101e673466072a080e321df3b7d1165dd8b79246ba393b82bb09d8325dd814'
+            '9c1060ca170f52ceb2a68fd1d3c67a31edc4171473b65c239de2115ac8c1870f'
+            '40fa32b197413c5a5e2f8c0e4c45e4469d99e3be216cc3c3c05c2a2642105cbe')
+prepare() {
+  cd "$pkgname-$pkgver"
+  patch -Np1 < ../0001-j504-Write-the-full-speaker-names-in-conf.patch
+  patch -Np1 < ../0002-skip-a-sense-period-read-after-a-probe-closed-the-speakers.patch
+}
+build() { cd "$pkgname-$pkgver"; cargo build --locked --release; }
+check() { cd "$pkgname-$pkgver"; cargo test --locked --release; }
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/speakersafetyd "$pkgdir/usr/bin/speakersafetyd"
+  install -Dm644 speakersafetyd.service "$pkgdir/usr/lib/systemd/system/speakersafetyd.service"
+  install -Dm644 95-speakersafetyd.rules "$pkgdir/usr/lib/udev/rules.d/95-speakersafetyd.rules"
+  install -d "$pkgdir/usr/share/speakersafetyd/apple"
+  install -m644 -t "$pkgdir/usr/share/speakersafetyd/apple" conf/apple/*
+  install -dm755 "$pkgdir/var/lib/speakersafetyd/blackbox"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

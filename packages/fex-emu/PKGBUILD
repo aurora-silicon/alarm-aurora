@@ -2,14 +2,14 @@
 # fork's submodules are pinned at its gitlinks (sources.json extra_sources).
 pkgbase=fex-emu
 pkgname=(fex-emu fex-emu-steam)
-pkgver=2610.r202611050907.c2c22c6a365
-pkgrel=2
+pkgver=2610.r202611061239.0c08727ae4c
+pkgrel=1
 pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/fex'
 license=('MIT' 'Apache-2.0' 'BSL-1.0' 'BSD-3-Clause' 'GPL-2.0-only')
-_commit=c2c22c6a3654695ad436527ccaf95626b339ef11
-_sha256=48b6a8ea6b66fb6d625e0a29bde83ff942a78170648104e68a9791fb0d46fa3d
+_commit=0c08727ae4c0c30601c962d982d4864b77dd17a2
+_sha256=b0e90b68f4eb009c02147d8859c2111baaf257dee916924be7ac833e09379665
 _describe=FEX-${pkgver%%.r*}-aurora-g${_commit::7}
 makedepends=('cmake' 'ninja' 'clang' 'lld' 'llvm' 'python' 'python-setuptools' 'python-packaging'
              'fmt' 'xxhash' 'catch2' 'libepoxy' 'sdl2-compat' 'qt6-declarative' 'pkgconf')
@@ -31,7 +31,9 @@ for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
   source+=("$_n-$_c.tar.gz::https://codeload.github.com/$_r/tar.gz/$_c")
 done
-source+=(README.aurora fex-guest-rootfs.mount 50-aurora-fex-rootfs.conf aurora-fex-provider-up 70-aurora-fex-provider.hook compatibilitytool.vdf)
+source+=(README.aurora fex-guest-rootfs.mount 50-aurora-fex-rootfs.conf aurora-fex-provider-up 70-aurora-fex-provider.hook compatibilitytool.vdf
+         Config.json 0001-FEXInterpreter-name-the-distribution-RootFS-package.patch
+         0002-FEXServer-run-the-RootFS-image-FUSE-helper-with-native-pages.patch)
 sha256sums=("$_sha256"
             '68e6b500890270517d226abbc3610135de1600ddde29f44c9b68cca5e2a17f60'
             '3d3653841f81ea5be1a15cd4b458f048c1fffbcd97fcc808454a7fbe7cf1a555'
@@ -43,12 +45,15 @@ sha256sums=("$_sha256"
             'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
             'e0099a9035521b29523915fae2e5f1b38229df896191e4a046f7b0d55a45c7d2'
             '34e71c085636fbc1726482996d92719d0a16e6a6097970ecf2990a27b3821162'
-            '3ed240d7d4e19a6e03191fb82c78d8a266ef15519c73a35473321f1469b82ab8'
+            '6a39cc087a1a03a742adc792061f9a7228beb6823efbd171acfbe1fd54f033e1'
             '95d9d6dd1c9540ee57c489151854cf76cfe69342fd46a2424c1caf89c1a78846'
             'b34374b732dab132f329bb3da84fb85d058f6bc96cf6f67420339c60b2cb122c'
             'ea009220ed858aa2a545bce47063315431899f0bd7537388d206499d911ba318'
             '092148de73be50c3f3a17bc8c0e8d2225e199a9794f86832c2b2bdf754e6c389'
-            '2c5b006cb2a699f8fe5ace06d57736499f08f927eb2c2f44cc9b6262c81a6e69')
+            '2c5b006cb2a699f8fe5ace06d57736499f08f927eb2c2f44cc9b6262c81a6e69'
+            '2c75ea6f48e2510fd08ba196e8db4170ce0bd0755b6a86648b5a7708d85215ef'
+            '1f17040b84c7f35c6644292d994d47dc67dae7ca364b7a5d37098f4d14707406'
+            '75d351d8f896b6675f935a8df0df8a7e037f68d62e8c5dbece8792212e9d3f43')
 noextract=()
 for _b in "${_bundled[@]}"; do
   read -r _n _r _c _p <<<"$_b"
@@ -63,6 +68,11 @@ prepare() {
     mkdir -p "$_p"
     tar -xzf "$srcdir/$_n-$_c.tar.gz" --strip-components=1 -C "$_p"
   done
+  # Names fex-emu-rootfs-arch when the RootFS is missing.
+  patch -Np1 -i "$srcdir/0001-FEXInterpreter-name-the-distribution-RootFS-package.patch"
+  # erofsfuse can't serve /dev/fuse from a 4 KiB page tree; FEXServer starts
+  # it with native pages.
+  patch -Np1 -i "$srcdir/0002-FEXServer-run-the-RootFS-image-FUSE-helper-with-native-pages.patch"
 }
 
 build() {
@@ -73,7 +83,8 @@ build() {
     -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
     -DUSE_LINKER=lld -DENABLE_LTO=ON -DENABLE_CCACHE=OFF -DTUNE_CPU=none \
     -DENABLE_OFFLINE_TELEMETRY=OFF -DBUILD_TESTING=OFF -DBUILD_THUNKS=OFF \
-    -DOVERRIDE_VERSION="$_describe" -DOVERRIDE_HASH="$_commit"
+    -DOVERRIDE_VERSION="$_describe" -DOVERRIDE_HASH="$_commit" \
+    -DROOTFS_PACKAGE=fex-emu-rootfs-arch
   cmake --build build
   # The Steam compatibility tool, as a separate portable build.
   cmake -S "fex-$_commit" -B steam-build -G Ninja \
@@ -86,13 +97,18 @@ build() {
 
 check() {
   [[ $(build/Bin/FEXGetConfig --version) == "$_describe" ]]
+  grep -qaF fex-emu-rootfs-arch build/Bin/FEX
 }
 
 package_fex-emu() {
-  depends=('glibc' 'gcc-libs' 'fmt' 'xxhash' 'squashfuse' 'squashfs-tools' 'erofs-utils')
+  # The global config's RootFS is fex-emu-rootfs-arch's image, which FEXServer
+  # mounts with erofsfuse. pacman installs no optional dependencies, so both
+  # are required for FEXBash to work after `pacman -S fex-emu`.
+  depends=('glibc' 'gcc-libs' 'fmt' 'xxhash' 'squashfuse' 'squashfs-tools' 'erofs-utils'
+           'erofsfuse' 'fex-emu-rootfs-arch')
   install=fex-emu.install
+  backup=('usr/share/fex-emu/Config.json')
   optdepends=('aurora-userpages: run FEX in 4 KiB page process trees on 16 KiB kernels'
-              'fex-emu-rootfs-arch: x86 root filesystem, also the lower layer of the FEX guest graphics provider'
               'qt6-declarative: FEXConfig'
               'sdl2-compat: FEXConfig')
   # Takes over the Asahi ALARM FEX-Emu package: pacman -Syu replaces it, and
@@ -104,6 +120,8 @@ package_fex-emu() {
   replaces=('FEX-Emu')
   DESTDIR="$pkgdir" cmake --install build
   install -dm755 "$pkgdir/usr/share/fex-emu/RootFS" "$pkgdir/usr/share/fex-emu/overlays"
+  # The global config (a user's own Config.json overrides it).
+  install -Dm644 Config.json "$pkgdir/usr/share/fex-emu/Config.json"
   install -Dm644 "fex-$_commit/LICENSE" "$pkgdir/usr/share/licenses/fex-emu/LICENSE"
   install -Dm644 README.aurora "$pkgdir/usr/share/doc/fex-emu/README.aurora"
   # The stock guest root filesystem below mesa-aurora-fex-guest's Aurora Mesa

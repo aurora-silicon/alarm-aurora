@@ -3,6 +3,7 @@ Type = Path
 Operation = Install
 Operation = Upgrade
 Target = etc/pam.d/sudo
+Target = etc/pam.d/system-auth
 Target = usr/lib/pam.d/polkit-1
 Target = usr/libexec/aurora/touchid-pam
 

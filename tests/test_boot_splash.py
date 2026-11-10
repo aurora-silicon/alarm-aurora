@@ -36,7 +36,10 @@ class BootSplashTests(unittest.TestCase):
         script = (BOOT/'aurora-early-kms').read_text()
         self.assertIn('*Capple,display-subsystem*|*Capple,dcp*)', script)
         self.assertIn('"$dev"/supplier:*', script)
-        self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm --settle'))
+        self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm'))
+        # It queues the display ahead of the coldplug but never waits for it.
+        self.assertNotIn('--settle', script)
+        self.assertNotIn('udevadm settle', script)
         subprocess.run(['bash', '-n', str(BOOT/'aurora-early-kms')], check=True)
         pkgbuild = (BOOT/'PKGBUILD').read_text()
         for line in ('install -Dm644 aurora-early-kms.install "$pkgdir/usr/lib/initcpio/install/aurora-early-kms"',
@@ -53,6 +56,18 @@ class BootSplashTests(unittest.TestCase):
         self.assertIn('\n+After=systemd-vconsole-setup.service systemd-udevd.service dracut-pre-trigger.service\n', patch)
         self.assertIn('patch -Np1 -i "$srcdir/0001-systemd-units-Start-plymouthd-without-waiting-for-coldplug.patch"',
                       (PLYMOUTH/'PKGBUILD').read_text())
+
+    def test_plymouth_keeps_drm_fbdevs_off_the_frame_buffer_plugin(self):
+        # Fedora's carry, byte for byte: a DRM-emulated fbdev is the DRM device
+        # plymouth already drives, whatever udev has enumerated so far.
+        name = '0001-ply-device-manager-Fix-race-in-fb_device_has_drm_dev.patch'
+        patch = (PLYMOUTH/name).read_text()
+        self.assertIn('drmfb', patch)
+        pkgbuild = (PLYMOUTH/'PKGBUILD').read_text()
+        apply = f'patch -Np1 -i "$srcdir/{name}"'
+        self.assertIn(apply, pkgbuild)
+        # git cherry-pick needs a clean tree for ply-device-manager.c.
+        self.assertGreater(pkgbuild.index(apply), pkgbuild.index('git cherry-pick -n cea90be39d263e388003a07d125b469c0803d55c'))
 
     def test_grub_stays_on_the_console_unless_the_owner_chose(self):
         arch = 'GRUB_TIMEOUT=5\nGRUB_TIMEOUT_STYLE=menu\n#GRUB_TERMINAL_OUTPUT=console'
