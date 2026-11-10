@@ -12,10 +12,11 @@ HERE = Path(__file__).resolve().parent
 OFFER = re.compile(rb"fprintd:password-switch:([0-9a-f]{32})\n")
 INTERFACE = "net.reactivated.Fprint.PasswordSwitch"
 PREFIX = "/net/reactivated/Fprint/PasswordSwitch/"
+AGENT_PREFIX = "net.reactivated.Fprint.PasswordSwitch.Agent.p"
 
 
 @contextmanager
-def reader(mode):
+def reader(mode, *, announce=True):
     global stop_log
     temporary = tempfile.TemporaryDirectory()
     stop_log = Path(temporary.name) / "verify-stop"
@@ -28,10 +29,16 @@ def reader(mode):
         ["/usr/bin/python3", str(HERE / "mock-fprintd.py"), address, mode, str(stop_log)],
         stdout=subprocess.PIPE, text=True,
     )
+    agent = None
     try:
         assert mock.stdout.readline().strip() == "ready"
+        if announce:
+            agent = dbus.bus.BusConnection(address)
+            assert agent.request_name(AGENT_PREFIX + str(os.getpid()), dbus.bus.NAME_FLAG_DO_NOT_QUEUE) == dbus.bus.REQUEST_NAME_REPLY_PRIMARY_OWNER
         yield address
     finally:
+        if agent is not None:
+            agent.close()
         for process in (mock, daemon):
             process.terminate()
             process.wait(timeout=3)
@@ -168,9 +175,36 @@ with reader("wait") as address:
         peer.sendall(b"test-only-password\n")
         result(output, helper, 0)
 
+# A stock agent must not see a token even when the PAM option is enabled.
+with reader("wait", announce=False) as address:
+    with authenticate(address, timeout=1) as (peer, output, helper):
+        password_prompt(output, expect_offer=False)
+        peer.sendall(b"test-only-password\n")
+        result(output, helper, 0)
+
+    # A different process cannot advertise support on behalf of the socket peer.
+    program = """
+import dbus, sys
+bus = dbus.bus.BusConnection(sys.argv[1])
+assert bus.request_name(sys.argv[2], dbus.bus.NAME_FLAG_DO_NOT_QUEUE) == dbus.bus.REQUEST_NAME_REPLY_PRIMARY_OWNER
+print('ready', flush=True)
+sys.stdin.readline()
+"""
+    imposter = subprocess.Popen(["/usr/bin/python3", "-c", program, address, AGENT_PREFIX + str(os.getpid())],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    try:
+        assert imposter.stdout.readline().strip() == "ready"
+        with authenticate(address, timeout=1) as (peer, output, helper):
+            password_prompt(output, expect_offer=False)
+            peer.sendall(b"test-only-password\n")
+            result(output, helper, 0)
+    finally:
+        imposter.stdin.close()
+        imposter.wait(timeout=3)
+
 with reader("match") as address:
     with authenticate(address) as (_, output, helper):
         offer(output)
         result(output, helper, 0)
 
-print("PASS: immediate switch, valid and invalid passwords, same-UID foreign sender, stale and malformed signals, late click, opt-out, fingerprint match")
+print("PASS: immediate switch, valid and invalid passwords, same-UID foreign sender, stale and malformed signals, late click, opt-out, stock agent, foreign advertiser, fingerprint match")

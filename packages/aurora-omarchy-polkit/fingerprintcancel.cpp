@@ -1,3 +1,4 @@
+#include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QQmlExtensionPlugin>
@@ -9,12 +10,24 @@ class FingerprintCancel : public QObject
   Q_OBJECT
 
 public:
-  using QObject::QObject;
+  explicit FingerprintCancel(QObject *parent = nullptr)
+    : QObject(parent),
+      m_name(QStringLiteral("net.reactivated.Fprint.PasswordSwitch.Agent.p") +
+             QString::number(QCoreApplication::applicationPid())),
+      m_registered(QDBusConnection::systemBus().registerService(m_name))
+  {
+  }
+
+  ~FingerprintCancel() override
+  {
+    if (m_registered)
+      QDBusConnection::systemBus().unregisterService(m_name);
+  }
 
   Q_INVOKABLE bool choosePassword(const QString &token) const
   {
     static const QRegularExpression validToken(QStringLiteral("\\A[0-9a-f]{32}\\z"));
-    if (!validToken.match(token).hasMatch())
+    if (!m_registered || !validToken.match(token).hasMatch())
       return false;
 
     const auto signal = QDBusMessage::createSignal(
@@ -23,6 +36,9 @@ public:
       QStringLiteral("UsePassword"));
     return QDBusConnection::systemBus().send(signal);
   }
+private:
+  QString m_name;
+  bool m_registered;
 };
 
 class FingerprintCancelPlugin : public QQmlExtensionPlugin

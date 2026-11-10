@@ -8,13 +8,14 @@ license=('MIT')
 # Clean ALARM builders have stock fprintd, not the unpublished PR package.
 depends=('fprintd' 'qt6-declarative' 'qt6-base' 'python' 'quickshell')
 makedepends=('make')
-source=('fingerprintcancel.cpp' 'fingerprintcancel.pro' 'qmldir' 'aurora-polkit-pam' 'aurora-omarchy-polkit.hook' 'README.md' 'LICENSE' 'PolkitAgent.qml' 'PolkitModel.js' 'FingerprintCancelSender.qml' 'manifest.json')
-sha256sums=('76812d7c2611d98a016393719397aae8c1c9d20f9d9a4159758b963c7600c325'
+source=('fingerprintcancel.cpp' 'fingerprintcancel.pro' 'qmldir' 'aurora-polkit-pam' 'aurora-omarchy-polkit.hook' 'aurora-polkit-switch.conf' 'README.md' 'LICENSE' 'PolkitAgent.qml' 'PolkitModel.js' 'FingerprintCancelSender.qml' 'manifest.json')
+sha256sums=('9a2ac581e55833d4ac8dd05dcb23c35adcea99959805226586c4e29a588baaa6'
             '9f1456390ee6995067ab997308a7892b29ecac530a0dd41da5a7ae241d999850'
             'f1141cd355267931a465610ef72ec1aea89c3b2ca931214bebc70a210c946577'
             'a93611f1a8be1f75191b2bc735e1cdb3809708026b591574ad29e552eec598fe'
             '02ad577ce7f3fc2d6592c8269d4fc771880c8f8503497816f813bad93b5f588f'
-            '21788d81e4ec6518086522f3bf055174cb107207d87319be0d88b2030bad08e4'
+            'b10eefdb84b86af432063908feab9949519a948dbcfee2105f05cd0294a759e6'
+            '83dcd9e3f94c3e8dde767de1b9b327468478c3e4e2c2a1fb0fcf9c17d0a6a95b'
             '717ba1949502290f8e47688ae2e323acd06c8ca47aec9f7596b15f678c1af4a2'
             '13cba73efa59de72c94c83f1a48ec51095752a797496c48e6d25075b80ef90c3'
             '29c0b96b25fea18d8dcc1e61912f8906ff75c599b07f9bf8b0f8cc4f6fb985c9'
@@ -35,6 +36,7 @@ package() {
   install -Dm644 qmldir "$pkgdir/usr/lib/qt6/qml/Aurora/PasswordSwitch/qmldir"
   install -Dm755 aurora-polkit-pam "$pkgdir/usr/bin/aurora-polkit-pam"
   install -Dm644 aurora-omarchy-polkit.hook "$pkgdir/usr/share/libalpm/hooks/aurora-omarchy-polkit.hook"
+  install -Dm644 aurora-polkit-switch.conf "$pkgdir/usr/share/dbus-1/system.d/aurora-polkit-switch.conf"
   for file in PolkitAgent.qml PolkitModel.js FingerprintCancelSender.qml manifest.json; do
     install -Dm644 "$file" "$pkgdir/usr/share/aurora-omarchy-polkit/plugin/$file"
   done

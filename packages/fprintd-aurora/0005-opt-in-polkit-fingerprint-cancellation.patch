@@ -9,13 +9,14 @@
  #include <poll.h>
  #endif
  
-@@ -407,11 +409,94 @@
+@@ -407,11 +409,121 @@
  
  typedef int fd_int;
  PF_DEFINE_AUTO_CLEAN_FUNC (fd_int, fd_cleanup);
 +
 +#define PASSWORD_SWITCH_PATH "/net/reactivated/Fprint/PasswordSwitch/"
 +#define PASSWORD_SWITCH_INTERFACE "net.reactivated.Fprint.PasswordSwitch"
++#define PASSWORD_SWITCH_AGENT_PREFIX "net.reactivated.Fprint.PasswordSwitch.Agent.p"
 +#define PASSWORD_SWITCH_INFO "fprintd:password-switch:"
 +
 +#ifdef SO_PEERPIDFD
@@ -62,6 +63,31 @@
 +  return 0;
 +}
 +
++/* A name alone is not proof: another user can claim it. Bind it to the
++ * socket peer, and use the pidfd to rule out a recycled process ID. */
++static bool
++password_switch_agent_supports (sd_bus                 *bus,
++                                const password_switch  *state)
++{
++  char name[sizeof PASSWORD_SWITCH_AGENT_PREFIX + 32];
++  sd_bus_creds *creds = NULL;
++  struct pollfd agent = { state->agent_pidfd, POLLIN, 0 };
++  pid_t pid;
++  uid_t uid;
++  bool supported;
++
++  snprintf (name, sizeof name, "%s%ld", PASSWORD_SWITCH_AGENT_PREFIX,
++            (long) state->agent.pid);
++  supported = sd_bus_get_name_creds (bus, name, SD_BUS_CREDS_PID | SD_BUS_CREDS_EUID,
++                                     &creds) >= 0 &&
++              sd_bus_creds_get_pid (creds, &pid) >= 0 &&
++              sd_bus_creds_get_euid (creds, &uid) >= 0 &&
++              pid == state->agent.pid && uid == state->agent.uid &&
++              poll (&agent, 1, 0) == 0;
++  sd_bus_creds_unref (creds);
++  return supported;
++}
++
 +static void
 +offer_password_switch (sd_bus                 *bus,
 +                       pam_handle_t           *pamh,
@@ -78,6 +104,7 @@
 +  if (getsockopt (STDIN_FILENO, SOL_SOCKET, SO_PEERCRED, &state->agent, &peer_size) < 0 ||
 +      state->agent.pid <= 0 ||
 +      getsockopt (STDIN_FILENO, SOL_SOCKET, SO_PEERPIDFD, &state->agent_pidfd, &pidfd_size) < 0 ||
++      !password_switch_agent_supports (bus, state) ||
 +      getrandom (random, sizeof random, GRND_NONBLOCK) != sizeof random)
 +    return;
 +
@@ -105,7 +132,7 @@
  {
    pf_autoptr (sd_bus_slot) verify_status_slot = NULL;
    pf_autoptr (sd_bus_slot) verify_finger_selected_slot = NULL;
-@@ -420,6 +505,13 @@
+@@ -420,6 +532,13 @@
    sigset_t signals;
    fd_int signal_fd = -1;
  #endif
@@ -119,7 +146,7 @@
    int r;
  
    /* Get some properties for the device */
-@@ -538,12 +630,24 @@
+@@ -538,12 +657,24 @@
            r = sd_bus_process (bus, NULL);
            if (r < 0)
              break;
@@ -144,7 +171,7 @@
            if (r == 0)
              {
  #ifdef __linux__
-@@ -604,6 +708,11 @@
+@@ -604,6 +735,11 @@
                                   NULL,
                                   NULL);
  
@@ -156,7 +183,7 @@
        if (data->timed_out)
          {
            return PAM_AUTHINFO_UNAVAIL;
-@@ -781,7 +890,7 @@
+@@ -781,7 +917,7 @@
  }
  
  static int
@@ -165,7 +192,7 @@
  {
    pf_autoptr (verify_data) data = NULL;
    pf_autoptr (sd_bus) bus = NULL;
-@@ -816,7 +925,7 @@
+@@ -816,7 +952,7 @@
  
    if (claim_device (pamh, bus, data->dev, username))
      {
@@ -174,7 +201,7 @@
  
        /* Simply disconnect from bus if we return PAM_SUCCESS */
        if (ret != PAM_SUCCESS)
-@@ -858,6 +967,8 @@
+@@ -858,6 +994,8 @@
                       const char **argv)
  {
    const char *username;
@@ -183,7 +210,7 @@
    int i;
  
    bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
-@@ -873,7 +984,9 @@
+@@ -873,7 +1011,9 @@
      {
        if (argv[i] != NULL)
          {
@@ -194,7 +221,7 @@
              {
                pam_syslog (pamh, LOG_DEBUG, "debug on");
                debug = true;
-@@ -935,7 +1048,11 @@
+@@ -935,7 +1075,11 @@
          }
      }
  

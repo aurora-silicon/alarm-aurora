@@ -17,12 +17,14 @@ source=('https://gitlab.freedesktop.org/libfprint/fprintd/-/archive/v1.94.5/fpri
         '0003-say-why-the-reader-needs-the-password.patch'
         '0004-dont-ask-for-a-finger-the-reader-will-not-take.patch'
         '0005-opt-in-polkit-fingerprint-cancellation.patch' 'test_password_switch.py' 'pam-test.c' 'mock-fprintd.py')
-sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c' 'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a' '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83'
+sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c'
+            'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a'
+            '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83'
             'b29df6766dafadbdc2dac34b5fc0396ac24a7628e822018285189cf30f52c34e'
             '1db338603ce2bbf15688c909d4c24120c7933755ca390358b940ac4579cb82d3'
             'ca498a36e63e39450e8bd7bb090134093942e4ffc7919bd8748a579e1669db1a'
-            'e829cff961d4d98a991f71234bfefa6b8fd3e6e4f359208034d130f1a36d519f'
-            'bf4f07e4e6220eaf0a38c02a2da74909113a1b0c2d64f9cd6594737e452675d1'
+            'acb45a572fd11edacf1efb53558333d534c4a88e021cce3b853b4931c76989dc'
+            '5d4639fec7bb498f508d51aa49ff26d511b3ac0460db4b34fb791a41e6789670'
             '43cc8710668fcd3aac406e3068ca608e4a3b4f2a4e0f6d67a70ea0eab79c073c'
             'a1a57e28ea75530bc9e107a57f164a0f538ceee80d81f70a446d87a1c0e9caf7')
 
