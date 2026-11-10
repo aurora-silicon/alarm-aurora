@@ -61,7 +61,7 @@ the units (`systemctl --preset-mode=enable-only preset`), as Fedora's `%systemd_
 
 `linux-aurora` ships `/usr/lib/modules/<release>/dtb-abi` (`packages/linux-aurora/dtb-abi`, the same value
 as fedora-aurora's `packages/kernel-aurora/dtb-abi`). Trees may change within a generation; only a change
-older kernels cannot boot with needs a higher one. A kernel without the file counts as generation zero and
+older kernels cannot boot with needs a higher one. A kernel without the file counts as generation 1 (declaring it changed no device tree) and
 a malformed value is refused. While any installed kernel (another kernel package, or a
 `/boot/vmlinuz-<name>` GRUB still offers whose package is gone) has a lower generation than the newest
 kernel's trees, `update-m1n1` refuses: Stage 2 stays as it is, and the message lists those kernels with a

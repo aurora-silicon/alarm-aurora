@@ -31,14 +31,14 @@ class TouchIdCapacityTests(unittest.TestCase):
             # Only these unchanged upstream functions are needed. Apply the
             # package's patch, not a reimplementation of the fixed callback.
             shutil.copytree(ROOT / 'tests/fixtures/fprintd-1.94.5', source, dirs_exist_ok=True)
-            subprocess.run(['git', 'apply', str(FPRINTD / '0004-aurora-report-data-full-without-garbage-collection.patch')],
+            subprocess.run(['git', 'apply', str(FPRINTD / '0005-aurora-report-data-full-without-garbage-collection.patch')],
                            cwd=source, check=True)
             # The first patch creates the whole driver. The include filter
             # avoids needing unrelated libfprint files while applying the
             # driver's patch stack in prepare()'s order.
             patches = prepared_patches(LIBFPRINT)
             self.assertEqual(patches[0], 'libfprint-1.94.100-apple-sep.patch')
-            self.assertEqual(patches[-1], '0010-aurora-report-fingerprint-storage-full.patch')
+            self.assertEqual(patches[-1], '0011-aurora-report-fingerprint-storage-full.patch')
             for patch in patches:
                 subprocess.run(['git', 'apply', '--include=libfprint/drivers/aurora/aurora.c',
                                 str(LIBFPRINT / patch)], cwd=source, check=True)
@@ -53,7 +53,7 @@ class TouchIdCapacityTests(unittest.TestCase):
         provides = recipe(FPRINTD, 'printf "%s\\n" "${provides[@]}"').split()
         self.assertIn('fprintd-aurora-no-enroll-gc=1', provides)
         self.assertEqual(prepared_patches(FPRINTD)[-1],
-                         '0004-aurora-report-data-full-without-garbage-collection.patch')
+                         '0005-aurora-report-data-full-without-garbage-collection.patch')
         # package() sets the library's runtime depends.
         depends = recipe(LIBFPRINT,
                          'meson() { :; }; install() { :; }; package; printf "%s\\n" "${depends[@]}"').split()
