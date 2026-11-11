@@ -1,11 +1,11 @@
 pkgname=aurora-system-fixes
 pkgver=1
-pkgrel=9
+pkgrel=10
 pkgdesc='Aurora systemd drop-ins awaiting named upstream fixes'
 arch=('any')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('MIT')
-depends=('systemd' 'bluez>=5.87' 'ethtool' 'iw')
+depends=('systemd' 'bluez>=5.87' 'ethtool' 'iw' 'aurora-panel-nits')
 source=(malcontent-signal.conf malcontent-webd-update-signal.conf LICENSE 50-after-swapfile.conf
         61-aurora-dmi-id.rules 60-aurora-dmi-vendor.hwdb drkonqi-ordering.conf nm-dispatcher-persist.conf
         62-aurora-gpu-render-only.rules aurora-wake-for-network 63-aurora-wake-for-network.rules
