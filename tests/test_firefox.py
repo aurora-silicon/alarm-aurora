@@ -44,7 +44,7 @@ class FirefoxRecipeTests(unittest.TestCase):
     def test_pkgbuild_edit(self):
         text = importer.edit_pkgbuild(ALARM, 'a' * 40, b'patch')
         self.assertTrue(text.startswith('# aurora-builder: heavy\n'))
-        self.assertIn('\npkgrel=2.1\n', text)
+        self.assertIn('\npkgrel=2.2\n', text)
         self.assertIn('\narch=(aarch64)\n', text)
         self.assertIn('\n_google_api_key=\n', text)
         self.assertNotIn('api-keyfile', text)

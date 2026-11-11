@@ -5,8 +5,9 @@ The recipe is archlinuxarm/PKGBUILDs extra/firefox at the newest commit that
 touched it, with these PKGBUILD edits (see `edit_pkgbuild`):
 
 - add rdd-v4l2-request.patch (V4L2 stateless decoders in the RDD sandbox,
-  Mozilla bug 2080696; prepare() applies every *.patch source);
-- pkgrel N becomes N.1, so the rebuild replaces ALARM's firefox N;
+  Mozilla bug 2080696, and sysinfo in the RDD sandbox for Mesa's zink
+  driver; prepare() applies every *.patch source);
+- pkgrel N becomes N.2, so the rebuild replaces ALARM's firefox N;
 - arch is aarch64 (the native builder's CARCH);
 - Arch's Google API key is for Arch Linux only, so it is not used: the build
   has no Google key (as any build without one);
@@ -30,7 +31,7 @@ PATH = 'extra/firefox'
 OURS = 'rdd-v4l2-request.patch'
 KEEP = ('PKGBUILD', 'firefox-symbolic.svg', 'firefox.desktop', 'org.mozilla.firefox.metainfo.xml',
         '0001-Install-under-remoting-name.patch', 'LICENSE')
-SUBREL = 1
+SUBREL = 2
 
 
 def once(text, pattern, replacement, what):
