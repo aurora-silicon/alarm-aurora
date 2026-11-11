@@ -1,6 +1,6 @@
 pkgname=libfprint-aurora
 pkgver=1.94.100
-pkgrel=8
+pkgrel=9
 pkgdesc='Fingerprint reader library with the Aurora SEP driver'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -41,7 +41,7 @@ sha256sums=('94ff7f3689d14da28389a4d9cad5fb523065bbed3e6c8e3694522fde1316e780'
             '73b95e4c39a2fe8c5496cd38545cc67df20c89cc1a88fc3aedf216e997b41da4'
             '3f56ce86f1c39027cd39f5d3aff6a760d751c2ffcf5e81e78819cb9ba898bb1e'
             'ce2ac6209e5034f402536b72f59d1048b6bb77ca98490d8c7d509bb187ee7a21'
-            'dd53832d8da285112742d1f8a4726236e724293c6f96af0f1309c01c45b065a4'
+            '59ddf3945d929f51045613166bc68b61aa7f957254badaa6f4a8b3221e3505a8'
             '55aef4a2019568a13aea48064ed83858a7ce4902636f8e85e46877ce9d8ef172')
 
 prepare() {
