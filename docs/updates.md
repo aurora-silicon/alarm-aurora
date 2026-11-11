@@ -110,13 +110,15 @@ and the installer refuses it on Mach-O Macs, so no Mac gets a `boot-ctxr.bin` th
 
 ### Swapping a stock package for its Aurora build
 
-`upower-aurora` and `networkmanager-aurora` conflict with Arch's `upower` and `networkmanager`, so moving
-between them (either way) is a conflict removal and a fresh install, not an upgrade. pacman then saves an
-edited `/etc/UPower/UPower.conf` or `/etc/NetworkManager/NetworkManager.conf` as `.pacsave` and installs
-the default. Both packages depend on `aurora-keep-config`, whose PostTransaction hook puts the edited file
+`upower-aurora`, `networkmanager-aurora` and `gnome-settings-daemon-aurora` conflict with Arch's `upower`,
+`networkmanager` and `gnome-settings-daemon`, so moving between them (either way) is a conflict removal and
+a fresh install, not an upgrade. pacman then saves an edited `/etc/UPower/UPower.conf`,
+`/etc/NetworkManager/NetworkManager.conf` or `/etc/xdg/Xwayland-session.d/00-xrdb` as `.pacsave` and
+installs the default. All three depend on `aurora-keep-config`, whose PostTransaction hook puts the edited file
 back when the new package's copy is unmodified and the `.pacsave` was made in that transaction; the new
 default is left as `.pacnew`, as after an in-place upgrade (and as dnf does on Fedora). An older
-`.pacsave` is left alone. `scripts/test-upower-upgrade` and `scripts/test-networkmanager-upgrade` swap,
+`.pacsave` is left alone. `scripts/test-upower-upgrade`, `scripts/test-networkmanager-upgrade` and
+`scripts/test-gnome-settings-daemon-upgrade` swap,
 roll back and check the edit stays active; `tests/test_keep_config.py` fails when another package gains
 backup files and a conflict without being listed.
 
