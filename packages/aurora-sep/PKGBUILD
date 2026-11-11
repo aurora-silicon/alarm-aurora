@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=22
+pkgrel=23
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -20,7 +20,7 @@ sha256sums=('c7585707724e4737f5732c07d5bb4ed6c90cf4655042966433ecaaf7ec8ca1a5'
             '74810b98eab3ace7c59ae332635339e66bb5783690d657b9d82af145e3cbd0d5'
             '7a20a5bf69b6fc7e60e70c4c20f5eb63ffdc41820d7d8213ec9085f527b4e6d0'
             '8d8df0ba2a6861b2edb2110e606906d84ca4848617621ad3cb48493a1522971d'
-            '32a0304df31ab9fbad0ec4e8bda4c9a5fb4842dd777fde8d1387b4051b41f45c'
+            '3a6047adad7b88c7f3a3d4f683ee1359b896c47e44e3b8c3cd3d42f514633f79'
             '15a878dcf382a22c5d807f0f2c754fe70d39baec88f65aea183b1fe56cf69441'
             '87de46450fe3322b74b50db64861cf42eeb725a0460a04f2a034c62e21f8f72f'
             '122147a26a700532efebeb8bd70536909352b7b3a0f7c61d64fba38c1ff5e097'
