@@ -172,7 +172,9 @@ _package_kernel() {
   # No generic linux provide: on a shared aarch64 repository it would compete
   # with linux-aarch64 for any dependency on linux.
   provides=(WIREGUARD-MODULE linux-asahi=${pkgver} "${_ctxr_provides[@]}")
-  conflicts=(linux-asahi)
+  # sep-key interfaces 3 and 4 (linux#1506, #1544): aurora-fido before 0.2.0-2
+  # speaks only 1 and 2 and crash-loops against this kernel.
+  conflicts=(linux-asahi 'aurora-fido<0.2.0-2')
 
   local kernver="$(<$O/version)"
   local modulesdir="$pkgdir/usr/lib/modules/$kernver"
