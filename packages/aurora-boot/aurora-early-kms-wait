@@ -1,0 +1,39 @@
+#!/bin/bash
+# Runs in the initramfs before the pivot (aurora-kms-handover.service):
+# hand the splash over to the display driver before leaving the initramfs.
+#
+# appledrm registers its DRM device once every display coprocessor is up,
+# which can be after the root file system is ready. If the initramfs pivots
+# first, udevd is gone when the device appears: Plymouth only hears of it
+# from the real root's udevd, about half a second later, and in between an
+# external display's hotplug makes the kernel's fbdev emulation, which then
+# has no DRM master to defer to, light every output with its own empty
+# buffer: the panel flashes black before the splash comes back.
+#
+# Wait, briefly, for the device and for udev to initialize it, so Plymouth
+# opens it (and holds DRM master) while the initramfs udevd still runs. No
+# wait without the display subsystem or its driver, or once the device exists.
+
+aurora_early_kms_wait() {
+    local dev card tries=0
+
+    for dev in /sys/bus/platform/devices/*display-subsystem; do
+        [ -e "$dev" ] && break
+    done
+    [ -e "$dev" ] || return 0
+
+    # 2 s at most, in 50 ms steps; 1 s if no driver bound to the subsystem.
+    while [ "$tries" -lt 40 ]; do
+        for card in "$dev"/drm/card*; do
+            [ -e "$card" ] || continue
+            udevadm wait --timeout=1 "/dev/dri/${card##*/}" 2>/dev/null
+            return 0
+        done
+        [ -e "$dev/driver" ] || [ "$tries" -lt 20 ] || return 0
+        sleep 0.05
+        tries=$((tries + 1))
+    done
+    return 0
+}
+
+aurora_early_kms_wait
