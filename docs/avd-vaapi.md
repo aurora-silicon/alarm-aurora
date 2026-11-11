@@ -22,3 +22,17 @@ capture `about:support` and
 `MOZ_LOG=PlatformDecoderModule:5,FFmpegVideo:5`. A software fallback or sandbox
 denial is not a hardware pass. Keep bounded kernel logs and repeat `vainfo`
 after seek, close and reopen tests.
+
+## Firefox
+
+Firefox's RDD sandbox does not admit the media controller node and the four
+media/request ioctls that libva-v4l2-request needs, so stock Firefox decodes in
+software. `packages/firefox` is Arch Linux ARM's `extra/firefox` recipe with
+`rdd-v4l2-request.patch` (Mozilla bug 2080696), imported by
+`scripts/import-alarm-firefox.py`; its `pkgrel` gets a `.1` so it replaces
+ALARM's build. The build carries no Google API key (Arch's is for Arch Linux
+only). The recipe is marked `# aurora-builder: heavy`: it builds only when a
+manual `packages.yml` run names it. `.github/workflows/track-firefox.yml`
+imports ALARM's newest recipe every two hours, builds it on a proposal branch
+and merges it once the build passed (`TRACK_FIREFOX=false` /
+`AUTO_MERGE_FIREFOX=false` turn that off).
