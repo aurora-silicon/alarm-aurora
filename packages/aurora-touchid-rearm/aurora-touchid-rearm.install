@@ -1,0 +1,17 @@
+post_install() {
+  # Listen now: touchid-pam has put the module after pam_unix already.
+  systemctl preset aurora-touchid-rearm.socket aurora-touchid-boot.service >/dev/null 2>&1 || :
+  if [ -d /run/systemd/system ] && systemctl -q is-enabled aurora-touchid-rearm.socket 2>/dev/null; then
+    systemctl start aurora-touchid-rearm.socket >/dev/null 2>&1 || :
+  fi
+}
+
+post_upgrade() {
+  # 1-3 adds aurora-touchid-boot.service (Touch ID after a restart).
+  systemctl preset aurora-touchid-boot.service >/dev/null 2>&1 || :
+}
+
+pre_remove() {
+  systemctl disable --now aurora-touchid-rearm.socket >/dev/null 2>&1 || :
+  systemctl disable aurora-touchid-boot.service >/dev/null 2>&1 || :
+}

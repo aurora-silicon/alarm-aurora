@@ -1,0 +1,9 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+build() {
+    add_file /usr/libexec/aurora-plymouth
+    add_file /usr/lib/systemd/system/plymouth-start.service.d/aurora-plymouth.conf
+    for binary in od tr cat mkdir mv; do add_binary "/usr/bin/$binary"; done
+    add_runscript
+}
+help() { echo 'Read the boot panel geometry before the Aurora Plymouth splash starts.'; }

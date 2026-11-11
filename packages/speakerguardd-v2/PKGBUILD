@@ -1,13 +1,16 @@
-# speakerguardd 1.0 (the v2 branch), a new program installed on every Mac
-# beside the 0.1 speakerguardd and speakersafetyd; its fleet gate starts one
-# stack per boot. See README.md.
+# speakerguardd 1.0 (the v2 branch), a new program that installs beside the
+# 0.1 speakerguardd and speakersafetyd. OPT-IN: nothing in the default install
+# pulls it, and its fleet gate keeps the older daemons in charge until
+# aurora-speaker-upgrade switches the Mac. See README.md.
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=14
-_commit=403b362efd09f4481aca5e73cc827c3b2ddc6b09
+pkgrel=34
+# RC8 pin: the one place to move (with the first sha256sums entry and
+# sources.json speakerguardd-v2).
+_commit=ea73fdf0eebc388b49ad348a315b2f8e8f546936
 _src=speakerguardd-$_commit
-pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview)'
+pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview: not yet a full macOS match; the legacy protection stays the default)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/speakerguardd'
 # aurora-speaker-tuning is based on aurora-audio-dsp by saku, also MIT.
@@ -15,8 +18,8 @@ license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
-sha256sums=('e12d032d17f017bccb28bd2bb92a1bcdf67078a1d6f5e6ae8869d2c222cd1181'
-            'e37f544be1001efda5df7b960113fde7f8697a2e9ceec3f1e953f64c2538b3d0')
+sha256sums=('a3d4e42545d25d2aabf4afb44fa993cde65e21ddb653cb15715284f1fcb92a21'
+            '4f8114220e567ff577cdd55d8086180b9376544acacad7087e1becedb2fb7d2c')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 
@@ -24,13 +27,17 @@ prepare() {
   cd "$_src"
   # The upstream units, under their own names, with the programs where this
   # package installs them. Provisioning and the self-check are hard
-  # prerequisites of the supervisor, and every system unit carries the gate.
+  # prerequisites of the supervisor, and every system unit carries the gate:
+  # the supervisor and the sleep hooks need a qualified board (gate v2);
+  # provisioning, the seat follower and the silent self-check run first, in
+  # the gate's prepare mode, and produce the records that qualify the board.
   python - <<'PYUNIT'
 import re
 from pathlib import Path
 lx = '/usr/lib/speakerguardd-v2'
 units = ['speakerguardd.service', 'speakerguardd-provision.service', 'speakerguardd-selfcheck.service',
-         'speakerguardd-seat.service', 'speakerguardd-seat.path', 'speakerguardd-session.service', 'speakerguardd-graph.service']
+         'speakerguardd-switchtest.service', 'speakerguardd-seat.service', 'speakerguardd-seat.path', 'speakerguardd-session.service', 'speakerguardd-graph.service',
+         'speakerguardd-sleep.service']
 for u in units:
     s = Path('packaging/systemd', u).read_text()
     s = s.replace('/usr/libexec/speakerguardd/', lx + '/').replace('ExecStart=/usr/bin/speakerguardd ', f'ExecStart={lx}/speakerguardd ')
@@ -47,19 +54,30 @@ def must(f, *lines):
             raise SystemExit(f'{f}: missing {l!r}')
 must('speakerguardd-v2.service', f'ExecStart={lx}/speakerguardd $SGV2_ARGS',
      'Requires=speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service', f'ExecCondition={lx}/speakerguardd-gate v2')
-must('speakerguardd-v2-selfcheck.service', 'Requires=speakerguardd-v2-provision.service', f'ExecCondition={lx}/speakerguardd-gate v2',
+must('speakerguardd-v2-selfcheck.service', 'Requires=speakerguardd-v2-provision.service', f'ExecCondition={lx}/speakerguardd-gate prepare',
      f'ExecStartPost={lx}/speakerguardd-provision activate --graph-unit speakerguardd-v2-graph.service')
+# The switch test runs after login, before the supervisor (speakerguardd#102).
+must('speakerguardd-v2.service', 'Requires=speakerguardd-v2-switchtest.service', 'After=speakerguardd-v2-switchtest.service')
+must('speakerguardd-v2-selfcheck.service', f'ExecStart={lx}/speakerguardd-selfcheck run --defer --params ${{SGV2_PARAMS}} -- $SGV2_TUNING')
+must('speakerguardd-v2-switchtest.service', 'Requires=speakerguardd-v2-selfcheck.service',
+     'After=speakerguardd-v2-selfcheck.service systemd-user-sessions.service', 'Before=speakerguardd-v2.service',
+     f'ExecCondition={lx}/speakerguardd-selfcheck pending',
+     f'ExecStartPost={lx}/speakerguardd-provision activate --graph-unit speakerguardd-v2-graph.service',
+     f'ExecStopPost={lx}/speakerguardd-selfcheck pending --clear')
 must('speakerguardd-v2-provision.service', 'Before=speakerguardd-v2-selfcheck.service speakerguardd-v2.service',
-     f'ExecStart={lx}/speakerguardd-provision run', f'ExecCondition={lx}/speakerguardd-gate v2')
+     f'ExecStart={lx}/speakerguardd-provision run', f'ExecCondition={lx}/speakerguardd-gate prepare')
 must('speakerguardd-v2-seat.service', f'ExecStart={lx}/speakerguardd-provision seat --unit speakerguardd-v2.service',
-     f'ExecCondition={lx}/speakerguardd-gate v2')
+     f'ExecCondition={lx}/speakerguardd-gate prepare')
 must('speakerguardd-v2-seat.path', 'Unit=speakerguardd-v2-seat.service')
+must('speakerguardd-v2-sleep.service', 'Before=sleep.target', f'ExecCondition={lx}/speakerguardd-gate v2',
+     f'ExecStart={lx}/speakerguardd-provision sleep --unit speakerguardd-v2.service',
+     f'ExecStop={lx}/speakerguardd-provision wake --unit speakerguardd-v2.service')
 must('speakerguardd-v2-session.service', f'ExecCondition={lx}/speakerguardd-provision is-seat')
 # The kernel's "Speaker Protection" lock and lease writes need CAP_SYS_ADMIN.
 if not re.search(r'^CapabilityBoundingSet=.*\bCAP_SYS_ADMIN\b', Path('speakerguardd-v2.service').read_text(), re.M):
     raise SystemExit('speakerguardd-v2.service: CapabilityBoundingSet lacks CAP_SYS_ADMIN')
 Path('legacy-gate.conf').write_text(Path('packaging/systemd/legacy-gate.conf').read_text().replace('/usr/libexec/speakerguardd/', lx + '/'))
-must('legacy-gate.conf', f'ExecCondition={lx}/speakerguardd-gate legacy')
+must('legacy-gate.conf', f'ExecCondition=+{lx}/speakerguardd-gate legacy')
 PYUNIT
 }
 
@@ -72,12 +90,16 @@ check() {
   cd "$_src"
   cargo test --locked --release "${_crates[@]}"
   python -I packaging/session/test_provision.py
+  python -I packaging/session/test_wiring.py
+  python -I packaging/session/test_verify.py
 }
 
 package_speakerguardd-v2() {
   # python, alsa-utils, pipewire (pw-link, pw-dump) and systemd (loginctl):
   # provisioning, the gate, the self-check and the session helper.
-  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire' 'systemd')
+  # aurora-audio 4.1.aurora2-11 keeps a jack Mac's built-in card on HiFi with
+  # nothing plugged in; the provisioning marker (speakerguardd#106) needs it.
+  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire' 'systemd' 'aurora-audio>=4.1.aurora2-11')
   cd "$_src"
   local lx=/usr/lib/speakerguardd-v2 f u
   install -Dm755 target/release/speakerguardd "$pkgdir$lx/speakerguardd"
@@ -96,12 +118,15 @@ package_speakerguardd-v2() {
   # The fleet gate's data, unchanged from upstream. Every per-board value is
   # derived from the Mac's device tree and tuning at run time (wiring.py).
   install -Dm644 packaging/session/gate.json -t "$pkgdir/usr/share/speakerguardd/"
+  # The macOS parity attestation 'speakerguardd-selfcheck verify' reads
+  # (speakerguardd#114): without it verify refuses every Mac.
+  install -Dm644 packaging/session/parity.json -t "$pkgdir/usr/share/speakerguardd/"
   # The per-machine graphs, as reference data: provisioning generates the
   # machine's own from the self-check's record.
   install -Dm644 packaging/pipewire/sgv2-*.conf -t "$pkgdir/usr/share/speakerguardd/pipewire/"
   install -Dm644 packaging/wireplumber/60-sgv2-*.conf -t "$pkgdir/usr/share/speakerguardd/wireplumber/"
   install -Dm644 speakerguardd-v2.service speakerguardd-v2-provision.service speakerguardd-v2-selfcheck.service \
-    speakerguardd-v2-seat.service speakerguardd-v2-seat.path -t "$pkgdir/usr/lib/systemd/system/"
+    speakerguardd-v2-switchtest.service speakerguardd-v2-seat.service speakerguardd-v2-seat.path speakerguardd-v2-sleep.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 speakerguardd-v2-session.service speakerguardd-v2-graph.service -t "$pkgdir/usr/lib/systemd/user/"
   # Enabled by the package itself (pacman applies no presets); the gate in
   # every unit decides whether anything runs.
@@ -112,6 +137,9 @@ package_speakerguardd-v2() {
   for u in speakerguardd-v2-graph.service speakerguardd-v2-session.service; do
     ln -s "../$u" "$pkgdir/usr/lib/systemd/user/pipewire.service.wants/$u"
   done
+  # Before every sleep: the amps unlinked and the supervisor stopped while awake.
+  install -d "$pkgdir/usr/lib/systemd/system/sleep.target.wants"
+  ln -s ../speakerguardd-v2-sleep.service "$pkgdir/usr/lib/systemd/system/sleep.target.wants/speakerguardd-v2-sleep.service"
   # The older daemons start only where v2 does not run and the kernel has no
   # v2 interface: exactly one stack holds the speakers on each boot.
   for u in speakersafetyd speakerguardd; do

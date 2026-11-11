@@ -1,6 +1,6 @@
 # Plymouth carries
 
-Carry Arch's Plymouth 26.134.222-3 recipe as 26.134.222-6 for aarch64.
+Carry Arch's Plymouth 26.134.222-3 recipe as 26.134.222-8 for aarch64.
 The [ALARM package](https://archlinuxarm.org/packages/aarch64/plymouth)
 uses the Arch recipe without an ALARM override. The packaging and helper
 files come from Arch packaging commit
@@ -27,6 +27,19 @@ It orders `plymouth-start.service` after `systemd-udevd.service` instead of
 after the whole coldplug trigger. `aurora-boot`'s `aurora-early-kms` initcpio
 hook coldplugs the Apple display before `systemd-udev-trigger`, so the splash
 starts on appledrm in the initramfs. Retire the patch with the Fedora one.
+
+## Frame-buffer race
+
+`0001-ply-device-manager-Fix-race-in-fb_device_has_drm_dev.patch` is copied
+unchanged from Fedora's Plymouth 26.134.222 recipe (fedora-aurora
+`packages/plymouth`). When udev restarts on the real root, plymouth gets an
+add event for the fbdev of the DRM device it already drives; its udev query
+for the matching card could run before udev had enumerated it, so plymouth
+loaded the frame-buffer plugin and opened the same output a second time.
+DRM-emulated fbdevs are now recognised by their `drmfb` name. It is applied
+right after the XKB cherry-pick (which needs a clean tree for the same file)
+and, like the other carries, with no fuzz. Retire it when the tag includes
+it.
 
 ## SDR display handoff
 
@@ -62,3 +75,34 @@ snapshot. Both desktop package lists in `scripts/build-image` already select
 `plymouth`, and the Aurora repository precedes the distribution repository.
 After upgrading an installed system, regenerate its initramfs with
 `mkinitcpio -P` so it includes the patched libraries.
+
+## Script keyboard lifetime and theme 1-4
+
+The same carry also applies `0001-Fix-splash-keyboard-lifetime.patch`, copied
+unchanged from the Ryan-authored t-4476 implementation. It notifies consumers
+before freeing renderer keyboards, updates the script library on replacement
+and detach, and preserves input handler ownership across hide/show. Removing
+theme caps-lock polling alone cannot make the hide path safe.
+
+`check-keyboard-lifetime.sh` runs native query and renderer-removal fixtures
+against the just-built libraries and private X11/label modules under Xvfb.
+The renderer fixture uses a private PTY and requires no hardware console.
+The original terminal-input PTY regression remains enabled.
+
+Plymouth 26.134.222-6 provides `plymouth-script-keyboard-lifetime=1` using
+pacman's capability syntax. Theme 1-4 requires that capability >= 1.
+
+Public GPL-2.0-or-later implementation sources are Plymouth
+[24.004.60](https://gitlab.freedesktop.org/plymouth/plymouth/-/tree/d6e6366d622962dce02d8c7e4ab814f54a202509)
+and [26.134.222](https://gitlab.freedesktop.org/plymouth/plymouth/-/tree/1aacf818fd5d1b6a7695546eb08fcbc46893dd0b).
+Install the matching core and theme together and rebuild the initramfs or
+NixOS boot generation. Preserve the previous packages, configuration and
+initramfs or generation, and restore them together to roll back.
+
+## Damage-only flushes
+
+`0003-drm-Flush-only-the-damaged-areas.patch` (the Fedora carry) passes the
+rectangles Plymouth copied to `drmModeDirtyFB()` instead of the whole
+buffer, so simpledrm no longer copies the whole boot framebuffer for every
+spinner frame (J616s: 18 ms -> 0.55 ms of plymouthd CPU per frame).
+`test-drm-damage.c` runs in `check()` against a mocked DRM device.

@@ -1,0 +1,15 @@
+# The stock FEX guest root filesystem (fex-emu-rootfs-arch from the Asahi ALARM repository) as the lower
+# layer of Aurora's FEX guest graphics provider. aurora-fex-mesa.service
+# (mesa-aurora-fex-guest) lays Aurora's x86 Mesa over it; the image carries
+# the graphics_provider.json that Steam's FEX compatibility tool reads.
+[Unit]
+Description=FEX guest root filesystem for the Aurora graphics provider
+ConditionPathExists=/usr/share/fex-emu/RootFS/default.erofs
+# A provider tree someone put there by hand stays in use.
+ConditionDirectoryNotEmpty=!/usr/share/guestos/fex-mesa
+
+[Mount]
+What=/usr/share/fex-emu/RootFS/default.erofs
+Where=/usr/share/guestos/fex-mesa
+Type=erofs
+Options=ro,loop,nodev,nosuid

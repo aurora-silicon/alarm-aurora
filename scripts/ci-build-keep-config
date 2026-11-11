@@ -1,0 +1,14 @@
+#!/bin/bash
+# Disposable CI chroot only (after ci-build-package). Build aurora-keep-config,
+# which the Aurora builds that replace a stock package depend on, next to them.
+set -euo pipefail
+[[ $(id -u) == 0 && -d /src/.git ]]
+out=${1:?directory to put the package in}
+rm -rf /tmp/keep-config-build
+mkdir -p /tmp/keep-config-build
+cp -a /src/packages/aurora-keep-config/. /tmp/keep-config-build/
+chown -R builder:builder /tmp/keep-config-build
+cd /tmp/keep-config-build
+runuser -u builder -- makepkg --syncdeps --noconfirm
+# Test input only: its own build job publishes aurora-keep-config.
+cp ./aurora-keep-config-*.pkg.tar.* "$out"/

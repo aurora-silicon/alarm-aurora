@@ -1,0 +1,53 @@
+From b253ab868208dbbbc274f5299709bb59dd489d24 Mon Sep 17 00:00:00 2001
+From: Diljit Singh <hey@djdev.me>
+Date: Sat, 7 Nov 2026 12:19:04 -0500
+Subject: [PATCH] FEXInterpreter: Name the distribution's RootFS package when
+ none is found
+
+ROOTFS_PACKAGE names the package that installs the default RootFS. When
+it is set and the RootFS is missing, the error says to install it.
+
+Signed-off-by: Diljit Singh <hey@djdev.me>
+---
+ CMakeLists.txt                                 | 6 ++++++
+ Source/Tools/FEXInterpreter/FEXInterpreter.cpp | 3 +++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 89765883f..bd2661b03 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -81,6 +81,9 @@ if (NOT HOSTLIBS_DATA_DIRECTORY)
+   set(HOSTLIBS_DATA_DIRECTORY "${CMAKE_INSTALL_FULL_LIBDIR}/fex-emu")
+ endif()
+ 
++# A distribution package that installs the default RootFS, named when none is found.
++set(ROOTFS_PACKAGE "" CACHE STRING "Package that provides the default RootFS")
++
+ ## Platform Checks ##
+ # Only 64-bit Linux and Windows are supported
+ 
+@@ -456,6 +459,9 @@ endif()
+ 
+ add_compile_options(-Wno-trigraphs)
+ add_compile_definitions(GLOBAL_DATA_DIRECTORY="${DATA_DIRECTORY}/")
++if (ROOTFS_PACKAGE)
++  add_compile_definitions(ROOTFS_PACKAGE="${ROOTFS_PACKAGE}")
++endif()
+ 
+ if (BUILD_TESTING)
+   find_package(Catch2 3 QUIET)
+diff --git a/Source/Tools/FEXInterpreter/FEXInterpreter.cpp b/Source/Tools/FEXInterpreter/FEXInterpreter.cpp
+index 2881ad9ce..f0db85cf6 100644
+--- a/Source/Tools/FEXInterpreter/FEXInterpreter.cpp
++++ b/Source/Tools/FEXInterpreter/FEXInterpreter.cpp
+@@ -502,6 +502,9 @@ int main(int argc, char** argv, char** const envp) {
+     fextl::fmt::print(stderr, "Current RootFS path set to '{}'\n", LDPath());
+     if (LDPath().empty() || FHU::Filesystem::Exists(LDPath()) == false) {
+       fextl::fmt::print(stderr, "RootFS path doesn't exist. This is required on AArch64 hosts\n");
++#ifdef ROOTFS_PACKAGE
++      fextl::fmt::print(stderr, "Install the {} package for the default RootFS\n", ROOTFS_PACKAGE);
++#endif
+       fextl::fmt::print(stderr, "Use FEXRootFSFetcher to download a RootFS\n");
+     }
+ #endif

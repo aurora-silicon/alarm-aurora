@@ -1,0 +1,79 @@
+name: Stage 2 updater
+# The trial-then-commit Stage 2 updater (asahi-scripts' update-m1n1) and the
+# DT ABI generation guard. Kept out of packages.yml, whose every change
+# retires all earlier builds from publication.
+on:
+  push:
+    branches: [main, 'ci/**']
+    paths:
+      - .github/workflows/stage2.yml
+      - packages/asahi-scripts/**
+      - packages/linux-aurora/PKGBUILD
+      - packages/linux-aurora/dtb-abi
+      - packages/aura/PKGBUILD
+      - packages/uboot-aurora/PKGBUILD
+      - scripts/test-stage2-transactions
+      - scripts/build-image
+      - tests/test_bootchain.py
+      - tests/test_update_m1n1.py
+  pull_request:
+    paths:
+      - .github/workflows/stage2.yml
+      - packages/asahi-scripts/**
+      - packages/linux-aurora/PKGBUILD
+      - packages/linux-aurora/dtb-abi
+      - packages/aura/PKGBUILD
+      - packages/uboot-aurora/PKGBUILD
+      - scripts/test-stage2-transactions
+      - scripts/build-image
+      - tests/test_bootchain.py
+      - tests/test_update_m1n1.py
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Updater, recipe and shell checks with dtc
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y device-tree-compiler shellcheck
+          shellcheck packages/asahi-scripts/update-m1n1 packages/asahi-scripts/aurora-stage2-commit \
+            scripts/test-stage2-transactions
+          shellcheck -s sh packages/asahi-scripts/asahi-scripts.install
+          python3 -m unittest -v tests.test_bootchain tests.test_update_m1n1 2>&1 | tee unittest.log
+          # dtc is installed here, so nothing may be skipped for lack of it.
+          if grep -F 'requires dtc' unittest.log; then exit 1; fi
+  transactions:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Build asahi-scripts and run pacman transactions in the signed ALARM root
+        run: |
+          set -euo pipefail
+          docker run --rm --privileged -v "$PWD:/src" -w /src \
+            registry.fedoraproject.org/fedora:44 bash -euo pipefail -c '
+              dnf install -y python3 gnupg2 tar gzip util-linux coreutils
+              bash scripts/ci-build-package asahi-scripts
+              chroot out/container /bin/bash /src/scripts/test-stage2-transactions /tmp/package-build
+            ' 2>&1 | tee stage2.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: stage2-transactions-proof
+          path: |
+            stage2.log
+            out/stage2-transactions/
+          retention-days: 30

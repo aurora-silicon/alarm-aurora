@@ -2,6 +2,9 @@
 set -euo pipefail
 trap 'status=$?; echo "Aurora image failed ($status) at line $LINENO: $BASH_COMMAND" >&2; exit "$status"' ERR
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+source "$root/scripts/testlib.sh"
+# An image serves every Mac, whichever one builds it.
+export AURORA_DEVICE_TREE_COMPATIBLE=/nonexistent
 profile=${1:?arch-kde, arch-gnome or arch-minimal required}
 tag=${2:?immutable signed Aurora testing snapshot required}
 # The update channel the installed system follows afterwards.
@@ -72,15 +75,20 @@ p=Path(sys.argv[1]);s=p.read_text();at=s.index('[core]')
 s=s[:at]+('[aurora]\nSigLevel = Required DatabaseRequired\nServer = https://github.com/aurora-silicon/alarm-aurora/releases/download/'+sys.argv[2]+'\n\n[asahi-alarm]\nServer = https://github.com/asahi-alarm/asahi-alarm/releases/download/$arch\n\n')+s[at:]
 p.write_text(s)
 PY
-packages=(base sudo bash python btrfs-progs cryptsetup networkmanager bluez bluez-utils wireless-regdb linux-firmware
+packages=(base sudo bash python btrfs-progs cryptsetup networkmanager-aurora bluez bluez-utils wireless-regdb linux-firmware
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-userpages aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw libva-v4l2-request-avd upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes aurora-logos
-  aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-camera-denoise aurora-kbd-light tiny-dfr pipewire-pulse pipewire-alsa openssh)
+  aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-nvram aurora-btsync aurora-panel-nits aurora-camera-denoise aurora-kbd-light aurora-fido aurora-sep-sk tiny-dfr pipewire-pulse pipewire-alsa openssh)
 case $profile in
-  arch-kde) packages+=(plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth);;
-  arch-gnome) packages+=(mutter-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth);;
+  arch-kde) packages+=(kwin-aurora iio-sensor-proxy-aurora plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth plymouth-theme-aurora);;
+  arch-gnome) packages+=(mutter-aurora gnome-settings-daemon-aurora iio-sensor-proxy-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora);;
 esac
-chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"
+# GitHub release downloads sometimes stall; finished packages stay cached.
+attempt=1
+until chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"; do
+  (( attempt++ < 3 ))
+  sleep 30
+done
 # A fresh Arch root generates no locale, so sessions ran in the C locale and
 # gnome-terminal refused to start. Generate a UTF-8 default; first-boot
 # setup may change the language afterwards.
@@ -101,6 +109,9 @@ chroot "$mountroot" pacman -Q alsa-utils-aurora aurora-system-fixes aurora-flatp
 # The keyboard backlight follows the light sensor; its install script applies
 # the package's system preset.
 [[ -L $mountroot/etc/systemd/system/multi-user.target.wants/aurora-kbd-light.service ]]
+# The Touch ID security key is opt in: installed, never enabled by the image.
+chroot "$mountroot" pacman -Q aurora-fido
+[[ ! -e $mountroot/etc/systemd/system/multi-user.target.wants/aurora-fido.service ]]
 # Fail the image if any graphics package has escaped the host Mesa version.
 mesa_version=$(chroot "$mountroot" pacman -Q mesa-aurora | awk '{print $2}')
 for package in vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl; do
@@ -109,7 +120,8 @@ done
 for branch in 25.08 26.08; do
   chroot "$mountroot" flatpak info --system "org.freedesktop.Platform.GL.aurora/aarch64/$branch"
 done
-! chroot "$mountroot" pacman -Q upower >/dev/null 2>&1
+# Stock upower is gone; upower-aurora (which provides upower) replaced it.
+refute installed "$mountroot" upower
 chroot "$mountroot" userdel -r alarm
 chroot "$mountroot" usermod -L root
 rm -f "$mountroot/etc/ssh/"ssh_host_* "$mountroot/var/lib/systemd/random-seed"
@@ -171,7 +183,8 @@ EOF
 fi
 if [[ $profile != arch-minimal ]]; then
   # The splash theme and hook are set before the initramfs is generated below.
-  chroot "$mountroot" plymouth-set-default-theme spinner
+  # The Aurora theme draws aura's logo where aura left it, with the spinner below.
+  chroot "$mountroot" plymouth-set-default-theme aurora
   # Read after aurora-boot's 90-aurora.conf, whose hook order it extends, so
   # later changes to that order still reach installed desktops.
   install -d -m 0755 "$mountroot/etc/mkinitcpio.conf.d"
@@ -206,7 +219,13 @@ chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
 # aurora-userpages' GRUB drop-in turns per-process 4K userspace pages on.
 grep -Eq '^\s*linux\s.*\suser4k=on(\s|$)' "$mountroot/boot/grub/grub.cfg"
 mkdir -p "$mountroot/boot/efi/m1n1"
-chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
+# In the C locale t6040-j616s-tether.dtb sorts before t6040-j616s.dtb, and aura
+# boots the last tree of a board, so the board's main tree has to come last.
+LC_ALL=C chroot "$mountroot" update-m1n1 /boot/efi/m1n1/boot.bin
+# The image gets boot-ctxr.bin only with an aura that has no monitor, the rule
+# update-m1n1 follows on an installed Mac. Look for the marker while the root is mounted.
+monitor_free=false
+if [[ -e $mountroot/usr/share/aura/monitor-free ]]; then monitor_free=true; fi
 # Initial assembly is pinned; subsequent installed-system updates use the signed rolling feed.
 sed -i "s@https://github.com/aurora-silicon/alarm-aurora/releases/download/$tag@https://aurorasilicon.org/alarm-aurora/$channel/aarch64@" "$mountroot/etc/pacman.conf"
 chroot "$mountroot" pacman -Scc --noconfirm
@@ -249,6 +268,10 @@ revision=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["auror
 if ! bash "$root/out/finalizer/$revision/images/finalize-image" "$image" "$profile" "$root/out/$profile-installer"; then
   python3 "$root/scripts/diagnose-image-mounts.py" /tmp
   exit 1
+fi
+# A Stage 1 with the CTXR window chainloads these, on Mach-O Macs.
+if $monitor_free; then
+  python3 "$root/scripts/prepare-ctxr-stage2.py" "$root/out/$profile-installer/esp/m1n1"
 fi
 # GRUB finds /boot by UUID on the startup disk only, in the files the
 # installer writes.

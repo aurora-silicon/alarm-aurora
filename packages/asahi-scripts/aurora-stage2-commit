@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+[ "$#" != 0 ] || set -- --commit
+exec /usr/bin/update-m1n1 "$@"

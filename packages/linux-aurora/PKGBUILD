@@ -6,13 +6,21 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=20
+pkgrel=31
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=f9ce365c10492e31d36c9f6c9acae8c09735524d
-_sha256=a22e747bd69a1ef7abb0dfc9cfb41263a38a0fa65f07a1a41ecafadbd4d9ba94
+_commit=451dc7096e06d378e2b73150e6d3bbe244646a3d
+_sha256=26fd4f5e88f6335b2bbcf919162345884d625b6d90e905be22bc6fc1bb1a2b83
+
+# 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
+# (aurora-silicon/linux#985), which keeps every kernel code page inside the
+# CTXR window an aura without the monitor moves the kernel into. The package
+# then provides aurora-ctxr-execmem, which that aura requires. prepare() checks it.
+_ctxr_execmem=1
+_ctxr_provides=()
+if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 
 # This image pairs the kernel with the pinned Aura implementation. The legacy
 # m1n1 compatibility version alone does not establish display-handoff support.
@@ -21,6 +29,12 @@ _sha256=a22e747bd69a1ef7abb0dfc9cfb41263a38a0fa65f07a1a41ecafadbd4d9ba94
 # https://github.com/aurora-silicon/aura/pull/75); under an older Stage 2
 # the speakers stay off.
 _aura_version=1.0.0b5
+
+# The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
+# /usr/lib/modules/<release>/dtb-abi). update-m1n1 refuses to put newer-
+# generation trees in Stage 2 while a kernel that needs an older one is still
+# installed. Bump it, in step with fedora-aurora's packages/kernel-aurora/dtb-abi,
+# only when the trees stop working with older kernels.
 
 pkgbase=linux-aurora
 _srcname=linux-${_commit}
@@ -38,14 +52,16 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook)
+        rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
+        dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            'a22e747bd69a1ef7abb0dfc9cfb41263a38a0fa65f07a1a41ecafadbd4d9ba94'
+            '26fd4f5e88f6335b2bbcf919162345884d625b6d90e905be22bc6fc1bb1a2b83'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'f26e92b5dfc187a71f85695efda8853d250824a4ed2262f3910e26bcfee3a513'
+            'c66af79f33a4b1998ba18abf0df5dfed0f6d2fe5fd4d53eac8930cda2e96432a'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
-            '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6')
+            '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
+            '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
 
 
 # Kbuild takes ARCH literally and knows arm64, not aarch64.
@@ -110,6 +126,12 @@ prepare() {
   scripts/config --file build/base/.config --set-str LOCALVERSION '-ARCH' --disable LOCALVERSION_AUTO
   _make O="$PWD/build/base" olddefconfig
   python3 ../validate-config.py arch/arm64/configs/asahi.config build/base/.config
+  local ctxr=0
+  if grep -qx 'CONFIG_ARM64_CTXR_EXECMEM=y' build/base/.config; then ctxr=1; fi
+  if (( ctxr != _ctxr_execmem )); then
+    echo "linux-aurora: set _ctxr_execmem=$ctxr, which this pin's configuration resolves to" >&2
+    return 1
+  fi
   grep -qx 'CONFIG_RUST=y' build/base/.config || {
     echo 'linux-aurora requires Rust drivers; toolchain/configuration disabled CONFIG_RUST' >&2; return 1;
   }
@@ -141,12 +163,15 @@ build() {
 _package_kernel() {
   pkgdesc="The $pkgdesc kernel and modules"
   # aurora-userpages: an ordinary upgrade brings the launcher and user4k=on.
-  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" aurora-userpages)
+  # aurora-stage2-trial: the update-m1n1 that trials these trees before
+  # committing them and checks the DT ABI generation.
+  # The restored legacy interface needs the matching Asahi speaker graphs.
+  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" 'aurora-audio>=4.1.aurora2-12' aurora-stage2-trial aurora-userpages)
   optdepends=('crda: to set the correct wireless channels of your country'
               'linux-firmware: firmware images needed for some devices')
   # No generic linux provide: on a shared aarch64 repository it would compete
   # with linux-aarch64 for any dependency on linux.
-  provides=(WIREGUARD-MODULE linux-asahi=${pkgver})
+  provides=(WIREGUARD-MODULE linux-asahi=${pkgver} "${_ctxr_provides[@]}")
   conflicts=(linux-asahi)
 
   local kernver="$(<$O/version)"
@@ -166,6 +191,7 @@ _package_kernel() {
 
   echo "Installing device trees..."
   install -Dt "$modulesdir/dtbs" "$O"/arch/arm64/boot/dts/apple/*.dtb
+  install -m644 "$srcdir/dtb-abi" "$modulesdir/dtb-abi"
 
   # remove build and source links
   rm -f "$modulesdir"/{source,build}

@@ -1,0 +1,98 @@
+# AirDrop over the Wi-Fi firmware's own AWDL (awdl0). linux-aurora's brcmfmac
+# already has the AWDL interface (aurora-silicon/linux#24, #183, #213), so this
+# packages only the userspace: the omdrop-awdl helpers and the omdrop-plugin
+# receiver. Everything is installed off. Same contents as fedora-aurora's
+# omdrop-awdl; the helpers keep upstream's /usr/lib/omdrop.
+pkgname=omdrop-awdl
+pkgver=0.10.5
+pkgrel=1
+pkgdesc='AirDrop over firmware-native AWDL on Apple Silicon Macs (opt in)'
+arch=('any')
+url='https://github.com/netmojo-systems/omdrop-awdl'
+license=('GPL-2.0-only' 'MIT')
+_commit=ffc201f33773541063f2f3d57c8a279cad5ede11
+_plugin=e5aa51a41f963e73b5a67914cae3c916a83739f1
+depends=('bash' 'coreutils' 'iproute2' 'iputils' 'iw' 'openssl' 'polkit' 'procps-ng'
+         'python' 'python-libarchive-c' 'systemd' 'util-linux')
+optdepends=('networkmanager: keeps awdl0 unmanaged and settles the Wi-Fi MAC first'
+            'python-pillow: the thumbnail an iPhone needs before it shows a prompt'
+            'bluez: the advert that wakes a nearby Apple device'
+            'python-dbus: the advert that wakes a nearby Apple device'
+            'python-gobject: the advert that wakes a nearby Apple device'
+            'keyutils: the optional cached Apple identity')
+conflicts=('brcmfmac-awdl-dkms')
+source=("omdrop-awdl-$_commit.tar.gz::https://codeload.github.com/netmojo-systems/omdrop-awdl/tar.gz/$_commit"
+        "omdrop-plugin-$_plugin.tar.gz::https://codeload.github.com/netmojo-systems/omdrop-plugin/tar.gz/$_plugin"
+        'omdrop-awdl-0.10.5-stable-cloned-mac.patch'
+        'omdrop-awdl-0.10.5-follow-infra-channel.patch'
+        'omdrop-awdl-0.10.5-5ghz-social-channel.patch')
+sha256sums=('bc52318293615f773ef0f9a9523772a83bf73edaaf87b528e2a32856ff02d385'
+            'db362d1fc13be701643cb5e4c390f292ea4e3ce006c0ebda5440b07763b90c41'
+            'd207972480eed3484abf079c20127ff0a8d3cf8b7c0472327c3f36b1de3e84cc'
+            'a41302e308482cdb28eb741036dda172c8fc095a15ded34f145497254e548556'
+            '46fe26c2da9a690ae5ca5fed8d8762f09a03f53e11a43508bd55d4f1d4f07af8')
+
+prepare() {
+  cd "omdrop-awdl-$_commit"
+  # awdl-up: accept NetworkManager's per-network cloned MAC once associated.
+  patch -p1 < "$srcdir/omdrop-awdl-0.10.5-stable-cloned-mac.patch"
+  # With no /etc/omdrop/peer-chan, AWDL windows follow the Wi-Fi link's 5 GHz
+  # channel (full shape), as macOS schedules them, and the advert follows too.
+  patch -p1 < "$srcdir/omdrop-awdl-0.10.5-follow-infra-channel.patch"
+  # Set AWDL's 5 GHz social channel (default 149): with the firmware default 0
+  # a Mac hears us only on 2.4 GHz and will not route to us.
+  patch -p1 < "$srcdir/omdrop-awdl-0.10.5-5ghz-social-channel.patch"
+  local r="$srcdir/omdrop-plugin-$_plugin/share/airdrop-receiver.service"
+  # The receiver writes its identity into ~/.omdrop, which ProtectHome=read-only
+  # keeps it from creating, so create both writable paths before the sandbox.
+  sed -i -e 's#@PLUGIN_DIR@#/usr/share/omdrop/receiver#g' \
+    -e '0,/^ExecStartPre=/s##ExecStartPre=+/usr/bin/mkdir -p -m 0700 %h/.omdrop\nExecStartPre=+/usr/bin/mkdir -p %h/Downloads\n&#' "$r"
+}
+
+check() {
+  cd "omdrop-awdl-$_commit"
+  local f
+  for f in userspace/* userspace/radio/* packaging/omdrop-awdl-sleep; do
+    [[ -f $f ]] || continue
+    case "$f" in *.sh) bash -n "$f"; continue ;; *.py) python -m py_compile "$f"; continue ;; esac
+    case "$(head -n1 "$f")" in
+      *bash*|*/sh) bash -n "$f" ;;
+      *python*) python -m py_compile "$f" ;;
+    esac
+  done
+  grep -q stable-ssid userspace/awdl-up
+  grep -q '^follow_infra()' userspace/awdl-up
+  grep -q awdl_osoc_chan userspace/omdrop-broadcom.sh
+  ! grep -q '@PLUGIN_DIR@' "$srcdir/omdrop-plugin-$_plugin/share/airdrop-receiver.service"
+}
+
+package() {
+  cd "omdrop-awdl-$_commit"
+  local lib="$pkgdir/usr/lib/omdrop" f m
+  install -d "$lib/radio"
+  for f in userspace/*; do
+    [[ -f $f ]] || continue
+    case $f in *_*.py|*.sh) m=644 ;; *) m=755 ;; esac
+    install -Dm$m "$f" "$lib/${f##*/}"
+  done
+  install -m755 userspace/radio/* "$lib/radio/"
+  install -Dm644 packaging/awdl0.service "$pkgdir/usr/lib/systemd/system/awdl0.service"
+  install -Dm644 packaging/awdl-warmup.service "$pkgdir/usr/lib/systemd/system/awdl-warmup.service"
+  install -Dm755 packaging/omdrop-awdl-sleep "$pkgdir/usr/lib/systemd/system-sleep/omdrop-awdl"
+  install -Dm644 packaging/org.omarchy.omdrop.policy "$pkgdir/usr/share/polkit-1/actions/org.omarchy.omdrop.policy"
+  install -Dm644 packaging/99-awdl-unmanaged.conf "$pkgdir/usr/lib/NetworkManager/conf.d/99-awdl-unmanaged.conf"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  # Installed off: no install script enables awdl0.service or awdl-warmup.service.
+  local r="$srcdir/omdrop-plugin-$_plugin" v="$pkgdir/usr/share/omdrop/receiver"
+  for f in airdrop-serve.py contacts.py debugdump.py identity.py lifecycle.py safeplist.py; do
+    install -Dm644 "$r/bin/$f" "$v/bin/$f"
+  done
+  chmod 755 "$v/bin/airdrop-serve.py"
+  install -Dm644 -t "$v/bin/apple-ca" "$r"/bin/apple-ca/*.pem
+  # Apple's public root, which airdrop-serve.py loads at start (Contacts Only checks).
+  install -Dm644 "$r/share/certs/apple_root_ca.pem" "$v/share/certs/apple_root_ca.pem"
+  install -Dm644 "$r/README.md" "$v/README.md"
+  install -Dm644 "$r/share/airdrop-receiver.service" "$pkgdir/usr/lib/systemd/user/airdrop-receiver.service"
+  install -Dm644 "$r/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.omdrop-plugin"
+}

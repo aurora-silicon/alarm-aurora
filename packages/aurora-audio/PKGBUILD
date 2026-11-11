@@ -1,28 +1,49 @@
 pkgname=aurora-audio
 pkgver=4.1.aurora2
-pkgrel=9
+pkgrel=16
 pkgdesc='Aurora Apple Silicon PipeWire/WirePlumber DSP profiles including J700'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/asahi-audio'
 license=('MIT')
-_commit=f1d596b9efeede884b28e3ad81fff24b22ba97a3
-makedepends=('make')
+_commit=c967141161bea3badc7754e23d80b39ffb1bdafd
+makedepends=('make' 'patch')
 provides=("asahi-audio=$pkgver" "asahi-audio-aurora=$pkgver")
-conflicts=('asahi-audio' 'asahi-audio-aurora')
-replaces=('asahi-audio-aurora')
+# Only the retired v2 preview builds (up to RC7, 1.0.0alpha.1-25) are replaced;
+# speakerguardd-v2 RC8 and later is an opt-in package that installs beside this.
+conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')
+replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')
 backup=('etc/mkinitcpio.conf.d/90-aurora-audio.conf')
+install=aurora-audio.install
 source=("aurora-audio-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/asahi-audio/tar.gz/$_commit"
-        90-aurora-audio.conf aurora-audio.hook)
-sha256sums=('474ef9dde74f7d7763e76d6da72eb4a318fda78dace4fda6c761043ced152676' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953')
+        90-aurora-audio.conf aurora-audio.hook 0001-restore-legacy-speaker-graphs.patch
+        aurora-audio-v2-cleanup 99-aurora-speaker-irq.conf)
+sha256sums=('4a5fc1eb37113742791eb632819fb09301f97b76a78586e96760442be6c87dd7' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953'
+            '06ec664457f32bba4747fd5498c52a4e68aad04acb84580171b87f378c214f9b' '589e21eb68c95ee43c9b9c2e8c702c133c0996f9eff79b5e227bbc5071b6c261' '643cf124571214174d84a8b78ffb3e61edaffc12246890eeb00dd3437fc830a4')
+prepare() {
+  patch -d "asahi-audio-$_commit" -Np1 < 0001-restore-legacy-speaker-graphs.patch
+}
+check() {
+  make -C "asahi-audio-$_commit" install DESTDIR="$srcdir/check-root" PREFIX=/usr
+  local board
+  for board in j316 j413 j616 j700; do
+    test -s "$srcdir/check-root/usr/share/asahi-audio/$board/graph.json"
+    grep -q "/usr/share/asahi-audio/$board/graph.json" "$srcdir/check-root/usr/share/wireplumber/wireplumber.conf.d/99-asahi.conf"
+  done
+  test -s "$srcdir/check-root/usr/share/asahi-audio/j700/48.wav"
+  rm -rf "$srcdir/check-root"
+}
 package() {
   # The profile files can be packaged without installing the target audio stack.
-  # Both speaker protection stacks: speakerguardd-v2's fleet gate starts
-  # exactly one of them per boot.
+  # Use the established Asahi protection stack without per-Mac macOS tuning.
   depends=('alsa-ucm-conf-aurora' 'pipewire-audio' 'wireplumber>=0.5.16' 'bankstown' 'triforce-lv2'
-           'lsp-plugins-lv2' 'speakersafetyd' 'speakerguardd' 'speakerguardd-v2' 'alsa-utils-aurora')
+           'lsp-plugins-lv2' 'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora')
   make -C "asahi-audio-$_commit" install DESTDIR="$pkgdir" PREFIX=/usr
   install -Dm644 "asahi-audio-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 90-aurora-audio.conf "$pkgdir/etc/mkinitcpio.conf.d/90-aurora-audio.conf"
   install -Dm644 aurora-audio.hook "$pkgdir/usr/share/libalpm/hooks/95-aurora-audio.hook"
+  # Removes the per-user links the speakerguardd v2 preview left (aurora-audio.install).
+  install -Dm755 aurora-audio-v2-cleanup "$pkgdir/usr/lib/aurora-audio/aurora-audio-v2-cleanup"
+  # MCA speaker PCMs wake on period interrupts: a chrony slew no longer re-prepares the sink.
+  install -Dm644 99-aurora-speaker-irq.conf "$pkgdir/usr/share/wireplumber/wireplumber.conf.d/99-aurora-speaker-irq.conf"
 }

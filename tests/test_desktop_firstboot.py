@@ -33,6 +33,7 @@ class DesktopFirstBootTests(unittest.TestCase):
         self.assertIn('gnome-initial-setup', profile_packages('arch-gnome'))
         for profile in ('arch-kde', 'arch-gnome'):
             self.assertIn('plymouth', profile_packages(profile))
+            self.assertIn('plymouth-theme-aurora', profile_packages(profile))
         self.assertEqual(profile_packages('arch-minimal'), [])
         self.assertNotIn('plymouth', re.search(r'(?s)^packages=\((.*?)\)\n', BUILD_IMAGE, re.M).group(1).split())
         self.assertRegex(BUILD_IMAGE, r'(?m)^  arch-kde\) chroot "\$mountroot" systemctl enable plasmalogin\.service plasma-setup\.service;')
@@ -40,7 +41,7 @@ class DesktopFirstBootTests(unittest.TestCase):
 
     def test_splash_and_hook_are_configured_before_the_initramfs(self):
         initramfs = BUILD_IMAGE.index('chroot "$mountroot" mkinitcpio -P')
-        theme = BUILD_IMAGE.index('chroot "$mountroot" plymouth-set-default-theme spinner\n')
+        theme = BUILD_IMAGE.index('chroot "$mountroot" plymouth-set-default-theme aurora\n')
         hook = BUILD_IMAGE.index('/etc/mkinitcpio.conf.d/95-aurora-plymouth.conf')
         self.assertLess(theme, initramfs)
         self.assertLess(hook, initramfs)
