@@ -1,6 +1,6 @@
 pkgname=aurora-system-fixes
 pkgver=1
-pkgrel=10
+pkgrel=11
 pkgdesc='Aurora systemd drop-ins awaiting named upstream fixes'
 arch=('any')
 url='https://github.com/aurora-silicon/alarm-aurora'
@@ -23,7 +23,7 @@ sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '
 
 package() {
   # Built in this repository, so not a build-time dependency.
-  depends+=('aurora-panel-nits')
+  depends+=('aurora-panel-nits' 'aurora-nvram' 'aurora-btsync')
   install -Dm644 50-after-swapfile.conf \
     "$pkgdir/usr/lib/systemd/system/var-swap-swapfile2.swap.d/50-after-swapfile.conf"
   install -Dm644 61-aurora-dmi-id.rules "$pkgdir/usr/lib/udev/rules.d/61-aurora-dmi-id.rules"
