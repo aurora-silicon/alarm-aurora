@@ -17,5 +17,5 @@
     "test_lockout_reason.py": "3f56ce86f1c39027cd39f5d3aff6a760d751c2ffcf5e81e78819cb9ba898bb1e",
     "0010-let-a-front-end-ask-whether-the-reader-needs-the-password.patch": "9aa370942c571cfe1e3ea7cd851b7056477c0b9d29c6a72f02c6ca28431b0ffb"
   },
-  "adaptations": "Patches and apple-sep.h are unmodified from the commit above. fprintd-lid-switch.conf is kept from 2c4a40c6: upstream merged it into fprintd-aurora-touchid.conf, whose /dev/sep-bio line Arch already gets from aurora-sep's fprintd-aurora.conf. The libfprint-selinux module is Fedora-only; Arch Linux ARM ships no SELinux policy."
+  "adaptations": "Patches and apple-sep.h are unmodified from the commit above. fprintd-lid-switch.conf is kept from 2c4a40c6: upstream merged it into fprintd-aurora-touchid.conf, whose /dev/sep-bio line Arch already gets from aurora-sep's fprintd-aurora.conf. The libfprint-selinux module is Fedora-only; Arch Linux ARM ships no SELinux policy. Local 0010 reports ENOSPC as FP_DEVICE_ERROR_DATA_FULL; from pkgrel 8 the package depends on fprintd-aurora-no-enroll-gc>=1 so it never runs next to a daemon that would delete a SEP print to make room. The file hashes above remain the original provenance."
 }
