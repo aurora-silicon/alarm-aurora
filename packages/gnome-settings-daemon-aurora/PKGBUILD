@@ -62,7 +62,7 @@ checkdepends=(
 optdepends=('usbguard: USB protection support')
 groups=(gnome)
 provides=("gnome-settings-daemon=$_tag")
-conflicts=(gnome-settings-daemon)
+conflicts=('gnome-settings-daemon')
 replaces=(gnome-settings-daemon)
 backup=(etc/xdg/Xwayland-session.d/00-xrdb)
 source=(
@@ -72,7 +72,7 @@ source=(
 )
 b2sums=('52dd4163a11446ad7de40f0ac736dcbed18d72efbdb164bd790c947c375c840adde0d88a2ad2a920b29ed70611b87cf838c07478c228ccbf8cbde618582853f8'
         'SKIP'
-        'adb91f7099790c4c3b353c1864c4605cc2918bb616dddbafceaed18d7312760f6876d4a09867dc56633cd16e1b602e30e1a8ca0ac8cfd49c73ab1ed1a63d6391')
+        'cc88b5e361e3d87e26c526c9ec45578be930f99ec228bb49cfce133b5e4df3f84666d853871a0b547aaab5045459b73e8f05608639a00db9e005054ebd40faba')
 
 prepare() {
   cd gnome-settings-daemon
@@ -93,6 +93,8 @@ check() {
 }
 
 package() {
+  # Stock gnome-settings-daemon owns the same backup file.
+  depends+=('aurora-keep-config')
   meson install -C build --no-rebuild --destdir "$pkgdir"
 }
 
