@@ -31,18 +31,19 @@ class PinTests(unittest.TestCase):
         # verify needs the macOS parity attestation (speakerguardd#114).
         self.assertIn('packaging/session/parity.json', main)
         self.assertNotIn('machines.json', main)
-        # Opt-in: the default audio stack does not pull it and replaces only the retired builds.
+        # Switch-on: the default audio stack pulls v2 and the
+        # upgrade tool beside the legacy daemons, and replaces only retired builds.
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
         self.assertIn("'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora'", audio)
-        self.assertNotIn("'speakerguardd-v2'", audio)
+        self.assertIn("'speakerguardd-v2>=1.0.0alpha.1-33' 'aurora-speaker-upgrade>=0.1-0.10'", audio)
         self.assertIn("conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
         self.assertIn("replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
-        for pkg in (ROOT / 'packages').glob('*/PKGBUILD'):
-            if pkg.parent.name == 'speakerguardd-v2':
-                continue
-            body = pkg.read_text()
-            for m in re.finditer(r"(?ms)^\s*depends=\((.*?)\)", body):
-                self.assertNotIn('speakerguardd-v2', m.group(1), pkg)
+        up = ROOT / 'packages/aurora-speaker-upgrade'
+        self.assertEqual([l for l in (up / '90-aurora-speaker-upgrade.preset').read_text().splitlines()
+                          if l and not l.startswith('#')], ['enable aurora-speaker-upgrade.service'])
+        self.assertIn('install=aurora-speaker-upgrade.install', (up / 'PKGBUILD').read_text())
+        self.assertIn('systemctl --preset-mode=enable-only preset aurora-speaker-upgrade.service',
+                      (up / 'aurora-speaker-upgrade.install').read_text())
     def test_aurora_sep_ships_the_touch_id_reset(self):
         sep = ROOT / 'packages/aurora-sep'
         self.assertIn("'aurora-xart')", (sep / 'PKGBUILD').read_text())
