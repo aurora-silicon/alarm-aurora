@@ -30,6 +30,11 @@ class PinTests(unittest.TestCase):
         self.assertIn('packaging/session/gate.json', main)
         # verify needs the macOS parity attestation (speakerguardd#114).
         self.assertIn('packaging/session/parity.json', main)
+        # The speaker graph needs Aurora's PipeWire (volume applied once,
+        # refused starts recovered); plain 'pipewire' was met by stock builds.
+        deps = re.search(r"(?m)^\s*depends=\((.*?)\)", main).group(1)
+        self.assertIn("'pipewire-speaker-graph>=2'", deps)
+        self.assertIn('pipewire-speaker-graph=2', (ROOT / 'packages/pipewire/PKGBUILD').read_text())
         self.assertNotIn('machines.json', main)
         # Opt-in: the default audio stack does not pull it and replaces only the retired builds.
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
