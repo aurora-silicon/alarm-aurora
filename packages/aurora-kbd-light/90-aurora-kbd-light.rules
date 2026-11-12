@@ -1,5 +1,6 @@
-# aurora-kbd-light: start the daemon when its devices appear. Its unit's start at boot comes before
-# pwm-apple's keyboard backlight LED and the AOP's ambient light sensor exist, and its
-# ConditionPathExistsGlob then skips it for the whole boot.
-SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="aurora-kbd-light.service"
-SUBSYSTEM=="iio", ATTR{name}=="aop-sensors-als", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="aurora-kbd-light.service"
+# aurora-kbd-light: start the daemon when its devices appear, if it is enabled. Its unit's start
+# at boot comes before pwm-apple's keyboard backlight LED and the AOP's ambient light sensor exist,
+# and its ConditionPathExistsGlob then skips it for the whole boot. A disabled or masked unit is
+# left alone.
+SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", ACTION=="add", RUN+="/usr/bin/sh -c 'systemctl -q is-enabled aurora-kbd-light.service || exit 0; exec systemctl --no-block start aurora-kbd-light.service'"
+SUBSYSTEM=="iio", ATTR{name}=="aop-sensors-als", ACTION=="add", RUN+="/usr/bin/sh -c 'systemctl -q is-enabled aurora-kbd-light.service || exit 0; exec systemctl --no-block start aurora-kbd-light.service'"
