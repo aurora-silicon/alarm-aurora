@@ -1,5 +1,7 @@
 # Arch's kwin 6.8.2-1 recipe with one Aurora patch: an opt-in ambient white
 # point in Night Light. The same patch is in fedora-aurora's kwin package.
+# Also upstream c9d72079 (6.8 branch), which Fedora's kwin 6.8.2-3 carries:
+# no crash on a scanout device without a render device (DisplayLink).
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 # Maintainer: Antonio Rojas <arojas@archlinux.org>
 # Contributor: Andrea Scarpino <andrea@archlinux.org>
@@ -9,7 +11,7 @@ _pkgname=kwin
 _tag=6.8.2
 pkgver=6.8.2.aurora1
 _dirver=$(echo $_tag | cut -d. -f1-3)
-pkgrel=1
+pkgrel=2
 pkgdesc='An easy to use, but flexible, Wayland compositor, with an opt-in ambient white point'
 arch=(aarch64)
 url='https://kde.org/plasma-desktop/'
@@ -101,12 +103,15 @@ replaces=(kwin)
 source=(
   https://download.kde.org/stable/plasma/$_dirver/$_pkgname-$_tag.tar.xz
   0001-nightlight-ambient-white-point.patch
+  c9d720793bbcef9483ab290673032d39441c0e6f.patch
 )
 sha256sums=('ea5e68d957c7d70abed97222a592d4445fda29129e20942658badd224ee138b4'
-            '0ab4858a848c5824d08778c705030489f30ebfc72cf211937dcd9528118af16d')
+            '0ab4858a848c5824d08778c705030489f30ebfc72cf211937dcd9528118af16d'
+            '667d62447fdbc9fe0a760efee7c44e96c988384a5ad86fac49be7576d52010c2')
 prepare() {
   cd $_pkgname-$_tag
   patch -Np1 -i ../0001-nightlight-ambient-white-point.patch
+  patch -Np1 -i ../c9d720793bbcef9483ab290673032d39441c0e6f.patch
 }
 
 build() {
