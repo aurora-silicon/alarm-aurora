@@ -5,7 +5,7 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=38
+pkgrel=39
 # RC8 pin: the one place to move (with the first sha256sums entry and
 # sources.json speakerguardd-v2).
 _commit=836a0efa19fc733f870651316ed04ff243667e39
@@ -99,7 +99,12 @@ package_speakerguardd-v2() {
   # provisioning, the gate, the self-check and the session helper.
   # aurora-audio 4.1.aurora2-11 keeps a jack Mac's built-in card on HiFi with
   # nothing plugged in; the provisioning marker (speakerguardd#106) needs it.
-  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire' 'systemd' 'aurora-audio>=4.1.aurora2-11')
+  # pipewire-speaker-graph>=2: Aurora's PipeWire build, which applies the
+  # volume once on the voicing control (stock PipeWire attenuates a second
+  # time after a repeated volume or mute update) and recovers a start the
+  # kernel refused. A plain 'pipewire' was met by an older stock build, so
+  # installing this package left those fixes out.
+  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire' 'pipewire-speaker-graph>=2' 'systemd' 'aurora-audio>=4.1.aurora2-11')
   cd "$_src"
   local lx=/usr/lib/speakerguardd-v2 f u
   install -Dm755 target/release/speakerguardd "$pkgdir$lx/speakerguardd"

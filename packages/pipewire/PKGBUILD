@@ -41,7 +41,7 @@ pkgname=(
   pulse-native-provider
 )
 pkgver=1.6.10
-pkgrel=1.5
+pkgrel=1.6
 epoch=1
 pkgdesc="Low-latency audio/video router and processor"
 url="https://pipewire.org"
@@ -414,9 +414,14 @@ package_pipewire-audio() {
     systemd-libs
     webrtc-audio-processing-1 libwebrtc-audio-processing-1.so
   )
+  # The fixes speakerguardd-v2's speaker graph runs on, as one level that
+  # stock PipeWire never provides: 1 = 1006 (the volume is applied once, on
+  # the graph's control, after a repeated volume or mute update); 2 = 1007,
+  # 1008 and 1010 (a start the kernel refused before the grant recovers).
   provides=(
     ladspa-host
     lv2-host
+    pipewire-speaker-graph=2
   )
 
   mv audio/* "$pkgdir"
