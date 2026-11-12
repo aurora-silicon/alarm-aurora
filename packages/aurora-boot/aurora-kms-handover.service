@@ -1,0 +1,10 @@
+[Unit]
+Description=Hand the splash to the Apple display driver before the pivot
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+After=initrd-root-fs.target systemd-udevd.service plymouth-start.service aurora-early-kms.service
+Before=initrd-cleanup.service initrd-switch-root.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aurora/aurora-early-kms-wait

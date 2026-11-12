@@ -1,6 +1,6 @@
 #!/bin/bash
 # Disposable CI chroot only (after ci-build-package). Build aurora-keep-config,
-# which upower-aurora and networkmanager-aurora depend on, next to their package.
+# which the Aurora builds that replace a stock package depend on, next to them.
 set -euo pipefail
 [[ $(id -u) == 0 && -d /src/.git ]]
 out=${1:?directory to put the package in}

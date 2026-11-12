@@ -6,7 +6,7 @@
 
 pkgname=plymouth
 pkgver=26.134.222
-pkgrel=8
+pkgrel=9
 pkgdesc='Graphical boot splash screen'
 arch=(aarch64)
 url='https://www.freedesktop.org/wiki/Software/Plymouth/'
@@ -61,6 +61,8 @@ source=(
   test-script-keyboard.c
   0002-drm-Reset-inherited-HDR-connector-state-before-SDR.patch
   test-drm-sdr.c
+  0003-drm-Flush-only-the-damaged-areas.patch
+  test-drm-damage.c
 )
 b2sums=(
   5130dbb16d4634915b7f68542b6c29d664bd8c26f4508adf536833e93f2c78aee287208e88dc3bcf8298979c6f9811657ab5a30c1563b1e5307b7e886b6bffa2
@@ -69,6 +71,8 @@ b2sums=(
   2e3734330e200fa45e87c37084572ed22ccf1d8fc1e921e1b5b336bbaa508a9b7fc1f4ee7daed01feeacbadf3778312fd9f636092e610c4ed84a337f29168be6
   15b3dd628ac05659f0ea7128b873a00263aa45ef8964a2bd985c3c9bcd8df86dfcd204fd572a68cfae0d2087b4ae46224a2799e23dee1cb25fc59dbebfae22ee
   5ab47942d222c311b495d056f24bdd9d08438162fef1ca6e51982fc00018acbf0c31e4c61164b40950fe2511e17ba2a4635894d145d83a9b349e5a8a83f8c026
+  SKIP
+  SKIP
   SKIP
   SKIP
   SKIP
@@ -97,6 +101,8 @@ sha256sums=(
   d27ecd03811ed635a0cdd0d0f9721861ac02acc93eee7689d643b9b9397bf94e
   ef81929449970b627bac7327c2d4c703653f017c24b8d0958024f6d72d08f0dd
   393371db0fd4ccef2214185b4f31774a949b33e77f2791f13d3522d6922730cd
+  ab606202f6ebf1a6da33f2aece7e30e0dd04781e8ef3ac8daf04cfa0472d0fb1
+  268a87af306947911af639759624d25f492352fa787e9cb8d478716b7fd38d42
 )
 
 prepare() {
@@ -123,6 +129,10 @@ prepare() {
   # Clear the previous DRM master's HDR metadata and colorspace before the
   # SDR splash scans out (Fedora carry #159).
   patch -Np1 -i "$srcdir/0002-drm-Reset-inherited-HDR-connector-state-before-SDR.patch"
+
+  # Dirty only the copied areas: a full-buffer flush makes simpledrm copy the
+  # whole boot framebuffer for every animation frame (Fedora carry).
+  patch -Np1 -i "$srcdir/0003-drm-Flush-only-the-damaged-areas.patch"
 
   # Use mkinitcpio to update initrd
   sed -i 's/^dracut -f$/mkinitcpio -P/' scripts/plymouth-update-initrd
@@ -170,6 +180,16 @@ check() {
     -Wl,-rpath,"$PWD/build/src/libply" \
     $LDFLAGS -lply-splash-core -lply $(pkg-config --libs libdrm libevdev) -lm
   timeout 15s ./test-drm-sdr
+
+  cc -D_GNU_SOURCE -Wall $CFLAGS \
+    -Ibuild -Iplymouth -Iplymouth/src/libply -Iplymouth/src/libply-splash-core \
+    $(pkg-config --cflags libdrm libevdev) \
+    "$srcdir/test-drm-damage.c" -o test-drm-damage \
+    -Lbuild/src/libply-splash-core -Lbuild/src/libply \
+    -Wl,-rpath,"$PWD/build/src/libply-splash-core" \
+    -Wl,-rpath,"$PWD/build/src/libply" \
+    $LDFLAGS -lply-splash-core -lply $(pkg-config --libs libdrm libevdev) -lm
+  timeout 15s ./test-drm-damage
 }
 
 package() {

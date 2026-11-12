@@ -1,0 +1,4 @@
+# The pacman hook adds the disk-password line to system-auth; undo that on removal.
+pre_remove() {
+  /usr/libexec/aurora/sep-fde-pam --remove || :
+}
