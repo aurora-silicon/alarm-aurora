@@ -20,6 +20,7 @@ PATCHES = [
     '1007-alsa-back-off-a-refused-snd_pcm_start-and-rate-limit.patch',
     '1008-alsa-a-start-on-a-suspended-PCM-is-expected-not-an-error.patch',
     '1009-alsa-put-the-ELD-product-name-on-HDMI-DP-nodes.patch',
+    '1010-alsa-prepare-a-stream-again-after-its-start-failed.patch',
 ]
 
 
@@ -66,6 +67,20 @@ class PipeWireTests(unittest.TestCase):
         self.assertRegex(text, re.compile(r'^check\(\) \{\n  meson test -C build', re.M))
         # Every split package requires the exact matching build.
         self.assertIn('"libpipewire=$epoch:$pkgver-$pkgrel"', text)
+
+    def test_audio_split_provides_the_speaker_graph_level(self):
+        # speakerguardd-v2 requires it; stock PipeWire never provides it.
+        text = (RECIPE / 'PKGBUILD').read_text()
+        audio = text.split('package_pipewire-audio() {', 1)[1].split('\n}', 1)[0]
+        self.assertIn('pipewire-speaker-graph=2', audio)
+        # Level 2's fixes are applied in this build.
+        for name in ('1006-filter-graph-keep-the-software-volume-at-unity-on-ev.patch',
+                     '1007-alsa-back-off-a-refused-snd_pcm_start-and-rate-limit.patch',
+                     '1008-alsa-a-start-on-a-suspended-PCM-is-expected-not-an-error.patch',
+                     '1010-alsa-prepare-a-stream-again-after-its-start-failed.patch'):
+            self.assertIn(name, recipe('printf "%s\\n" "${source[@]}"').split())
+        others = text.replace(audio, '')
+        self.assertNotIn('pipewire-speaker-graph', others)
 
 
 if __name__ == '__main__':

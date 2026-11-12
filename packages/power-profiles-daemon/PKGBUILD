@@ -1,0 +1,60 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: tinywrkb <tinywrkb@gmail.com>
+
+# Arch's power-profiles-daemon recipe (0.30-1) for aarch64 with one patch:
+# when ACPI's /sys/firmware/acpi/platform_profile is missing (a device tree
+# boot, as on Apple silicon), drive the first /sys/class/platform-profile
+# device instead. pkgrel 1.1 sorts above ALARM's 1 and [aurora] precedes
+# [extra] in pacman.conf. Drop the patch when upstream carries it.
+pkgname=power-profiles-daemon
+pkgver=0.30
+pkgrel=1.1
+pkgdesc='Makes power profiles handling available over D-Bus'
+url='https://gitlab.freedesktop.org/upower/power-profiles-daemon'
+license=(GPL-3.0-only)
+arch=(aarch64)
+depends=(glib2
+         glibc
+         libgcc
+         libgudev
+         polkit
+         upower)
+optdepends=('python-gobject: for powerprofilesctl')
+makedepends=(bash-completion
+             git
+             glib2-devel
+             python-argparse-manpage
+             python-shtab
+             meson)
+checkdepends=(python-dbusmock
+              python-isort
+              python-mccabe
+              umockdev)
+source=(git+https://gitlab.freedesktop.org/upower/$pkgname#tag=$pkgver
+        0001-platform-profile-use-the-class-interface-without-acpi.patch)
+sha256sums=('e955e833b01cbff9b5b00349592239e58c559d717eb49f3371f42932676e7a40'
+            '842379703120553f6dc3c36a2bfff303347d6c154418469fb900d40e87c31251')
+
+prepare() {
+  cd $pkgname
+  patch -p1 < ../0001-platform-profile-use-the-class-interface-without-acpi.patch
+}
+
+build() {
+  meson $pkgname build \
+    --prefix /usr \
+    --libexec lib \
+    --sysconfdir /usr/share \
+    -Dzshcomp=/usr/share/zsh/site-functions \
+    -Dbashcomp=enabled \
+    -Dmanpage=enabled
+  meson compile -C build
+}
+
+check() {
+  meson test -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}

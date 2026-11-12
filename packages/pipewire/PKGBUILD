@@ -41,7 +41,7 @@ pkgname=(
   pulse-native-provider
 )
 pkgver=1.6.10
-pkgrel=1.4
+pkgrel=1.6
 epoch=1
 pkgdesc="Low-latency audio/video router and processor"
 url="https://pipewire.org"
@@ -129,6 +129,10 @@ source=(
   # Display audio (HDMI/DP) nodes are named after the display, from its ELD,
   # also when it was switched on after the card was set up (upstream efb5aa06).
   1009-alsa-put-the-ELD-product-name-on-HDMI-DP-nodes.patch
+  # A start the kernel refused (the speaker PCM without a grant) left the
+  # stream marked prepared, so every later start skipped the silence prefill
+  # and failed with -EPIPE until PipeWire restarted: prepare it again.
+  1010-alsa-prepare-a-stream-again-after-its-start-failed.patch
 )
 b2sums=('3c4645252b9affb46852be4d3103fc94664f76df1a1b64b7a8aee011f26b38f10d5bd189fdef65b239c9e13e016dbd25070b791c7ec4e2870777231aac3a8bbd'
         'ea19c2cd60b7b9773b48b2a044c764fbec260ec356d4a0f66a31737015dad5f1509145bf97094988fc2ea55282e98d52df4448a80e46b9e3c2fef57345b87846'
@@ -141,7 +145,8 @@ b2sums=('3c4645252b9affb46852be4d3103fc94664f76df1a1b64b7a8aee011f26b38f10d5bd18
         'b99949982a9c23dfd176dd558593795d26f09e8ae08fb59d786345e9d8c04b935c7b21f2e52d21f4d1b4641c25bc39f08f7544c1212317f923bc73955ddb2d45'
         '63f63c44d6022cad38cae9862efcf4cb71ca2c01e272a4e5d4818d1e856e30f7f779542a8bcf015a83940bb1ea2d1e3ec009d0dfc4d5d8b64d06f991da70cda6'
         '4c839af6bb319eb95d096c16b34b40636b77acad8de768fc902d317d9873afccfd2882461e6a98572db0000733a4b0e2647e2d7ffbe4fe3e765e3f520f2417e9'
-        '46189ba943e5fa14aa5cce7c0a79ccf864ef6e29f39e5817ed23dd7eba30131d8b1168634a07938c80aec7809dd87ed44a51dc529610cef727cef773d5e36a8c')
+        '46189ba943e5fa14aa5cce7c0a79ccf864ef6e29f39e5817ed23dd7eba30131d8b1168634a07938c80aec7809dd87ed44a51dc529610cef727cef773d5e36a8c'
+        '7438f3bbaebd5d84f80eb62b067584c9fca06dff5faeac2bfa20132e409db74dd9fce7dda8b8d1918700c43f91e4fa0d4695dabeeb4893e23e0ff036b2fbdce0')
 
 prepare() {
   cd pipewire
@@ -409,9 +414,14 @@ package_pipewire-audio() {
     systemd-libs
     webrtc-audio-processing-1 libwebrtc-audio-processing-1.so
   )
+  # The fixes speakerguardd-v2's speaker graph runs on, as one level that
+  # stock PipeWire never provides: 1 = 1006 (the volume is applied once, on
+  # the graph's control, after a repeated volume or mute update); 2 = 1007,
+  # 1008 and 1010 (a start the kernel refused before the grant recovers).
   provides=(
     ladspa-host
     lv2-host
+    pipewire-speaker-graph=2
   )
 
   mv audio/* "$pkgdir"

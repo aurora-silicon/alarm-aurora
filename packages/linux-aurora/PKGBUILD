@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=32
+pkgrel=36
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=84d091f7aded084ef1bfa4447695bc1399cd03b5
-_sha256=da370d86d62a7ad70337bb533fa90d9a4c5683071501b37e18fca731ad17939f
+_commit=9219565939723cd5bc381941bc3978d52610d753
+_sha256=fc5e338ee8015d9b8e731fd10a46bc1c4c387bb852d2b138d93944112c58c745
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -27,8 +27,12 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # SN012776 amp settings come from the DT that aura 1.0.0b5 fills in
 # (https://github.com/aurora-silicon/linux/pull/981,
 # https://github.com/aurora-silicon/aura/pull/75); under an older Stage 2
-# the speakers stay off.
-_aura_version=1.0.0b5
+# the speakers stay off. 1.0.0b11: this kernel's MacBook Neo DT leaves the
+# video encoder for aura to enable from the ADT (aura/pull/167), and its
+# DisplayPort audio needs the T8140 SIO tables (aura/pull/122). 1.0.0b12:
+# with the T8140 fabric power states (linux#1298) only aura/pull/190 enables
+# the encoder's whole power-domain chain.
+_aura_version=1.0.0b12
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
 # /usr/lib/modules/<release>/dtb-abi). update-m1n1 refuses to put newer-
@@ -55,10 +59,10 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            'da370d86d62a7ad70337bb533fa90d9a4c5683071501b37e18fca731ad17939f'
+            'fc5e338ee8015d9b8e731fd10a46bc1c4c387bb852d2b138d93944112c58c745'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            'c5c66405ae9953fe39244ecae26ced9319964b46835aeed5fabb84d703f83484'
+            '58b509b167867129d6395afbcb0b39228935df2935be510ddc3c4999e68627cd'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')

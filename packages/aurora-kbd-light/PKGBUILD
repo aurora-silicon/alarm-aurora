@@ -1,6 +1,6 @@
 pkgname=aurora-kbd-light
 pkgver=0.1.0
-pkgrel=1
+pkgrel=3
 pkgdesc='Keyboard backlight that follows the ambient light sensor on Apple silicon MacBooks, like macOS'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
@@ -10,8 +10,10 @@ _commit=727076b83eb65b0162317a9e2fa0ba850df1f5ca
 depends=('glibc')
 makedepends=('gcc' 'make')
 install=aurora-kbd-light.install
-source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/kbd-light/tar.gz/$_commit")
-sha256sums=('9419eea57c51fd4ccf83fe764bb85c18f9054d684d21415d189fa46fe568e88c')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/kbd-light/tar.gz/$_commit"
+        '90-aurora-kbd-light.rules')
+sha256sums=('9419eea57c51fd4ccf83fe764bb85c18f9054d684d21415d189fa46fe568e88c'
+            '3b5cfed33d60f91b9379ced7fd31cadf7a795df004cbba6e48ecdde709f451d0')
 
 build() {
   make -C "kbd-light-$_commit" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
@@ -23,5 +25,8 @@ package() {
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/80-aurora-kbd-light.preset" <<'PRESET'
 enable aurora-kbd-light.service
 PRESET
+  # Start it when the keyboard backlight and the light sensor appear: both can register after
+  # the unit's start at boot, and its condition would then skip it for that boot.
+  install -Dm644 90-aurora-kbd-light.rules "$pkgdir/usr/lib/udev/rules.d/90-aurora-kbd-light.rules"
   install -Dm644 "kbd-light-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

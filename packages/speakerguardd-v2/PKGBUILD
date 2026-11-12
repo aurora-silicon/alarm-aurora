@@ -5,10 +5,10 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=35
+pkgrel=39
 # RC8 pin: the one place to move (with the first sha256sums entry and
 # sources.json speakerguardd-v2).
-_commit=d2bc197249b43934dc9a99ade9c6142769aa0d3b
+_commit=836a0efa19fc733f870651316ed04ff243667e39
 _src=speakerguardd-$_commit
 pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview: not yet a full macOS match; the legacy protection stays the default)'
 arch=('aarch64')
@@ -18,7 +18,7 @@ license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
-sha256sums=('ca5a2595be54662cff4510995a5af665936900c558c8d9b3a9582d9c209f0721'
+sha256sums=('46930615c333a951b8703ee42aea5cd33afa4046cac20b0f98a47beb7d8d1c89'
             '4f8114220e567ff577cdd55d8086180b9376544acacad7087e1becedb2fb7d2c')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
@@ -99,7 +99,12 @@ package_speakerguardd-v2() {
   # provisioning, the gate, the self-check and the session helper.
   # aurora-audio 4.1.aurora2-11 keeps a jack Mac's built-in card on HiFi with
   # nothing plugged in; the provisioning marker (speakerguardd#106) needs it.
-  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire' 'systemd' 'aurora-audio>=4.1.aurora2-11')
+  # pipewire-speaker-graph>=2: Aurora's PipeWire build, which applies the
+  # volume once on the voicing control (stock PipeWire attenuates a second
+  # time after a repeated volume or mute update) and recovers a start the
+  # kernel refused. A plain 'pipewire' was met by an older stock build, so
+  # installing this package left those fixes out.
+  depends=('glibc' 'gcc-libs' 'python' 'alsa-utils' 'pipewire' 'pipewire-speaker-graph>=2' 'systemd' 'aurora-audio>=4.1.aurora2-11')
   cd "$_src"
   local lx=/usr/lib/speakerguardd-v2 f u
   install -Dm755 target/release/speakerguardd "$pkgdir$lx/speakerguardd"

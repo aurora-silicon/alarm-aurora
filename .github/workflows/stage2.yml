@@ -45,7 +45,13 @@ jobs:
       - name: Updater, recipe and shell checks with dtc
         run: |
           set -euo pipefail
-          sudo apt-get update
+          # Avoid the hosted runner's Azure mirror, which can fail DNS across retries.
+          # Keep Ubuntu's signed archive and security suites; only replace the mirror list.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' 'https://security.ubuntu.com/ubuntu/' | \
+              sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          sudo apt-get update -o APT::Update::Error-Mode=any
           sudo apt-get install -y device-tree-compiler shellcheck
           shellcheck packages/asahi-scripts/update-m1n1 packages/asahi-scripts/aurora-stage2-commit \
             scripts/test-stage2-transactions
