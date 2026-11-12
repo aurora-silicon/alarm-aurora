@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=35
+pkgrel=36
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=2b05915f81bc066670cd872be3cbdd916753bf26
-_sha256=267d4c5241687781cc582c16c8398c2c2bcd31d98575be40497f4addf24afaa0
+_commit=9219565939723cd5bc381941bc3978d52610d753
+_sha256=fc5e338ee8015d9b8e731fd10a46bc1c4c387bb852d2b138d93944112c58c745
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -60,7 +60,7 @@ sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '267d4c5241687781cc582c16c8398c2c2bcd31d98575be40497f4addf24afaa0'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '87635df7e0b1bd2a460969400b0623211fb52551c53b606bca14c29c078aa8d1'
+            '58b509b167867129d6395afbcb0b39228935df2935be510ddc3c4999e68627cd'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
