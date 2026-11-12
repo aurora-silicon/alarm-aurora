@@ -6,9 +6,9 @@ pkgdesc='Aurora per-install root encryption and Linux owner setup'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/aurora-platform'
-_commit=10b02a4ea7a6cee139209e19cc2cfa249cb76bbf
+_commit=b0fd72737f19b6f63434776efdcacd7befaecce0
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/$_commit")
-sha256sums=('81dd3fc385c523074242f1bb210db097701d5b617c5df6d0055cd09c7530ce53')
+sha256sums=('2d55b1928e5f1458d11ef405a3806d8f716d77791db8e1e1a5787061ed8ee753')
 package_aurora-firstboot() {
   depends=('bash' 'cryptsetup>=2.8' 'btrfs-progs' 'util-linux' 'coreutils' 'systemd' 'python' 'shadow' 'sudo' 'kbd' 'procps-ng' 'mkinitcpio')
   make -C "aurora-platform-$_commit" install-common install-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr
