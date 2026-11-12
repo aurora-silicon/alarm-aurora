@@ -1,0 +1,29 @@
+pkgname=aurora-wifi-firmware
+pkgver=0.1
+pkgrel=1
+pkgdesc='Keep the Wi-Fi firmware on the installed macOS'"'"'s, as macOS does (read from the macOS system volume, applied at the next boot)'
+arch=('any')
+groups=('aurora-platform-apple-silicon')
+url='https://github.com/aurora-silicon/aurora-installer/tree/main/tools/wifi-firmware'
+license=('MIT')
+_commit=79a75495b160fcd92b76b0374f0acb4ca30f3a7b
+depends=('python' 'lzfse' 'util-linux' 'systemd')
+makedepends=('make')
+install=aurora-wifi-firmware.install
+source=("aurora-installer-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-installer/tar.gz/$_commit")
+sha256sums=('1e4b55ed6f0ecb862a6ea3a05ea72d3bece898df0dece9882110ffd8f41fcf4a')
+
+check() {
+  cd "aurora-installer-$_commit"
+  python3 -I -m unittest discover -s tests -p 'test_wifi_firmware_*.py'
+}
+
+package() {
+  cd "aurora-installer-$_commit"
+  make -C tools/wifi-firmware install DESTDIR="$pkgdir" PREFIX=/usr UNITDIR=/usr/lib/systemd/system PYTHON=/usr/bin/python3
+  # On for every Mac: macOS runs the Wi-Fi firmware its system volume ships.
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/80-aurora-wifi-firmware.preset" <<'PRESET'
+enable aurora-wifi-firmware.service
+PRESET
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
