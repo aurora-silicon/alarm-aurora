@@ -68,6 +68,10 @@ jobs:
               core={'scripts/ci-build-package','scripts/ci-build-alarm-container','scripts/ci-build-fex-guest','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','sources.json'}
               if not core.intersection(paths):
                   names=sorted({p.split('/')[1] for p in paths if p.startswith('packages/') and p.split('/')[1] in names})
+          # Recipes marked "# aurora-builder: heavy" (Firefox, hours) build only when
+          # a manual run names them; track-firefox.yml dispatches that run.
+          if not requested:
+              names=[n for n in names if '# aurora-builder: heavy' not in Path('packages',n,'PKGBUILD').read_text().splitlines()]
           print('packages='+json.dumps(names))
           # Any change to the Touch ID stack also replaces stock libfprint and fprintd with it.
           touchid={'libfprint-aurora','fprintd-aurora','aurora-xart','aurora-touchid-rearm','aurora-sep'}
@@ -150,6 +154,15 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      - name: Prepare build capacity for Firefox
+        if: matrix.package == 'firefox'
+        run: |
+          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet /usr/local/share/boost /opt/hostedtoolcache /usr/local/.ghcup || true
+          docker system prune -af || true
+          sudo swapoff -a || true
+          sudo fallocate -l 24G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+          free -g
+          df -h "$GITHUB_WORKSPACE"
       - name: Build package in signed ALARM root filesystem
         if: matrix.package != 'mesa-aurora-fex-guest' && matrix.package != 'aurora-flatpak-gl'
         run: |

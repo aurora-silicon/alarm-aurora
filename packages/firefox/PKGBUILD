@@ -1,0 +1,300 @@
+# aurora-builder: heavy
+# Aurora Silicon: Arch Linux ARM's firefox recipe (archlinuxarm/PKGBUILDs
+# extra/firefox at 2926933d8b83), imported by scripts/import-alarm-firefox.py;
+# edit that script, not this file.
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+# Contributor: Jakub Schmidtke <sjakub@gmail.com>
+
+# ALARM: Kevin Mihelich <kevin@archlinuxarm.org>
+#  - mozconfig changes for ARM
+#  - revert change for clang that breaks gcc build on ARM
+#  - disable rust lto for v7
+#  - use nodejs-lts-iron
+#  - remove make/optdepend on onnxruntime
+
+highmem=1
+
+pkgname=firefox
+pkgver=160.0
+pkgrel=1.2
+pkgdesc="Fast, Private & Safe Web Browser"
+url="https://www.firefox.com/"
+arch=(aarch64)
+license=(MPL-2.0)
+depends=(
+  alsa-lib
+  at-spi2-core
+  bash
+  cairo
+  dbus
+  ffmpeg
+  fontconfig
+  freetype2
+  gdk-pixbuf2
+  glib2
+  glibc
+  gtk3
+  hicolor-icon-theme
+  libgcc
+  libpulse
+  libstdc++
+  libx11
+  libxcb
+  libxcomposite
+  libxdamage
+  libxext
+  libxfixes
+  libxrandr
+  libxss
+  libxt
+  mime-types
+  nspr
+  nss
+  pango
+  ttf-font
+)
+makedepends=(
+  cbindgen
+  clang
+  diffutils
+  imake
+  jack
+  lld
+  llvm
+  mesa
+  nasm
+  nodejs
+  python
+  rust
+  unzip
+  xorg-server-xvfb
+  yasm
+  zip
+)
+optdepends=(
+  'firefox-i18n: Localizations'
+  'hunspell-dictionary: Spell checking'
+  'libnotify: Notification integration'
+  'networkmanager: Location detection via available WiFi networks'
+  'speech-dispatcher: Text-to-Speech'
+  'xdg-desktop-portal: Screensharing with Wayland'
+)
+options=(
+  !emptydirs
+  !lto
+  !makeflags
+)
+source=(
+  https://archive.mozilla.org/pub/firefox/releases/$pkgver/source/firefox-$pkgver.source.tar.xz
+  $pkgname-symbolic.svg
+  $pkgname.desktop
+  org.mozilla.$pkgname.metainfo.xml
+
+  # Make different channels installable in parallel
+  0001-Install-under-remoting-name.patch
+
+  # Aurora: V4L2 stateless decoders in RDD (Mozilla bug 2080696)
+  rdd-v4l2-request.patch
+)
+sha256sums=('2b23d2bf6716ea16b45c10aa5c275c78a1d7ff50ad53150809ab27424c58fd81'
+            'cb00ea359d6daf37900102307be4f515f1b7ef9c98825c64cc55bb562449d0d8'
+            '2a51d57d98fbda86f094bc991e1ad4dd6e8a9d32fd0836b1183bf70ec4b68915'
+            '4e01a62e20026b67466943bad9dfba47874c5e1492375f8293aeb85ecedf2288'
+            '9489d90532738493c279710137657c5019423bd93e3916401b012e900a01741a'
+            '8bf37b918f9544c523ed473ffd9626f6f3654b179e537a0846b372833478de8b')
+b2sums=('ddf9b4d935e85eee54c424b618e4d7dd6d1f4906dc609c87bda3d30024ada3fc1fe335eb92f40e188b66d1ad856f05a53a4a7362c0f572086d9d69e4b7a78306'
+        'f2a9cfb758692584dd8057ab30d0ed9d22f5356d0021e1c8111a061866ee66d6b2d891351e11064f904fe8c90032e78f9def61ed54ae4208c8be4de6b4226277'
+        '63c62c85ee70e22b02e9ea34e69f04f50403b7634b99fb0e996a83c963916dc4224041a0b265e54f6c224bd1777ddfdeb255037e3e30fec288695f3050278b05'
+        '607d592b164a88a11a1041002d67339a9a0001469cd979d24d0fda547cec472f602f6299c198f626f2c854df3ff05bd0b1fd84ae47ee52b97a7906575f5a5f36'
+        'd68378aea4d0f62d8e098ade7a6a4c5a9c1c96ce6ef919a955227f1168aa8a34e2220dd1c3f79dafad03ecb2545b25df9294036bb8ad21668b5c24997d93dfa2'
+        '4212d87c848a1563b0981088499b9fff1776a81f3a3cf66d2ff61887704abd4d5290a25bf499b12b7caaa7c71c65d3019174b9318781d7c787795e80b3ea8ca7')
+
+# Google API keys (see https://www.chromium.org/developers/how-tos/api-keys)
+# Note: These are for Arch Linux use ONLY. For your own distribution, please
+# get your own set of keys.
+#  - Arch Linux ARM has obtained permission to use the Arch Linux keys.
+_google_api_key=
+
+prepare() {
+  mkdir mozbuild
+  cd firefox-$pkgver
+
+  local src
+  for src in "${source[@]}"; do
+    src="${src%%::*}"
+    src="${src##*/}"
+    src="${src%.zst}"
+    [[ $src = *.patch ]] || continue
+    echo "Applying patch $src..."
+    patch -Np1 < "../$src"
+  done
+
+  echo -n "$_google_api_key" >google-api-key
+
+  cat >.mozconfig <<END
+ac_add_options --enable-application=browser
+mk_add_options MOZ_OBJDIR=${PWD@Q}/obj
+
+ac_add_options --prefix=/usr
+ac_add_options --enable-release
+#ac_add_options --enable-hardening
+#ac_add_options --enable-optimize="-O2"
+#ac_add_options --enable-rust-simd
+ac_add_options --enable-linker=lld
+ac_add_options --disable-install-strip
+ac_add_options --disable-bootstrap
+ac_add_options --without-wasm-sandboxed-libraries
+
+# Branding
+ac_add_options --enable-official-branding
+ac_add_options --enable-update-channel=release
+ac_add_options --with-distribution-id=org.archlinux
+ac_add_options --with-unsigned-addon-scopes=app,system
+ac_add_options --allow-addon-sideload
+export MOZILLA_OFFICIAL=1
+export MOZ_APP_REMOTINGNAME=$pkgname
+
+# Keys
+
+# System libraries
+ac_add_options --with-system-nspr
+ac_add_options --with-system-nss
+
+# Features
+ac_add_options --enable-alsa
+ac_add_options --enable-jack
+ac_add_options --disable-crashreporter
+ac_add_options --disable-updater
+ac_add_options --disable-tests
+END
+
+  if [[ $CARCH == "armv7h" ]]; then
+    echo "ac_add_options --disable-elf-hack" >> .mozconfig
+    # reduce jobs due to RAM constraints
+    MAKEFLAGS="-j1"
+    # disable hard-coded LTO
+    sed -i '/cargo_rustc_flags += -Clto/d' config/makefiles/rust.mk
+    sed -i '/RUSTFLAGS += -Cembed-bitcode=yes/d' config/makefiles/rust.mk
+    # increase codegen-units due to RAM constraints
+    sed -i 's/codegen-units=1/codegen-units=32/' config/makefiles/rust.mk
+    # specify tmp directory outside /tmp due to RAM constraints
+    mkdir $srcdir/tmp
+    export CARGO_TARGET_DIR=$srcdir/tmp
+    # webrtc on ARMv7 implies android, so disable it
+    echo "ac_add_options --disable-webrtc" >> .mozconfig
+  elif [[ $CARCH == "aarch64" ]]; then
+    echo 'ac_add_options --enable-rust-simd' >> .mozconfig
+  fi
+
+  echo 'ac_add_options --enable-optimize="-g0 -O2"' >> .mozconfig
+  echo "mk_add_options MOZ_MAKE_FLAGS=\"${MAKEFLAGS}\"" >> .mozconfig
+
+  export MOZ_DEBUG_FLAGS=" "
+  export CFLAGS+=" -g0"
+  export CXXFLAGS+=" -g0"
+  export LDFLAGS+=" -Wl,--no-keep-memory"
+  export RUSTFLAGS="-Cdebuginfo=0"
+}
+
+build() {
+  cd firefox-$pkgver
+
+  export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=pip
+  export MOZBUILD_STATE_PATH="$srcdir/mozbuild"
+  export MOZ_BUILD_DATE="$(date -u${SOURCE_DATE_EPOCH:+d @$SOURCE_DATE_EPOCH} +%Y%m%d%H%M%S)"
+  export MOZ_NOSPAM=1
+
+  # malloc_usable_size is used in various parts of the codebase
+  CFLAGS="${CFLAGS/_FORTIFY_SOURCE=3/_FORTIFY_SOURCE=2}"
+  CXXFLAGS="${CXXFLAGS/_FORTIFY_SOURCE=3/_FORTIFY_SOURCE=2}"
+
+  # Breaks compilation since https://bugzilla.mozilla.org/show_bug.cgi?id=1896066
+  CFLAGS="${CFLAGS/-fexceptions/}"
+  CXXFLAGS="${CXXFLAGS/-fexceptions/}"
+
+  # LTO needs more open files
+  ulimit -n 4096
+
+  echo "Building optimized browser..."
+  ./mach build --priority normal
+}
+
+package() {
+  cd firefox-$pkgver
+  DESTDIR="$pkgdir" ./mach install
+
+  local appdir="$pkgdir/usr/lib/$pkgname"
+  touch "$appdir/is-packaged-app"
+
+  install -Dvm644 /dev/stdin "$appdir/browser/defaults/preferences/vendor.js" <<END
+// Use LANG environment variable to choose locale
+pref("intl.locale.requested", "");
+
+// Use system-provided dictionaries
+pref("spellchecker.dictionary_path", "/usr/share/hunspell");
+
+// Disable default browser checking.
+pref("browser.shell.checkDefaultBrowser", false);
+
+// Don't disable extensions in the application directory
+pref("extensions.autoDisableScopes", 11);
+
+// Enable GNOME Shell search provider
+pref("browser.gnome-search-provider.enabled", true);
+END
+
+  install -Dvm644 /dev/stdin "$appdir/distribution/distribution.ini" <<END
+[Global]
+id=archlinux
+version=1.0
+about=Mozilla Firefox for Arch Linux
+
+[Preferences]
+app.distributor=archlinux
+app.distributor.channel=$pkgname
+app.partner.archlinux=archlinux
+END
+
+  local i theme=official
+  for i in 16 22 24 32 48 64 128 256; do
+    install -Dvm644 browser/branding/$theme/default$i.png \
+      "$pkgdir/usr/share/icons/hicolor/${i}x${i}/apps/$pkgname.png"
+  done
+  install -Dvm644 browser/branding/$theme/content/about-logo.png \
+    "$pkgdir/usr/share/icons/hicolor/192x192/apps/$pkgname.png"
+  install -Dvm644 browser/branding/$theme/content/about-logo@2x.png \
+    "$pkgdir/usr/share/icons/hicolor/384x384/apps/$pkgname.png"
+  install -Dvm644 browser/branding/$theme/content/about-logo.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/$pkgname.svg"
+
+  install -Dvm644 ../$pkgname-symbolic.svg -t "$pkgdir/usr/share/icons/hicolor/symbolic/apps"
+  install -Dvm644 ../$pkgname.desktop -t "$pkgdir/usr/share/applications"
+  install -Dvm644 ../org.mozilla.$pkgname.metainfo.xml -t "$pkgdir/usr/share/metainfo"
+
+  # Install a wrapper to avoid confusion about binary path
+  install -Dvm755 /dev/stdin "$pkgdir/usr/bin/$pkgname" <<END
+#!/bin/sh
+exec /usr/lib/$pkgname/firefox "\$@"
+END
+
+  # Replace duplicate binary with wrapper
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=658850
+  ln -srfv "$pkgdir/usr/bin/$pkgname" "$appdir/firefox-bin"
+
+  # Use system certificates
+  if [[ -e $appdir/libnss3.so ]]; then
+    ln -sfv ../libnssckbi.so -t "$appdir"
+  fi
+
+  # Register GNOME search provider
+  install -Dvm644 /dev/stdin "$pkgdir/usr/share/gnome-shell/search-providers/$pkgname.search-provider.ini" <<END
+[Shell Search Provider]
+DesktopId=$pkgname.desktop
+BusName=org.mozilla.${pkgname//-/_}.SearchProvider
+ObjectPath=/org/mozilla/${pkgname//-/_}/SearchProvider
+Version=2
+END
+}
+
+# vim:set sw=2 sts=-1 et:
