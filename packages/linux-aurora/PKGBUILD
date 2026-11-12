@@ -6,7 +6,7 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=34
+pkgrel=35
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
@@ -27,8 +27,10 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # SN012776 amp settings come from the DT that aura 1.0.0b5 fills in
 # (https://github.com/aurora-silicon/linux/pull/981,
 # https://github.com/aurora-silicon/aura/pull/75); under an older Stage 2
-# the speakers stay off.
-_aura_version=1.0.0b5
+# the speakers stay off. 1.0.0b11: this kernel's MacBook Neo DT leaves the
+# video encoder for aura to enable from the ADT (aura/pull/167), and its
+# DisplayPort audio needs the T8140 SIO tables (aura/pull/122).
+_aura_version=1.0.0b11
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
 # /usr/lib/modules/<release>/dtb-abi). update-m1n1 refuses to put newer-
