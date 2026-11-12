@@ -1,8 +1,8 @@
 # Apple Silicon power-profile parity
 
 This distribution uses power-profiles-daemon (PPD), rather than Fedora's
-tuned-ppd. The current PPD Apple path has no Apple CPU/platform-profile driver.
-Its placeholder path provides no equivalent CPU performance tuning and does
+tuned-ppd. On most Apple Silicon machines PPD has no Apple CPU/platform-profile
+driver. Its placeholder path provides no equivalent CPU performance tuning and does
 not pin the CPUs at their maximum frequency. Available profile names alone
 do not establish hardware support; generic PPD actions may still apply.
 No governor override, tuned profile or CPU frequency floor is added here.
@@ -43,6 +43,26 @@ untouched, and outside Power Saver the daemon only waits on D-Bus. The GPU,
 ANE, display and fan legs of Low Power Mode are not covered yet. Measurements
 are in the aurora-platform README. Performance is still never mapped to the
 `performance` governor.
+
+## M5 Pro and Max: the kernel's platform profile
+
+On T6050 the kernel's CLPC driver registers a platform profile,
+`apple-clpc`, after macOS's power modes
+([linux#1655](https://github.com/aurora-silicon/linux/pull/1655),
+[linux#1656](https://github.com/aurora-silicon/linux/pull/1656)). Balanced and
+performance set no limit, like Automatic and High Power. Low-power caps one
+thread at the 2880 MHz state and holds the package at 15 W (the SMC's PHPC). On a J714sAP
+under an 18-thread FMA loop, it held 14.3-14.9 W with the P cluster at 1980 MHz
+and gave 76.3 Gfma/s; macOS's Low Power gave 14.3-14.7 W and 67.0 Gfma/s.
+
+A device tree boot has the profile only as a class device
+(`/sys/class/platform-profile`); `/sys/firmware/acpi/platform_profile` exists
+only with ACPI, and stock PPD reads only that file. `packages/power-profiles-daemon`
+is Arch's 0.30-1 recipe with one patch: without the ACPI file, PPD drives the
+first class device instead (driver `platform_profile`; power-saver writes
+`low-power`). Its pkgrel 1.1 sorts above ALARM's 1. With the kernel handler
+present, `aurora-power-budget` stands aside instead of capping a second time
+([aurora-platform#16](https://github.com/aurora-silicon/aurora-platform/pull/16)).
 
 ## PWR acceptance plan
 
