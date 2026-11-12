@@ -1,14 +1,14 @@
 pkgbase=aurora-firstboot
-pkgname=(aurora-firstboot aurora-power-budget)
+pkgname=(aurora-firstboot aurora-power-budget aurora-secboot)
 pkgver=0.1.13
-pkgrel=3
+pkgrel=4
 pkgdesc='Aurora per-install root encryption and Linux owner setup'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/aurora-platform'
-_commit=8fc36c44f7353c7c1c0ffa3aff3ae0aa69f9ce54
+_commit=71772a08305a512d2a93191e6a72c1d3e8f2d068
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/$_commit")
-sha256sums=('e259efa1cd0673480b1c429f3e1c4da6521bc9b6edb6ae85c806e7c7092d70e9')
+sha256sums=('309c74e512b37417b12bd4fcab8fa382715a6edc52894f55293a43f2e5210c1f')
 package_aurora-firstboot() {
   depends=('bash' 'cryptsetup>=2.8' 'btrfs-progs' 'util-linux' 'coreutils' 'systemd' 'python' 'shadow' 'sudo' 'kbd' 'procps-ng' 'mkinitcpio')
   make -C "aurora-platform-$_commit" install-common install-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr
@@ -25,5 +25,16 @@ package_aurora-power-budget() {
   install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-power-budget.preset" <<'EOF'
 enable aurora-power-budget.service
+EOF
+}
+package_aurora-secboot() {
+  pkgdesc='Signed unified kernel images for the Aurora secure boot path'
+  depends=('python' 'systemd' 'systemd-ukify' 'sbsigntools' 'openssl')
+  optdepends=('mkinitcpio: build the image after every initramfs')
+  backup=('etc/aurora/secboot.conf')
+  make -C "aurora-platform-$_commit" install-secboot install-secboot-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr
+  install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-secboot.preset" <<'EOF'
+enable aurora-secboot-adopt.service
 EOF
 }
