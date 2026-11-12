@@ -18,7 +18,7 @@
 # Stage 1; the stage2-sign-hook marker tells aurora-secboot stage1 build so.
 pkgname=asahi-scripts
 pkgver=20261023
-pkgrel=9
+pkgrel=10
 pkgdesc='Asahi Linux maintenance scripts'
 arch=('any')
 url='http://asahilinux.org'
@@ -31,6 +31,8 @@ checkdepends=('dtc' 'python')
 provides=('aurora-stage2-ctxr-slot=1' 'aurora-stage2-trial=1')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/asahi-alarm/${pkgname}/archive/refs/tags/${pkgver}.tar.gz"
         0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch
+        0002-macsmc-battery-debounce-persistence.patch
+        battery-charge-limit-save
         update-m1n1
         95-m1n1-install.hook
         bootchain.py
@@ -45,6 +47,8 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/asahi-alarm/${pkgname}/
 install=asahi-scripts.install
 sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
             '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9'
+            '25a3a6f011c5516acb59c3d5b6ef39385cb54f7919b9789567b14d78b07221a9'
+            '6a6781d64f76fd3c024c4cfaf5bf8089c0a1d3dc63f97423385dad0844e4a7d7'
             'f5fab46d6c0abd20875f1f4f375eca9235d2e465944968755e366a049b097dc5'
             'dca1868d158651ed329ad463962d51bf07ab6ac5935ced8a468f522381dec0e4'
             'f5eaff3c4da43244d1a0dc2f0d1fcab72fd236e81f8a601a1b487c9ac0b64cf9'
@@ -58,6 +62,8 @@ sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
             '5a75c10decc6f75a8c3b917461052611f9c629644dc6345191c3ab0a63bcd4b2')
 b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641bdf60357411b2c14caf96eb19a4a23bd258d3a00127e70679a7ca8770'
         '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93'
+        '3971ad1f5612a49c648ed4d819bc0395b375076472711204b8473271d1f7b3dbc864a757db42239db6eb60fa4698e775119d5add4d0bf5454d12880ead0bf3dc'
+        '8202ebe91503de6162374a6a21ecf6bc2339b847fb36310830a4951f470123950db252ef5540344e0bc03ec78281b1f0556f40949ec71b00544b69f9ce006ef0'
         '4547e46fbdfae65d94f3b05c8ba338e437211100cfcd781a1152e77e521897e5825e2e3928be9ba10749f2f878bf3159492745b84480e8751069a0b4b3cf3ee7'
         '3c4b539322edb95e0398af78d726501a6c5907f5568b47ef8c9f4fde837af3441d61b0d00a131966f353b3e2c59dbfdb650f9e7ce143ea3f182e3169a968a832'
         '37c398ade8f27c271871a088b6710dc961704bc4a453667596c1010a08728ff4c96e32cecbc90f8a7ede3c78f48a454c6fa63a39354c05a761ed5947ef352d68'
@@ -75,6 +81,7 @@ prepare() {
 
   # systemd warns on every boot about unit files marked executable.
   patch -p1 < "${srcdir}/0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch"
+  patch -p1 < "${srcdir}/0002-macsmc-battery-debounce-persistence.patch"
   install -m755 "${srcdir}/update-m1n1" update-m1n1
   install -m644 "${srcdir}/95-m1n1-install.hook" libalpm/hooks/95-m1n1-install.hook
 }
@@ -101,6 +108,7 @@ package() {
 
   cd "${srcdir}"
   install -Dm644 -t "$pkgdir/usr/libexec/aurora" bootchain.py bootchain_arch.py
+  install -Dm755 battery-charge-limit-save "$pkgdir/usr/libexec/aurora/battery-charge-limit-save"
   install -Dm755 aurora-stage2-commit "$pkgdir/usr/libexec/aurora/aurora-stage2-commit"
   install -Dm644 -t "$pkgdir/usr/lib/systemd/system" aurora-stage2-commit.service \
     aurora-stage2-guard.service aurora-stage2-guard.timer
