@@ -12,10 +12,13 @@
 # the preset; bootchain_arch.py only gives them Arch's paths. A kernel update
 # composes <stage2>.next, arms aura's one-shot aura-try and keeps the live image
 # until aurora-stage2-commit.service accepts the trial boot. The hook replaces
-# the tag's 95-m1n1-install.hook so that a kernel removal runs it too.
+# the tag's 95-m1n1-install.hook so that a kernel removal runs it too. Each
+# composed Stage 2 goes through aurora-secboot's "stage2 hook" when that is
+# installed, which signs it with the owner's Stage 2 key for an owner-key
+# Stage 1; the stage2-sign-hook marker tells aurora-secboot stage1 build so.
 pkgname=asahi-scripts
 pkgver=20261023
-pkgrel=8
+pkgrel=9
 pkgdesc='Asahi Linux maintenance scripts'
 arch=('any')
 url='http://asahilinux.org'
@@ -44,9 +47,9 @@ sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
             '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9'
             'f5fab46d6c0abd20875f1f4f375eca9235d2e465944968755e366a049b097dc5'
             'dca1868d158651ed329ad463962d51bf07ab6ac5935ced8a468f522381dec0e4'
-            '601d22c6fc13f8b070498e073ea7e97ead8517715e3d1c3980b09df6d3780a8f'
+            'f5eaff3c4da43244d1a0dc2f0d1fcab72fd236e81f8a601a1b487c9ac0b64cf9'
             'e4a1c2248f7c57e70e08e212138d3d6b4ce835366282247e343f4224804b4c23'
-            '54d747828134224be8cfa75c650eb5cf1832d0322f9fbd7cc321f6247a576107'
+            'f9ebf439d0b407bd3c93f0932dacac102c176ef6c19da0f3286d641216a7b758'
             '7318b8cc9ca2fc13924f28df29a3c98a1252f790df16df18538ee62359f9ed70'
             'b7039f9c926217008f8b5c936e665107592934a58595e408f017a3708a7a7c4d'
             '351b305d08d164b6d6532a294c4d30dd3db30ac27f61d1578b2d4548e93f69db'
@@ -57,9 +60,9 @@ b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641
         '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93'
         '4547e46fbdfae65d94f3b05c8ba338e437211100cfcd781a1152e77e521897e5825e2e3928be9ba10749f2f878bf3159492745b84480e8751069a0b4b3cf3ee7'
         '3c4b539322edb95e0398af78d726501a6c5907f5568b47ef8c9f4fde837af3441d61b0d00a131966f353b3e2c59dbfdb650f9e7ce143ea3f182e3169a968a832'
-        '343df4ea629c2bbefe84275b6a5b05ba1108bdfc67062593bf8350652867f12b836a496e6b8b9640800b641e608599b9d08581ecfff4e4181c06038081fdbd2a'
+        '37c398ade8f27c271871a088b6710dc961704bc4a453667596c1010a08728ff4c96e32cecbc90f8a7ede3c78f48a454c6fa63a39354c05a761ed5947ef352d68'
         '7f136e00163473d211f9cd0a2589d721fff30b32f0cb64a2655bfef70406ccfa017fe8fa5662675de9e9f2ea653a4afd4afb6c0a610ece0930138c3d1af48905'
-        '852400d2afb86395b9c9fc64d1e205d4084660c7d4d0e641c5d5a13d90220aaf3aae91ab11ebe285c61945af114dd3d11d4167e67bddfba3ceea32b6468f392d'
+        'af74b43b62914a945efa442c53c85a7fc3ee51011484ed72db199091595dc0f89e9b645ae8cb67c9f76a2377c799811584f1fc0a26fa0ab375bbd7f636ad3fb7'
         'e72118e2541e1c74a92e6a0e80cc4e20087fe069150d02b92e3c580cdd15e0e9faa7b21e5b650fe1f97a2ce0c90841e0215f644225268cdff2d0d772115bb274'
         '48e1dc3755cf78788892c4641aeaddb1d061ecf010119f55889434f5187ee1d706a65f6ca6168cca796ddc3ef260403c6de2275142242e65dc9c76c1100fd79f'
         '5e215383236fdb525a67ddb8be325b0568dd3272b49f45d5bb554d9ca9f0556daae38e0ad3f12d096b325e1cc288cb5848b077f6d92fb3182bf0ee2e5866a860'
@@ -102,4 +105,7 @@ package() {
   install -Dm644 -t "$pkgdir/usr/lib/systemd/system" aurora-stage2-commit.service \
     aurora-stage2-guard.service aurora-stage2-guard.timer
   install -Dm644 90-aurora-stage2.preset "$pkgdir/usr/lib/systemd/system-preset/90-aurora-stage2.preset"
+  # aurora-secboot stage1 build --enforce looks for this marker before it builds
+  # a Stage 1 that refuses unsigned Stage 2s.
+  install -Dm644 /dev/null "$pkgdir/usr/share/aurora/stage2-sign-hook"
 }
