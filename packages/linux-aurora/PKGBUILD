@@ -29,8 +29,10 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # https://github.com/aurora-silicon/aura/pull/75); under an older Stage 2
 # the speakers stay off. 1.0.0b11: this kernel's MacBook Neo DT leaves the
 # video encoder for aura to enable from the ADT (aura/pull/167), and its
-# DisplayPort audio needs the T8140 SIO tables (aura/pull/122).
-_aura_version=1.0.0b11
+# DisplayPort audio needs the T8140 SIO tables (aura/pull/122). 1.0.0b12:
+# with the T8140 fabric power states (linux#1298) only aura/pull/190 enables
+# the encoder's whole power-domain chain.
+_aura_version=1.0.0b12
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
 # /usr/lib/modules/<release>/dtb-abi). update-m1n1 refuses to put newer-
