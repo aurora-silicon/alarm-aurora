@@ -1,0 +1,11 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = etc/pam.d/system-auth
+Target = usr/libexec/aurora/sep-fde-pam
+
+[Action]
+Description = Letting password changes change the Secure Enclave disk password...
+When = PostTransaction
+Exec = /usr/libexec/aurora/sep-fde-pam

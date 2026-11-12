@@ -1,6 +1,6 @@
 pkgname=aurora-system-fixes
 pkgver=1
-pkgrel=8
+pkgrel=12
 pkgdesc='Aurora systemd drop-ins awaiting named upstream fixes'
 arch=('any')
 url='https://github.com/aurora-silicon/alarm-aurora'
@@ -8,7 +8,8 @@ license=('MIT')
 depends=('systemd' 'bluez>=5.87' 'ethtool' 'iw')
 source=(malcontent-signal.conf malcontent-webd-update-signal.conf LICENSE 50-after-swapfile.conf
         61-aurora-dmi-id.rules 60-aurora-dmi-vendor.hwdb drkonqi-ordering.conf nm-dispatcher-persist.conf
-        62-aurora-gpu-render-only.rules aurora-wake-for-network 63-aurora-wake-for-network.rules)
+        62-aurora-gpu-render-only.rules aurora-wake-for-network 63-aurora-wake-for-network.rules
+        90-aurora-reboot-watchdog.conf 64-aurora-trackpad-clicks.rules)
 sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '866a2b6a4d7c7408a0a3b9d33a932c548c4fedec6917d414f237f0064e7aa6f1' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9'
             '47f566640dbb31023b46db86695608adea7782e00f49f622e50be21491455a10'
             'bfc15b89689f807c5e66bae31359c2842b28af57b73f0fde6f9396c7ad0ac54c'
@@ -17,9 +18,13 @@ sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '
             'faa2b065fd84a14cf1e106eec88fb337b2b787fd9d08e58301f85a3288e685cc'
             '8bddd9fa90a3c89c6409431c4c2e2c49e842b49cfbf1ec3dddd2270d34d8c7d6'
             'f0dd775e05a900f569c1e9fa9391bbbec0cc1dbf8a3ee8b5c34f0b0616114a8a'
-            '0be29e0fa34810c330a19fce2fbcd15e38892f8c7b7087f1d70887fc05c9ba93')
+            '0be29e0fa34810c330a19fce2fbcd15e38892f8c7b7087f1d70887fc05c9ba93'
+            '63ff486b0b413a27da093e16f61c22c31f76b4429877980e4f8b0789c86828a9'
+            'dffdbfc709f0022c719af09fc2c938e7e78e4d4a48556b9e7f5c53b10d1da4b1')
 
 package() {
+  # Built in this repository, so not a build-time dependency.
+  depends+=('aurora-panel-nits' 'aurora-nvram' 'aurora-btsync')
   install -Dm644 50-after-swapfile.conf \
     "$pkgdir/usr/lib/systemd/system/var-swap-swapfile2.swap.d/50-after-swapfile.conf"
   install -Dm644 61-aurora-dmi-id.rules "$pkgdir/usr/lib/udev/rules.d/61-aurora-dmi-id.rules"
@@ -28,7 +33,11 @@ package() {
   # Wake for network access follows the power adapter, as on macOS laptops.
   install -Dm755 aurora-wake-for-network "$pkgdir/usr/lib/aurora/aurora-wake-for-network"
   install -Dm644 63-aurora-wake-for-network.rules "$pkgdir/usr/lib/udev/rules.d/63-aurora-wake-for-network.rules"
+  # Trackpad clicks from the host, as macOS does, where the MTP trackpad has a haptic actuator.
+  install -Dm644 64-aurora-trackpad-clicks.rules "$pkgdir/usr/lib/udev/rules.d/64-aurora-trackpad-clicks.rules"
   install -Dm644 60-aurora-dmi-vendor.hwdb "$pkgdir/usr/lib/udev/hwdb.d/60-aurora-dmi-vendor.hwdb"
+  # A stalled reboot or kexec is reset within the Apple watchdog's ~178 s range (systemd default: 10 min).
+  install -Dm644 90-aurora-reboot-watchdog.conf "$pkgdir/usr/lib/systemd/system.conf.d/90-aurora-reboot-watchdog.conf"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   local unit
   for unit in malcontent-timerd malcontent-timer-extension-agent malcontent-webd; do

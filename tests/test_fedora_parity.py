@@ -51,6 +51,32 @@ class ParityTests(unittest.TestCase):
                     with self.subTest(package=name, source=source):
                         self.assertEqual(hashlib.sha256((directory / source).read_bytes()).hexdigest(), digest)
 
+    def test_host_clicks_only_where_an_actuator_is(self):
+        # Same rule as Fedora's aurora-platform: macOS plays every click from
+        # the host; only MTP trackpads with an actuator node switch.
+        directory = ROOT / 'packages' / 'aurora-system-fixes'
+        rules = [l for l in (directory / '64-aurora-trackpad-clicks.rules').read_text().splitlines()
+                 if l and not l.startswith('#')]
+        self.assertEqual(rules, ['ACTION=="add|bind", SUBSYSTEM=="hid", DRIVER=="magicmouse", '
+                                 'ENV{HID_NAME}=="Apple MTP multi-touch", TEST=="../of_node/actuator", '
+                                 'ATTR{[module/hid_magicmouse]parameters/haptic_press}="Y"'])
+        pkgbuild = (directory / 'PKGBUILD').read_text()
+        self.assertIn('"$pkgdir/usr/lib/udev/rules.d/64-aurora-trackpad-clicks.rules"', pkgbuild)
+
+    def test_reboot_watchdog_fits_the_apple_hardware_watchdog(self):
+        # Same drop-in as Fedora's aurora-platform: the Apple SoC watchdog
+        # (24 MHz, 32-bit) cannot time out later than about 178 s.
+        directory = ROOT / 'packages' / 'aurora-system-fixes'
+        conf = (directory / '90-aurora-reboot-watchdog.conf').read_text()
+        values = dict(re.findall(r'(?m)^(\w+WatchdogSec)=(\S+)$', conf))
+        self.assertEqual(values, {'RebootWatchdogSec': '2min', 'KExecWatchdogSec': '2min'})
+        self.assertIn('[Manager]', conf.splitlines())
+        for value in values.values():
+            self.assertLessEqual(int(value[:-3]) * 60, (2**32 - 1) // 24_000_000)
+        recipe = (directory / 'PKGBUILD').read_text()
+        self.assertIn('install -Dm644 90-aurora-reboot-watchdog.conf '
+                      '"$pkgdir/usr/lib/systemd/system.conf.d/90-aurora-reboot-watchdog.conf"', recipe)
+
     def test_flatpak_install_upgrade_remove_preserves_admin_settings(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

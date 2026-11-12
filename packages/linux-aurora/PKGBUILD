@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=30
+pkgrel=33
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=15f88e1cf81a6b6a91a1856ca06822a093aedeac
-_sha256=0265bb06644e9a5df56105dd4963345249dd04cdcb1e85d7f0dc50cd1beb1db7
+_commit=84d091f7aded084ef1bfa4447695bc1399cd03b5
+_sha256=da370d86d62a7ad70337bb533fa90d9a4c5683071501b37e18fca731ad17939f
 
 # TODO: this draft config requests CONFIG_APPLE_SOC_SLEEP=y and
 # CONFIG_RTC_DRV_APPLE_PMU=y for aurora-silicon/linux#1445. Keep the current
@@ -60,10 +60,10 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '0265bb06644e9a5df56105dd4963345249dd04cdcb1e85d7f0dc50cd1beb1db7'
+            'da370d86d62a7ad70337bb533fa90d9a4c5683071501b37e18fca731ad17939f'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '7388f988c7a225f09b5c37b6637fe34a1b79e5d9ec8408f8bde21b0a5585c2ba'
+            '581329a805e9eae4deb9e8e47a1367c4e73080daf7cec042dd47b736ac52f08c'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
@@ -177,7 +177,9 @@ _package_kernel() {
   # No generic linux provide: on a shared aarch64 repository it would compete
   # with linux-aarch64 for any dependency on linux.
   provides=(WIREGUARD-MODULE linux-asahi=${pkgver} "${_ctxr_provides[@]}")
-  conflicts=(linux-asahi)
+  # sep-key interfaces 3 and 4 (linux#1506, #1544): aurora-fido before 0.2.0-2
+  # speaks only 1 and 2 and crash-loops against this kernel.
+  conflicts=(linux-asahi 'aurora-fido<0.2.0-2')
 
   local kernver="$(<$O/version)"
   local modulesdir="$pkgdir/usr/lib/modules/$kernver"

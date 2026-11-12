@@ -6,7 +6,11 @@ ROOT = Path(__file__).resolve().parents[1]
 KEEP = ROOT / 'packages/aurora-keep-config'
 # Aurora build -> the distribution package it replaces; both own the same
 # backup files, so a swap goes through a conflict removal and a .pacsave.
-SWAPS = {'upower-aurora': 'upower', 'networkmanager-aurora': 'networkmanager'}
+SWAPS = {
+    'upower-aurora': 'upower',
+    'networkmanager-aurora': 'networkmanager',
+    'gnome-settings-daemon-aurora': 'gnome-settings-daemon',
+}
 # Packages with backup files and conflicts that share no backup file with the
 # package they conflict with.
 NOT_SHARED = {

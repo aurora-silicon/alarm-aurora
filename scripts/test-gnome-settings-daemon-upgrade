@@ -1,0 +1,43 @@
+#!/bin/bash
+# Disposable CI chroot only. Replace stock gnome-settings-daemon with
+# gnome-settings-daemon-aurora, then go back to stock; the edited
+# Xwayland-session.d/00-xrdb stays active both ways, as dnf keeps it on Fedora.
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/testlib.sh"
+[[ $(id -u) == 0 && $(uname -m) == aarch64 && -d /src/.git ]]
+packages=${1:?directory containing freshly built packages}
+proof=/src/out/gnome-settings-daemon-upgrade
+conf=/etc/xdg/Xwayland-session.d/00-xrdb
+mkdir -p "$proof"
+pacman -S --noconfirm --needed gnome-settings-daemon
+pacman -Q gnome-settings-daemon | tee "$proof/stock.txt"
+candidate=("$packages"/gnome-settings-daemon-aurora-[0-9]*.pkg.tar.*)
+keeper=("$packages"/aurora-keep-config-[0-9]*.pkg.tar.*)
+[[ ${#candidate[@]} == 1 && -f ${candidate[0]} && ${#keeper[@]} == 1 && -f ${keeper[0]} ]]
+backup_state() { LC_ALL=C pacman -Qii "$1" | grep -Eo "$conf \[[a-z]+\]$" | cut -d' ' -f2; }
+[[ $(backup_state gnome-settings-daemon) == '[unmodified]' ]]
+printf '\n# upgrade-test-preserved\n' >> "$conf"
+sha256sum "$conf" > "$proof/config.sha256"
+cp /etc/pacman.conf "$proof/pacman.conf"
+sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
+printf 'y\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${keeper[0]}" "${candidate[0]}" | tee "$proof/swap.log"
+pacman -Q gnome-settings-daemon-aurora | tee "$proof/aurora.txt"
+refute installed gnome-settings-daemon
+pacman -T 'gnome-settings-daemon' 'aurora-keep-config'
+test -x /usr/lib/gsd-color
+sha256sum --check "$proof/config.sha256"
+[[ $(backup_state gnome-settings-daemon-aurora) == '[modified]' ]]
+test -f "$conf.pacnew"
+nomatch -Fx '# upgrade-test-preserved' "$conf.pacnew"
+test ! -e "$conf.pacsave"
+grep -F "keep-config: $conf: kept the edited copy" "$proof/swap.log"
+pacman -Dk
+printf 'y\ny\ny\ny\ny\n' | pacman -S gnome-settings-daemon | tee "$proof/rollback.log"
+pacman -Q gnome-settings-daemon | diff -u "$proof/stock.txt" -
+refute installed gnome-settings-daemon-aurora
+sha256sum --check "$proof/config.sha256"
+[[ $(backup_state gnome-settings-daemon) == '[modified]' ]]
+test ! -e "$conf.pacsave"
+grep -F "keep-config: $conf: kept the edited copy" "$proof/rollback.log"
+pacman -Dk
+printf 'PASS: gnome-settings-daemon-aurora replaces stock gnome-settings-daemon and rolls back with the edited 00-xrdb active\n'
