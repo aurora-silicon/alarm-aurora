@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=24
+pkgrel=25
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -10,11 +10,11 @@ install=aurora-sep.install
 # Touch ID's polkit and sudo stacks are written by touchid-pam (see there), and
 # the Plasma power-button default is the owner's to edit.
 backup=('etc/xdg/powerdevilrc')
-source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'aurora-touchid-setup' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' 'aurora-touchid-setup.service' 'touchid-setup-needed' 'touchid-pam' 'aurora-sep-touchid-pam.hook' 'powerdevilrc' 'aurora-sep-modprobe.conf' 'aurora-sep')
+source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XART-SAFETY.md' 'OS-IDENTITY.md' 'aurora-sep-ready' 'aurora-sep-ready.service' 'fprintd-no-timeout.conf.in' 'aurora-touchid-setup' 'extract-mesa-calibration' 'aurora-sep.timer' 'aurora-sep-load.conf' 'sensor-present' 'aurora-sep-greeter-fingerprint' 'aurora-sep-greeter-fingerprint.service' 'logind-aurora-sep.conf' 'provenance.json' 'aurora-touchid-setup.service' 'touchid-setup-needed' 'touchid-pam' 'aurora-sep-touchid-pam.hook' 'powerdevilrc' 'aurora-sep-modprobe.conf' 'aurora-sep' 'sleep-aurora-sep.conf' '20-aurora-suspend.conf')
 sha256sums=('2802ed3bd23970e464ac8aeddf9d9b16019ad133c0744230fce733f09f5bbf44'
             'ef6e9067fe20b05c64bebe8445d1ea18b2f9800721522c3e84be21a2c47bb4eb'
             'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
-            'c1a0d40762e3b9acc58f4d54b3a85b0947a6da7985e42cc3eaabe7a35b4b0e48'
+            '9e33c23b37d59802b7c4738731c5b58de787bb1b553de7a8e7963728d759259d'
             '6986845ed02ead356c7c387134e6557c218e937d467b24c579991f28b1c87665'
             '52020e636e62b60f0c3e6251c3b67b8a8c409bff0486bc3463f356fd3073384b'
             '74810b98eab3ace7c59ae332635339e66bb5783690d657b9d82af145e3cbd0d5'
@@ -28,14 +28,16 @@ sha256sums=('2802ed3bd23970e464ac8aeddf9d9b16019ad133c0744230fce733f09f5bbf44'
             '5936eb76db666496a8700dade7ac6bcb3785b517958dcea10685690f1822c86f'
             'ffab97b20bfd5f0eb1ab641179a131843349cf16890fff0cf2d893f0b5681b37'
             '0695bd9ce4c207241db13c3ea07819a032d8213417021378f5015ab9317cde12'
-            '90c90771d5a9c976f83352ba6c2b66cd9ea1f3bb4a6fd5d5a29fdd9675fba469'
+            'bd42b229194b1103a2f4e7bb45a11631186c1e66b722868ce2ddb5d42baa2085'
             '71305d392a68f623d351e0addf5a821fb0900b9a0fba7169c1ed62fd6bebe9ca'
             '371a0f8d874692a74581f884d7cc3db9e9e52fedaa7f099c0930a7c3a4080408'
             'e40e79ae7d9e54918078c620d425f59ac6ff201a706869637ddb4d4bca794d4c'
             'cbcac4487988d17c13290d093c5728306fee3212eb68332c7cb41e10cc068866'
             'c4a546ba81e435434caae8abd10f59bd583aa089108d4dac036e0efda8182181'
             '2afed78be5e8e163de50be82dd74fd956113b56059487f83e32121f43d6002ec'
-            'f8a2eadd5b55be5aedda79e5d1a629b93f13a64fb4ebb8f280aa86d22b6d3a06')
+            'f8a2eadd5b55be5aedda79e5d1a629b93f13a64fb4ebb8f280aa86d22b6d3a06'
+            '124055c87272fbd27e904ee403720fef76922d051216f053a11f49b6bd9c41e8'
+            'ec7cb0627f22287d5cb009a7016d07ce4a110a0f3a2db5357a212f9ac3fa1794')
 
 package() {
   depends=('coreutils' 'fprintd-aurora>=1.94.5' 'keyutils' 'kmod' 'python' 'util-linux' 'grep' 'gawk' 'systemd' 'libfprint-aurora>=1.94.100-6' 'aurora-touchid-rearm' 'aurora-xart')
@@ -71,6 +73,12 @@ EOF
   done
   # A short press of the power button (the Touch ID sensor) suspends.
   install -Dm644 logind-aurora-sep.conf "$pkgdir/usr/lib/systemd/logind.conf.d/50-aurora-sep.conf"
+  # Common suspend policy is installed even when SEP initialization is skipped.
+  install -Dm644 20-aurora-suspend.conf "$pkgdir/usr/lib/systemd/sleep.conf.d/20-aurora-suspend.conf"
+  # Ordering only: never start a disabled loader or retry a failed load.
+  for name in systemd-suspend systemd-hybrid-sleep systemd-suspend-then-hibernate; do
+    install -Dm644 sleep-aurora-sep.conf "$pkgdir/usr/lib/systemd/system/$name.service.d/aurora-sep.conf"
+  done
   install -Dm644 powerdevilrc "$pkgdir/etc/xdg/powerdevilrc"
   install -Dm755 touchid-pam "$pkgdir/usr/libexec/aurora/touchid-pam"
   install -Dm644 aurora-sep-touchid-pam.hook "$pkgdir/usr/share/libalpm/hooks/aurora-sep-touchid-pam.hook"
