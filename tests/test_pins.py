@@ -30,6 +30,11 @@ class PinTests(unittest.TestCase):
         self.assertIn('packaging/session/gate.json', main)
         # verify needs the macOS parity attestation (speakerguardd#114).
         self.assertIn('packaging/session/parity.json', main)
+        # The speaker graph needs Aurora's PipeWire (volume applied once,
+        # refused starts recovered); plain 'pipewire' was met by stock builds.
+        deps = re.search(r"(?m)^\s*depends=\((.*?)\)", main).group(1)
+        self.assertIn("'pipewire-speaker-graph>=2'", deps)
+        self.assertIn('pipewire-speaker-graph=2', (ROOT / 'packages/pipewire/PKGBUILD').read_text())
         self.assertNotIn('machines.json', main)
         # Opt-in: the default audio stack does not pull it and replaces only the retired builds.
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
@@ -43,6 +48,23 @@ class PinTests(unittest.TestCase):
             body = pkg.read_text()
             for m in re.finditer(r"(?ms)^\s*depends=\((.*?)\)", body):
                 self.assertNotIn('speakerguardd-v2', m.group(1), pkg)
+    def test_diagnostics_are_opt_in_and_follow_their_pin(self):
+        pin = json.loads((ROOT / 'sources.json').read_text())['aurora-diag']
+        text = (ROOT / 'packages/aurora-diag/PKGBUILD').read_text()
+        self.assertRegex(text, rf"(?m)^_commit={pin['commit']}$")
+        self.assertIn(pin['sha256'], text)
+        self.assertRegex(text, rf"(?m)^pkgver={re.escape(pin['version'])}$")
+        self.assertEqual(pin['archive_root'], 'aurora-diag-' + pin['commit'])
+        self.assertIn('make -C "aurora-diag-$_commit" check', text)
+        self.assertRegex(text, r"(?m)^depends=\('python'\)$")
+        # Opt-in: in no package group, pulled by no package, not in any image.
+        self.assertNotRegex(text, r'(?m)^groups=')
+        for pkg in (ROOT / 'packages').glob('*/PKGBUILD'):
+            if pkg.parent.name == 'aurora-diag':
+                continue
+            for m in re.finditer(r"(?ms)^\s*depends=\((.*?)\)", pkg.read_text()):
+                self.assertNotRegex(m.group(1), r"'aurora-diag[<>=']", pkg)
+        self.assertNotIn('aurora-diag', (ROOT / 'scripts/build-image').read_text())
     def test_aurora_sep_ships_the_touch_id_reset(self):
         sep = ROOT / 'packages/aurora-sep'
         self.assertIn("'aurora-xart')", (sep / 'PKGBUILD').read_text())

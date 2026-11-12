@@ -1,0 +1,29 @@
+pkgname=aurora-diag
+pkgver=0.5.0
+pkgrel=1
+pkgdesc='Bring-up diagnostics and regression checks for Apple silicon Macs (development only)'
+arch=('any')
+url='https://github.com/aurora-silicon/aurora-diag'
+license=('MIT')
+_commit=168fcb3852ce2562cda9de90ca9315733e0ab5f6
+depends=('python')
+optdepends=('python-textual: the dashboard'
+            'alsa-utils: ALSA control readout'
+            'vulkan-tools: Vulkan report (vulkaninfo)'
+            'mesa-utils: eglinfo and glxinfo summaries'
+            'iw: Wi-Fi link, band and regulatory domain'
+            'smartmontools: NVMe SMART health'
+            'bluez-utils: Bluetooth controller and paired devices'
+            'glib2: Mutter power save through gdbus')
+makedepends=('make')
+source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-diag/tar.gz/$_commit")
+sha256sums=('bfa2433cbc7cfe95604484e52740a60cc14d65e0c8b48142e83e6e4239ab3965')
+
+check() {
+  make -C "aurora-diag-$_commit" check
+}
+
+package() {
+  make -C "aurora-diag-$_commit" install DESTDIR="$pkgdir" PREFIX=/usr
+  install -Dm644 "aurora-diag-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
