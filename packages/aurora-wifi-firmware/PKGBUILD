@@ -7,7 +7,9 @@ groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-installer/tree/main/tools/wifi-firmware'
 license=('MIT')
 _commit=79a75495b160fcd92b76b0374f0acb4ca30f3a7b
-depends=('python' 'lzfse' 'util-linux' 'systemd')
+depends=('python' 'util-linux' 'systemd')
+# LZFSE-compressed files on the macOS volume need liblzfse; images install it.
+optdepends=('lzfse: LZFSE-compressed files on the macOS system volume')
 makedepends=('make')
 install=aurora-wifi-firmware.install
 source=("aurora-installer-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-installer/tar.gz/$_commit")
