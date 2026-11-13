@@ -63,6 +63,19 @@ class ParityTests(unittest.TestCase):
         pkgbuild = (directory / 'PKGBUILD').read_text()
         self.assertIn('"$pkgdir/usr/lib/udev/rules.d/64-aurora-trackpad-clicks.rules"', pkgbuild)
 
+    def test_ambient_light_sensor_is_tagged_for_auto_brightness(self):
+        # Same rule as Fedora's aurora-platform: the sysfs-polled AOP ALS is
+        # tagged iio-poll-als so iio-sensor-proxy claims it and GNOME/KDE offer
+        # automatic screen brightness out of the box.
+        directory = ROOT / 'packages' / 'aurora-system-fixes'
+        rules = [l for l in (directory / '65-aurora-ambient-light.rules').read_text().splitlines()
+                 if l and not l.startswith('#')]
+        self.assertEqual(rules, ['SUBSYSTEM=="iio", KERNEL=="iio:device*", '
+                                 'ATTR{name}=="aop-sensors-als", '
+                                 'ENV{IIO_SENSOR_PROXY_TYPE}="iio-poll-als"'])
+        pkgbuild = (directory / 'PKGBUILD').read_text()
+        self.assertIn('"$pkgdir/usr/lib/udev/rules.d/65-aurora-ambient-light.rules"', pkgbuild)
+
     def test_reboot_watchdog_fits_the_apple_hardware_watchdog(self):
         # Same drop-in as Fedora's aurora-platform: the Apple SoC watchdog
         # (24 MHz, 32-bit) cannot time out later than about 178 s.
