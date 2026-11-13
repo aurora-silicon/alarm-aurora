@@ -170,7 +170,9 @@ _package_kernel() {
   # aurora-stage2-trial: the update-m1n1 that trials these trees before
   # committing them and checks the DT ABI generation.
   # The restored legacy interface needs the matching Asahi speaker graphs.
-  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" 'aurora-audio>=4.1.aurora2-12' aurora-stage2-trial aurora-userpages)
+  # avd-fw: apple-avd loads apple/avd-fw-v*.bin and its queued transport needs
+  # queue ABI 2 with per-image codec VP pools (avd-fw 6756ca99 = 0.1.aurora3).
+  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" 'aurora-audio>=4.1.aurora2-12' 'avd-fw>=0.1.aurora3' aurora-stage2-trial aurora-userpages)
   optdepends=('crda: to set the correct wireless channels of your country'
               'linux-firmware: firmware images needed for some devices')
   # No generic linux provide: on a shared aarch64 repository it would compete
