@@ -81,7 +81,7 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager-aurora blu
   aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-nvram aurora-btsync aurora-panel-nits aurora-camera-denoise aurora-kbd-light aurora-wifi-firmware lzfse aurora-fido aurora-sep-sk tiny-dfr pipewire-pulse pipewire-alsa openssh)
 case $profile in
   arch-kde) packages+=(kwin-aurora iio-sensor-proxy-aurora plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth plymouth-theme-aurora);;
-  arch-gnome) packages+=(mutter-aurora gnome-settings-daemon-aurora iio-sensor-proxy-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora);;
+  arch-gnome) packages+=(mutter-aurora gnome-settings-daemon-aurora iio-sensor-proxy-aurora gnome-shell gdm gnome-control-center-aurora nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora);;
 esac
 # GitHub release downloads sometimes stall; finished packages stay cached.
 attempt=1
