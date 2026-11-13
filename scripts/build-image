@@ -78,7 +78,7 @@ PY
 packages=(base sudo bash python btrfs-progs cryptsetup networkmanager-aurora bluez bluez-utils wireless-regdb linux-firmware
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-userpages aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw libva-v4l2-request-avd upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes aurora-logos
-  aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-nvram aurora-btsync aurora-panel-nits aurora-camera-denoise aurora-kbd-light aurora-fido aurora-sep-sk tiny-dfr pipewire-pulse pipewire-alsa openssh)
+  aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-nvram aurora-btsync aurora-panel-nits aurora-camera-denoise aurora-kbd-light aurora-wifi-firmware lzfse aurora-fido aurora-sep-sk tiny-dfr pipewire-pulse pipewire-alsa openssh)
 case $profile in
   arch-kde) packages+=(kwin-aurora iio-sensor-proxy-aurora plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth plymouth-theme-aurora);;
   arch-gnome) packages+=(mutter-aurora gnome-settings-daemon-aurora iio-sensor-proxy-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora);;
@@ -109,6 +109,9 @@ chroot "$mountroot" pacman -Q alsa-utils-aurora aurora-system-fixes aurora-flatp
 # The keyboard backlight follows the light sensor; its install script applies
 # the package's system preset.
 [[ -L $mountroot/etc/systemd/system/multi-user.target.wants/aurora-kbd-light.service ]]
+# The Wi-Fi firmware follows the installed macOS; its install script applies
+# the package's system preset.
+[[ -L $mountroot/etc/systemd/system/multi-user.target.wants/aurora-wifi-firmware.service ]]
 # The Touch ID security key is opt in: installed, never enabled by the image.
 chroot "$mountroot" pacman -Q aurora-fido
 [[ ! -e $mountroot/etc/systemd/system/multi-user.target.wants/aurora-fido.service ]]
