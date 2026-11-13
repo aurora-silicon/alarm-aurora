@@ -5,6 +5,7 @@ set -eu
 firmware_root=${AURORA_FIRMWARE_ROOT:-/lib/firmware}
 compatible=${AURORA_DT_COMPATIBLE:-/sys/firmware/devicetree/base/compatible}
 modprobe_command=${AURORA_MODPROBE:-modprobe}
+pci_root=${AURORA_PCI_ROOT:-/sys/bus/pci}
 
 has_firmware() {
   [ -s "$firmware_root/vendor/$1" ] || [ -s "$firmware_root/$1" ]
@@ -57,3 +58,23 @@ else
 fi
 # Bluetooth is deliberately admitted later by its existing gated PCI service,
 # after root firmware extraction. It is not necessary to unlock the root disk.
+
+# xhci-pci is built in, so it probes the Mac Studio's and Mac mini's ASMedia
+# controller (back USB-A, front USB-C) long before this handoff. After a warm
+# reboot the chip still runs the firmware it was given; after a cold boot it
+# runs its ROM, the probe fails for lack of asmedia/asm2214a-apple.bin, and
+# nothing retries it. Probe a controller that has no driver once that file
+# is reachable; one that is already bound is left alone.
+if has_firmware asmedia/asm2214a-apple.bin; then
+  for device in "$pci_root"/devices/*; do
+    [ -e "$device/vendor" ] || continue
+    [ "$(cat "$device/vendor"):$(cat "$device/device")" = 0x1b21:0x2142 ] || continue
+    [ -e "$device/driver" ] && continue
+    name=${device##*/}
+    if echo "$name" > "$pci_root/drivers/xhci_hcd/bind" 2>/dev/null; then
+      echo "Aurora: ASMedia xHCI $name probed with vendor firmware" >&2
+    else
+      echo "Aurora: ASMedia xHCI $name probe failed" >&2
+    fi
+  done
+fi
