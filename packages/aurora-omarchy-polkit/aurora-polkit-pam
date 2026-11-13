@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 
@@ -13,6 +14,7 @@ pam = Path(os.environ.get('AURORA_POLKIT_PAM', '/etc/pam.d/polkit-1'))
 state = Path(os.environ.get('AURORA_POLKIT_STATE', '/var/lib/aurora-omarchy-polkit'))
 sep_marker = Path(os.environ.get('AURORA_SEP_POLKIT_MARKER', '/var/lib/aurora-sep/pam-polkit-1.sha256'))
 record = state / 'pam-edit.json'
+pending = state / 'pam-restore.json'
 option = 'polkit-password-switch'
 
 def digest(data):
@@ -78,9 +80,56 @@ def disable():
     record.unlink()
     print('Removed password switch from', pam)
 
+def pre_transaction():
+    # Save the exact managed line before removing it, including across an
+    # interrupted transaction. Never mark an unowned configuration for restore.
+    if record.exists():
+        data = record.read_bytes()
+        atomic(pending, data, 0o600)
+        try:
+            disable()
+        except BaseException:
+            pending.unlink(missing_ok=True)
+            raise
+
+
+def post_transaction():
+    if not pending.exists():
+        return
+    # An upgrade can be combined with removal or a forced downgrade.
+    installed = subprocess.run(['pacman', '-Q', 'aurora-omarchy-polkit', 'fprintd-aurora'],
+                               capture_output=True, text=True)
+    if installed.returncode:
+        pending.unlink()
+        return
+    versions = dict(line.split(maxsplit=1) for line in installed.stdout.splitlines())
+    version = versions.get('fprintd-aurora')
+    if not version or int(subprocess.check_output(['vercmp', version, '1.94.5-5'], text=True)) < 0:
+        pending.unlink()
+        print('Warning: incompatible fprintd; password switch remains disabled', file=sys.stderr)
+        return
+    saved = json.loads(pending.read_text())
+    if record.exists():
+        # Recover if enable completed before a prior post hook was interrupted.
+        if json.loads(record.read_text()) == saved and pam.is_file() and not pam.is_symlink() and pam.read_text().splitlines(keepends=True).count(saved['new']) == 1:
+            pending.unlink()
+            return
+        raise SystemExit('Warning: PAM edit changed; password switch was not restored')
+    if pam.is_symlink() or not pam.is_file() or pam.read_text().splitlines(keepends=True).count(saved['old']) != 1:
+        raise SystemExit('Warning: PAM line changed; password switch was not restored')
+    enable()
+    pending.unlink()
+
+
 if sys.argv[1:] == ['--enable']:
     enable()
+    pending.unlink(missing_ok=True)
 elif sys.argv[1:] == ['--disable']:
     disable()
+    pending.unlink(missing_ok=True)
+elif sys.argv[1:] == ['--pre-transaction']:
+    pre_transaction()
+elif sys.argv[1:] == ['--post-transaction']:
+    post_transaction()
 else:
-    raise SystemExit('Usage: aurora-polkit-pam --enable|--disable')
+    raise SystemExit('Usage: aurora-polkit-pam --enable|--disable|--pre-transaction|--post-transaction')

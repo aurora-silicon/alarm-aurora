@@ -8,4 +8,4 @@ Target = aurora-omarchy-polkit
 [Action]
 Description = Removing the Aurora polkit password-switch option before package changes
 When = PreTransaction
-Exec = /usr/bin/aurora-polkit-pam --disable
+Exec = /usr/bin/aurora-polkit-pam --pre-transaction

@@ -1,0 +1,10 @@
+[Trigger]
+Type = Package
+Operation = Remove
+Target = fprintd-aurora
+Target = aurora-omarchy-polkit
+
+[Action]
+Description = Clearing pending Aurora polkit restoration after removal
+When = PostTransaction
+Exec = /usr/bin/rm -f /var/lib/aurora-omarchy-polkit/pam-restore.json
