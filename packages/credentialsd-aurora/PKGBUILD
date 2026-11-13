@@ -1,0 +1,77 @@
+pkgname=credentialsd-aurora
+_pkgname=credentialsd
+pkgver=0.4.0
+pkgrel=1
+pkgdesc='Credential manager for WebAuthn passkeys and security keys, with platform passkey providers (Touch ID)'
+arch=('aarch64')
+url='https://github.com/linux-credentials/credentialsd'
+license=('LGPL-3.0-only')
+provides=("credentialsd=$pkgver")
+conflicts=('credentialsd')
+depends=('gtk4' 'glib2' 'dbus' 'systemd-libs' 'libnfc' 'pcsclite' 'openssl' 'publicsuffix-list'
+         'xdg-desktop-portal-credential')
+makedepends=('rust' 'cargo' 'meson' 'clang' 'blueprint-compiler' 'desktop-file-utils' 'appstream' 'libxml2' 'systemd')
+checkdepends=('dbus')
+options=('!lto')
+# credentialsd 0.4.0, main after it up to ca77b3e (0001), and the platform
+# passkey provider series (0002-0006): a local authenticator such as
+# aurora-fido's Secure Enclave agent registers with a drop-in in
+# /usr/share/credentialsd/providers and is offered as transport "internal".
+source=("$_pkgname-$pkgver.tar.gz::https://github.com/linux-credentials/credentialsd/archive/refs/tags/v$pkgver.tar.gz"
+        '0001-backport-main-v0.4.0..ca77b3e.patch'
+        '0002-ui-Add-password-and-locked-states-for-platform-provi.patch'
+        '0003-daemon-Discover-platform-passkey-providers.patch'
+        '0004-daemon-Route-requests-to-platform-passkey-providers.patch'
+        '0005-daemon-Report-client-capabilities-to-the-portal.patch'
+        '0006-doc-Document-the-platform-provider-API.patch'
+        '50-credentialsd.conf')
+sha256sums=('7dd96e5e97c48418f19b8ce8755c24d06f94405af5be9554bb9e3c2e355a18c5'
+            '08feec13f1165966287efa5c737f10ea03e045beaf8175d4892ed0d1eb6f8c1f'
+            '0254bfcdc344deaddaf4f9a6e7d297823117ea85347b915edd01a20a93e4ac86'
+            'cb332beb00ae31a7c956f994fd9cfaa2f0e568ad74bbfc61a5eabc9ed7aa5cd4'
+            '9851104576fe39da85b66b2335adff1d3dbe9cf76a8c00f4f38383f4e2b99997'
+            '58490c122808047aa7a136f50f9f6ad6a276c0b786036b750de5fe0bb1bc78bd'
+            'bec35e81002543bb9f4185dfa62f5af82e3632bd82b00fe1678f90ed3b66b3de'
+            'cc837a86e7e502979d0312dacf7a613ef76f21f7ab961f856cc34c2a252709a8')
+
+prepare() {
+  cd "$_pkgname-$pkgver"
+  local p
+  for p in "$srcdir"/000[1-6]-*.patch; do
+    patch -Np1 -i "$p"
+  done
+  export CARGO_HOME="$srcdir/cargo-home"
+  cargo fetch --locked --target "$(rustc --print host-tuple)"
+}
+
+build() {
+  export CARGO_HOME="$srcdir/cargo-home"
+  arch-meson "$_pkgname-$pkgver" build \
+    -Dprofile=release \
+    -Dcargo_home="$srcdir/cargo-home" \
+    -Dcargo_locked=true \
+    -Dcargo_offline=true \
+    -Dfeature_web_extension=disabled \
+    -Dfeature_demo_client=disabled
+  meson compile -C build
+}
+
+check() {
+  # Unit tests of the three crates, the D-Bus integration test (own bus),
+  # gschema and appdata validation.
+  export CARGO_HOME="$srcdir/cargo-home"
+  meson test -C build --print-errorlogs --timeout-multiplier 0
+}
+
+package() {
+  export CARGO_HOME="$srcdir/cargo-home"
+  meson install -C build --destdir "$pkgdir"
+  # Start xdg-desktop-portal's experimental credential portal.
+  install -Dm644 "$srcdir/50-credentialsd.conf" \
+    "$pkgdir/usr/lib/systemd/user/xdg-desktop-portal.service.d/50-credentialsd.conf"
+  install -d "$pkgdir/usr/share/credentialsd/providers" "$pkgdir/etc/credentialsd/providers"
+  grep -qx 'Interfaces=org.freedesktop.impl.portal.experimental.Credential' \
+    "$pkgdir/usr/share/xdg-desktop-portal/portals/credentialsd.portal"
+  grep -qx 'ExecStart=/usr/bin/credentialsd' \
+    "$pkgdir/usr/lib/systemd/user/xyz.iinuwa.credentialsd.Credentials.service"
+}
