@@ -72,7 +72,7 @@ def disable():
     before = pam.read_bytes()
     lines = before.decode().splitlines(keepends=True)
     if lines.count(data['new']) != 1:
-        raise SystemExit('Managed PAM line changed; remove the switch option manually')
+        raise SystemExit('Warning: managed PAM line changed; remove polkit-password-switch manually')
     lines[lines.index(data['new'])] = data['old']
     write_pam(before, ''.join(lines).encode())
     record.unlink()

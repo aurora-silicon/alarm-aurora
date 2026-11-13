@@ -1,3 +1,12 @@
+From: Muness Castle <931+muness@users.noreply.github.com>
+Subject: [PATCH] pam: allow a compatible polkit agent to switch to password
+
+Negotiate support with the requesting agent and bind the per-scan switch
+token to its credentials before allowing it to stop fingerprint verification.
+
+Signed-off-by: Muness Castle <931+muness@users.noreply.github.com>
+---
+
 --- a/pam/pam_fprintd.c
 +++ b/pam/pam_fprintd.c
 @@ -44,6 +44,8 @@

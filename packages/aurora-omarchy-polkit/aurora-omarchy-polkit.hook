@@ -9,4 +9,3 @@ Target = aurora-omarchy-polkit
 Description = Removing the Aurora polkit password-switch option before package changes
 When = PreTransaction
 Exec = /usr/bin/aurora-polkit-pam --disable
-AbortOnFail
