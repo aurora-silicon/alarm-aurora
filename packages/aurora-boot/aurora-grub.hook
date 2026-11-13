@@ -4,6 +4,7 @@ Operation = Upgrade
 Type = Path
 Target = etc/default/grub.d/40-aurora-console.cfg
 Target = etc/default/grub.d/45-aurora-mte.cfg
+Target = etc/default/grub.d/46-aurora-t8132-display.cfg
 Target = etc/default/grub.d/50-aurora-user4k.cfg
 Target = usr/lib/modules/*/vmlinuz
 
