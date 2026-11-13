@@ -17,7 +17,7 @@ highmem=1
 
 pkgname=firefox
 pkgver=160.0
-pkgrel=1.2
+pkgrel=1.3
 pkgdesc="Fast, Private & Safe Web Browser"
 url="https://www.firefox.com/"
 arch=(aarch64)
@@ -96,19 +96,41 @@ source=(
 
   # Aurora: V4L2 stateless decoders in RDD (Mozilla bug 2080696)
   rdd-v4l2-request.patch
+  # Aurora: WebAuthn through the credential portal (bugs 2088324, 1983767)
+  webauthn-portal-0001-Bug-2088324-WebAuthn-plumb-getClientCapabilities-and.patch
+  webauthn-portal-0002-Bug-1983767-Implement-support-for-credentialsd-porta.patch
+  webauthn-portal-0003-Bug-XXXXXXX-Build-xdg_credentials_responses-against-.patch
+  webauthn-portal-0004-Bug-XXXXXXX-Report-credential-portal-capabilities-an.patch
+  webauthn-portal-0005-Bug-XXXXXXX-Let-WebAuthnService-hold-conditional-req.patch
+  webauthn-portal-0006-Bug-XXXXXXX-Add-a-pref-to-keep-security-key-requests.patch
+  webauthn-portal-0007-Bug-XXXXXXX-Offer-credential-portal-passkeys-in-WebA.patch
 )
 sha256sums=('2b23d2bf6716ea16b45c10aa5c275c78a1d7ff50ad53150809ab27424c58fd81'
             'cb00ea359d6daf37900102307be4f515f1b7ef9c98825c64cc55bb562449d0d8'
             '2a51d57d98fbda86f094bc991e1ad4dd6e8a9d32fd0836b1183bf70ec4b68915'
             '4e01a62e20026b67466943bad9dfba47874c5e1492375f8293aeb85ecedf2288'
             '9489d90532738493c279710137657c5019423bd93e3916401b012e900a01741a'
-            '8bf37b918f9544c523ed473ffd9626f6f3654b179e537a0846b372833478de8b')
+            '8bf37b918f9544c523ed473ffd9626f6f3654b179e537a0846b372833478de8b'
+            '23815c14d725eaf51e8473c4731dac46cfe72ba4edb99317053ad528a2569a98'
+            '10e210e6fbac0e7c18935da33af6c81faf5427129e85387deb308900467c8ba2'
+            '7adf967178792f547a70fd6b8febe34d7929ee96955664e81568c5e4bd823b3e'
+            '795d2764eb2219c50901808e42d06457ce7baf1a7ac8793e69c84a5c9309c822'
+            '61bbc69695b2028578ab137194702d0879e4a4e634a7b351a4306debb3fde1ad'
+            'a16ada5d8cc31697ec674028b99a750623c13fc26dcac0332b2501e9d4a171da'
+            'f88cd99232f1636761e2d3fd99cb78bd2cd37482bbce987fa2baab2a10fa461a')
 b2sums=('ddf9b4d935e85eee54c424b618e4d7dd6d1f4906dc609c87bda3d30024ada3fc1fe335eb92f40e188b66d1ad856f05a53a4a7362c0f572086d9d69e4b7a78306'
         'f2a9cfb758692584dd8057ab30d0ed9d22f5356d0021e1c8111a061866ee66d6b2d891351e11064f904fe8c90032e78f9def61ed54ae4208c8be4de6b4226277'
         '63c62c85ee70e22b02e9ea34e69f04f50403b7634b99fb0e996a83c963916dc4224041a0b265e54f6c224bd1777ddfdeb255037e3e30fec288695f3050278b05'
         '607d592b164a88a11a1041002d67339a9a0001469cd979d24d0fda547cec472f602f6299c198f626f2c854df3ff05bd0b1fd84ae47ee52b97a7906575f5a5f36'
         'd68378aea4d0f62d8e098ade7a6a4c5a9c1c96ce6ef919a955227f1168aa8a34e2220dd1c3f79dafad03ecb2545b25df9294036bb8ad21668b5c24997d93dfa2'
-        '4212d87c848a1563b0981088499b9fff1776a81f3a3cf66d2ff61887704abd4d5290a25bf499b12b7caaa7c71c65d3019174b9318781d7c787795e80b3ea8ca7')
+        '4212d87c848a1563b0981088499b9fff1776a81f3a3cf66d2ff61887704abd4d5290a25bf499b12b7caaa7c71c65d3019174b9318781d7c787795e80b3ea8ca7'
+        '6668d8dd1876b4bb0ca332ebfa8c790ffbfc034eab181a87ea8d00e1b9c5ae9a01da7017d58660f405610669b041d4b2bf2ef37d69ff8af28d5a489d5b1902c6'
+        '318f8999036ee609838c4597e01bffe23a41842f5866d11050bc3575bb3a931744cdce2bcae3ebaf7f72e1e9da7beec35ecd55410dbe795be0a8c106d689463d'
+        'c8522f719e4b165a517cfb29d23419d909a3bc8dedf653f8442f5f5fc1f648467eee1a915398ad38637c770b17ce8cd1939fd3bd9d89a1c439b2fb10cf015b1d'
+        '3e319ea44886f95d736e2d29cc0721fb8e4889fbc610e6e3d08a3518cdaeb23c0f7c44af955a204e445840cdca4cc6c82342f140e64dcb4a8c613b7b9a440093'
+        'e33331d1dffd7d327e0a3cc454b0e8083491b9ef6e73796bd77dbd9ad2a2c0cb556f11b01b39f2615dec0a8965602511192f2275d22ee41190f2a464c0a10f79'
+        '7273c6ff081bfa3546501c8d6e75496de0fb95ba12839cc22ccc192ba53e79653fe8a68d47de67dc548b3547473ff402e527cd277f9af0f97495f072f4517229'
+        '5f8bda9c0dbcf32e5b692f157f83a1cba8d4e8bdab3792b86f16f872004a98cd21f63917bb786cdaa48ae8c7a8d485dbea08f79653404220991a22d27ca5d566')
 
 # Google API keys (see https://www.chromium.org/developers/how-tos/api-keys)
 # Note: These are for Arch Linux use ONLY. For your own distribution, please
@@ -242,6 +264,10 @@ pref("extensions.autoDisableScopes", 11);
 
 // Enable GNOME Shell search provider
 pref("browser.gnome-search-provider.enabled", true);
+
+// Aurora: WebAuthn through the credential portal where it exists
+pref("security.webauthn.use-xdg-desktop-portal", 1);
+pref("security.webauthn.use-xdg-desktop-portal.security-keys", false);
 END
 
   install -Dvm644 /dev/stdin "$appdir/distribution/distribution.ini" <<END
