@@ -1,13 +1,13 @@
 # Aurora bootloader; ordinary updates refresh ESP Stage 2, never enroll Stage 1.
 pkgname=aura
-pkgver=1.0.0b13
+pkgver=1.0.0b13.1
 pkgrel=1
 pkgdesc='Aurora Silicon bootloader for Apple Silicon'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aura'
 license=('MIT' 'GPL-2.0-only')
-_commit=f0f180afe5db5c976b6e997ed1308ce4d5213bcb
+_commit=5dcf62d0bf28e42c0e3f4ece44908643ffd40837
 # 1 once the pinned source has no monitor (aura#77); prepare() checks it. Such an
 # aura moves the kernel into the CTXR window, so it requires a kernel built with
 # CONFIG_ARM64_CTXR_EXECMEM, which linux-aurora provides as aurora-ctxr-execmem.
@@ -21,7 +21,7 @@ replaces=('m1n1-neo')
 makedepends=('git' 'clang' 'lld' 'llvm' 'rustup' 'make' 'python')
 options=('!strip' '!debug')
 source=("aura::git+$url.git#commit=$_commit" build-qualification.json validate-qualification.py)
-sha256sums=('SKIP' '7c00e3e91d3f53a6e8c2d4898671230f0758284d40d966018509941c3f65e6c2' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
+sha256sums=('SKIP' '1ca7c5a6f51f88ea3d62aedd27d261c4d93f80bb1096067f09cfa1309c905f9f' 'd89f89a68105e4663bdf14bf9d4d70f3fad79538a4c566e8fae73c0b40a9be26')
 prepare() {
   rustup toolchain install 1.99.0 --profile minimal --target aarch64-unknown-none-softfloat
   [[ $(git -C aura rev-parse HEAD) == "$_commit" ]]
