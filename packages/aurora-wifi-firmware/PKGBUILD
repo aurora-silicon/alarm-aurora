@@ -1,19 +1,19 @@
 pkgname=aurora-wifi-firmware
-pkgver=0.1
+pkgver=0.2
 pkgrel=1
-pkgdesc='Keep the Wi-Fi firmware on the installed macOS'"'"'s, as macOS does (read from the macOS system volume, applied at the next boot)'
+pkgdesc='Keep the Wi-Fi and Bluetooth firmware on the installed macOS'"'"'s, as macOS does (read from the macOS system volume, applied at the next boot)'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-installer/tree/main/tools/wifi-firmware'
 license=('MIT')
-_commit=79a75495b160fcd92b76b0374f0acb4ca30f3a7b
+_commit=afdd3215189cb5badb85d22bdb255df4a7b3a9fa
 depends=('python' 'util-linux' 'systemd')
 # LZFSE-compressed files on the macOS volume need liblzfse; images install it.
 optdepends=('lzfse: LZFSE-compressed files on the macOS system volume')
 makedepends=('make')
 install=aurora-wifi-firmware.install
 source=("aurora-installer-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-installer/tar.gz/$_commit")
-sha256sums=('1e4b55ed6f0ecb862a6ea3a05ea72d3bece898df0dece9882110ffd8f41fcf4a')
+sha256sums=('f7bcac6cb4713c3d8925c727cee154cc58e9c20546f0c1fe046344e6cf06199c')
 
 check() {
   cd "aurora-installer-$_commit"
