@@ -297,6 +297,51 @@
     "archive_root": "aurora-steam-native-c06f610e3604c3f2b1b8466dff60d6878d0cd0da",
     "sha256": "c81a8425164322d77155e8c24eb9a73a379637873948cd85cfc5531ba58f25c0"
   },
+  "aurora-proton": {
+    "repository": "https://github.com/GloriousEggroll/proton-ge-custom",
+    "commit": "01bfbf67b35418fdd705f2be09e0bfb43eece24b",
+    "version": "11.9",
+    "upstream_version": "11-9",
+    "source_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton11-9/GE-Proton11-9-aarch64.tar.gz",
+    "archive_file": "GE-Proton11-9-aarch64.tar.gz",
+    "archive_root": "GE-Proton11-9-aarch64",
+    "sha256": "948957ea8929b8a1b444c8b9278f87b7cba0006ccfee51cd551ab69555c34265",
+    "extra_sources": {
+      "wine": {
+        "source_url": "https://github.com/ValveSoftware/wine/archive/981e2f0b9007fd70a6e0ed6119cb18f4164e26f9.tar.gz",
+        "archive_file": "981e2f0b9007fd70a6e0ed6119cb18f4164e26f9.tar.gz",
+        "sha256": "db685c888b6b5859b21a2383903a0c894ad3704068df7be4a1c6c07b2211ea08",
+        "commit": "981e2f0b9007fd70a6e0ed6119cb18f4164e26f9"
+      },
+      "ge-source": {
+        "source_url": "https://github.com/GloriousEggroll/proton-ge-custom/archive/refs/tags/GE-Proton11-9.tar.gz",
+        "archive_file": "GE-Proton11-9.tar.gz",
+        "sha256": "1d52c4da7a67115856e7c03c081c15abf768388a87609a2729b0702acd8992a8",
+        "commit": "01bfbf67b35418fdd705f2be09e0bfb43eece24b"
+      },
+      "wine-staging": {
+        "source_url": "https://github.com/wine-staging/wine-staging/archive/6cc805ea57132eeaf44764e9213823c9b8d0d300.tar.gz",
+        "archive_file": "6cc805ea57132eeaf44764e9213823c9b8d0d300.tar.gz",
+        "sha256": "46fccc6412d5a0ac5e02047a545bba21c3db45abfa1c161119a1de2f7b8cb360",
+        "commit": "6cc805ea57132eeaf44764e9213823c9b8d0d300"
+      },
+      "restore-configure": {
+        "source_url": "https://github.com/ValveSoftware/wine/commit/e813ca5771658b00875924ab88d525322e50d39f.patch",
+        "archive_file": "e813ca5771658b00875924ab88d525322e50d39f.patch",
+        "sha256": "dc863a602638557496bf63d56c1d9bbbfbb44936652f4ecc36f6dd19517c649f"
+      },
+      "vk-xml": {
+        "source_url": "https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v1.4.357/xml/vk.xml",
+        "archive_file": "vk.xml",
+        "sha256": "264d0d7350e37d70c82407fb430d085040fc01a9a961d43dec8c2d6ed1dfd183"
+      },
+      "video-xml": {
+        "source_url": "https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v1.4.357/xml/video.xml",
+        "archive_file": "video.xml",
+        "sha256": "d018b914014c06605e367a3b929670511e6f6de2f225c405a8b5e2d912408b76"
+      }
+    }
+  },
   "aurora-touchid-rearm": {
     "repository": "https://github.com/aurora-silicon/aurora-sep-userspace",
     "commit": "0996f01f55c64cfebadb5b48602690ca9d5f72aa",
