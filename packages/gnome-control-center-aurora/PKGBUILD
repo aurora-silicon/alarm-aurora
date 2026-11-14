@@ -1,0 +1,157 @@
+# Arch's gnome-control-center 51.1-1 recipe with one Aurora patch: a switch
+# for gnome-settings-daemon-aurora's ambient white point on the Night Light
+# page. The same patch is in fedora-aurora's gnome-control-center package.
+# gnome-keybindings, the other package of Arch's split recipe, is unchanged
+# and comes from the stock repository.
+# Maintainer: Fabian Bornschein <fabiscafe@archlinux.org>
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Jan de Groot <jgc@archlinux.org>
+
+pkgname=gnome-control-center-aurora
+_pkgname=gnome-control-center
+_tag=51.1
+pkgver=51.1.aurora1
+pkgrel=1
+pkgdesc="GNOME's main interface to configure various aspects of the desktop"
+url="https://apps.gnome.org/Settings/"
+license=(GPL-2.0-or-later)
+arch=(aarch64)
+depends=(
+  accountsservice
+  bolt
+  cairo
+  colord-gtk4
+  cups-pk-helper
+  dconf
+  fontconfig
+  gcr-4
+  gdk-pixbuf2
+  glib2
+  glibc
+  gnome-bluetooth-3.0
+  gnome-color-manager
+  gnome-desktop-4
+  gnome-keybindings
+  gnome-online-accounts
+  gnome-settings-daemon
+  gnome-shell
+  gnutls
+  graphene
+  gsettings-desktop-schemas
+  gsound
+  gst-plugins-good
+  gtk4
+  hicolor-icon-theme
+  json-glib
+  krb5
+  libadwaita
+  libcolord
+  libcups
+  libepoxy
+  libgcc
+  libgoa
+  libgtop
+  libgudev
+  libibus
+  libmalcontent
+  libmm-glib
+  libnm
+  libnma-gtk4
+  libpulse
+  libpwquality
+  libsecret
+  libsoup3
+  libwacom
+  libx11
+  libxi
+  libxml2
+  pango
+  polkit
+  smbclient
+  sound-theme-freedesktop
+  tecla
+  udisks2
+  upower
+  wayland
+)
+makedepends=(
+  blueprint-compiler
+  docbook-xsl
+  git
+  glib2-devel
+  meson
+  modemmanager
+)
+checkdepends=(
+  python-dbusmock
+  python-gobject
+  xorg-server-xvfb
+)
+source=(
+  "git+https://gitlab.gnome.org/GNOME/gnome-control-center.git#tag=$_tag"
+  "git+https://gitlab.gnome.org/GNOME/libgnome-volume-control.git"
+  "git+https://gitlab.gnome.org/GNOME/libgxdp.git#commit=df896e3412b749947bc6f62a91a1aac8e6b6d19b"
+  0001-display-ambient-white-point-switch.patch
+)
+b2sums=('0ba2f93ad1b1812f90b4afe40fa061b307fa0902502f87cb7ddd2be383949714b2750b32fb47069eafba02e01901e0b5565dd37a4bc2c78f048270cf42021f17'
+        'SKIP'
+        'f5bd238c316a55784f97b1b7c8b498d3dfa727375cf8a1bf61f4771e306232b36752df8f61edb8d8c5da7c5e1a7acd8c0e85a53725af56e9b18b8dd1a6f284e0'
+        '34a553846335202ad741832989b8f467f5bae1e8ebcf2d0bce1fbf62d5c313c7c083379aa9db4ef00fb95aa0c5d2e98b4b75f9b9716b4684a4f78ed16bdec2ba')
+provides=("gnome-control-center=$_tag")
+conflicts=('gnome-control-center')
+replaces=(gnome-control-center)
+groups=(gnome)
+
+prepare() {
+  cd $_pkgname
+  git apply -v ../0001-display-ambient-white-point-switch.patch
+
+  git submodule init
+  git submodule set-url subprojects/gvc "$srcdir/libgnome-volume-control"
+  git -c protocol.file.allow=always -c protocol.allow=never submodule update
+}
+
+
+build() {
+  local meson_options=(
+    -D documentation=true
+    -D location-services=enabled
+    -D malcontent=true
+  )
+
+  # Inject libgxdp
+  export MESON_PACKAGE_CACHE_DIR="$srcdir"
+
+  arch-meson $_pkgname build "${meson_options[@]}"
+  meson compile -C build
+}
+
+check() {
+  GTK_A11Y=none dbus-run-session xvfb-run -s '-nolisten local +iglx -noreset' \
+    meson test -C build --print-errorlogs
+}
+
+package() {
+  optdepends=(
+    'fwupd: device security panel'
+    'gnome-remote-desktop: screen sharing'
+    'gnome-user-share: WebDAV file sharing'
+    'malcontent: application permission control'
+    'networkmanager: network settings'
+    'openssh: remote login'
+    'power-profiles-daemon: power profiles'
+    'rygel: media sharing'
+    'system-config-printer: printer settings'
+  )
+
+  meson install -C build --no-rebuild --destdir "$pkgdir"
+
+  # These belong to the stock gnome-keybindings package.
+  cd "$pkgdir"
+  rm -r usr/share/gettext/its/gnome-keybindings.* \
+    usr/share/gnome-control-center/keybindings \
+    usr/share/pkgconfig/gnome-keybindings.pc
+  rmdir --ignore-fail-on-non-empty usr/share/gettext/its usr/share/gettext usr/share/pkgconfig
+}
+
+# vim:set sw=2 sts=-1 et:
