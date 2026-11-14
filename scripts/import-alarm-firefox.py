@@ -7,7 +7,11 @@ touched it, with these PKGBUILD edits (see `edit_pkgbuild`):
 - add rdd-v4l2-request.patch (V4L2 stateless decoders in the RDD sandbox,
   Mozilla bug 2080696, and sysinfo in the RDD sandbox for Mesa's zink
   driver; prepare() applies every *.patch source);
-- pkgrel N becomes N.2, so the rebuild replaces ALARM's firefox N;
+- add the webauthn-portal-*.patch series (WebAuthn through the credential
+  portal, credentialsd: Mozilla bugs 2088324 and 1983767 plus five commits)
+  and turn it on in vendor.js where the portal exports the Credential
+  interface, security keys staying on authenticator-rs;
+- pkgrel N becomes N.3, so the rebuild replaces ALARM's firefox N;
 - arch is aarch64 (the native builder's CARCH);
 - Arch's Google API key is for Arch Linux only, so it is not used: the build
   has no Google key (as any build without one);
@@ -29,9 +33,18 @@ PACKAGE = ROOT / 'packages' / 'firefox'
 UPSTREAM = 'archlinuxarm/PKGBUILDs'
 PATH = 'extra/firefox'
 OURS = 'rdd-v4l2-request.patch'
+WEBAUTHN_PORTAL = (
+    'webauthn-portal-0001-Bug-2088324-WebAuthn-plumb-getClientCapabilities-and.patch',
+    'webauthn-portal-0002-Bug-1983767-Implement-support-for-credentialsd-porta.patch',
+    'webauthn-portal-0003-Bug-XXXXXXX-Build-xdg_credentials_responses-against-.patch',
+    'webauthn-portal-0004-Bug-XXXXXXX-Report-credential-portal-capabilities-an.patch',
+    'webauthn-portal-0005-Bug-XXXXXXX-Let-WebAuthnService-hold-conditional-req.patch',
+    'webauthn-portal-0006-Bug-XXXXXXX-Add-a-pref-to-keep-security-key-requests.patch',
+    'webauthn-portal-0007-Bug-XXXXXXX-Offer-credential-portal-passkeys-in-WebA.patch',
+)
 KEEP = ('PKGBUILD', 'firefox-symbolic.svg', 'firefox.desktop', 'org.mozilla.firefox.metainfo.xml',
         '0001-Install-under-remoting-name.patch', 'LICENSE')
-SUBREL = 2
+SUBREL = 3
 
 
 def once(text, pattern, replacement, what):
@@ -47,7 +60,7 @@ def array(text, name):
     return match
 
 
-def edit_pkgbuild(text, commit, patch):
+def edit_pkgbuild(text, commit, patches):
     text = once(text, r'^pkgrel=(\d+)$', rf'pkgrel=\g<1>.{SUBREL}', 'pkgrel')
     text = once(text, r'^arch=\(x86_64\)$', 'arch=(aarch64)', 'arch')
     text = once(text, r'^_google_api_key=\S+$', '_google_api_key=', 'Google API key')
@@ -60,12 +73,22 @@ def edit_pkgbuild(text, commit, patch):
         sums = re.findall(r"'([^']*)'", match[1])
         if len(sums) < 2 or sums[1] != 'SKIP':
             raise SystemExit(f'PKGBUILD: {name} does not have the signature second')
-        sums = [sums[0]] + sums[2:] + [hashlib.new('sha256' if name == 'sha256sums' else 'blake2b', patch).hexdigest()]
+        sums = [sums[0]] + sums[2:] + [hashlib.new('sha256' if name == 'sha256sums' else 'blake2b', data).hexdigest()
+                                       for data in patches.values()]
         indent = ' ' * (len(name) + 2)
         text = text[:match.start()] + f'{name}=(' + f'\n{indent}'.join(f"'{s}'" for s in sums) + ')' + text[match.end():]
     text = once(text, r'^validpgpkeys=\(\n(?:.*\n)*?\)\n', '', 'validpgpkeys')
     match = array(text, 'source')
-    body = match[1].rstrip('\n') + f'\n\n  # Aurora: V4L2 stateless decoders in RDD (Mozilla bug 2080696)\n  {OURS}\n'
+    body = (match[1].rstrip('\n') + f'\n\n  # Aurora: V4L2 stateless decoders in RDD (Mozilla bug 2080696)\n  {OURS}\n'
+            '  # Aurora: WebAuthn through the credential portal (bugs 2088324, 1983767)\n'
+            + ''.join(f'  {name}\n' for name in WEBAUTHN_PORTAL))
+    # The credential portal where it exists (credentialsd starts it), else
+    # authenticator-rs; security keys always stay on authenticator-rs.
+    text = once(text, r'^pref\("browser\.gnome-search-provider\.enabled", true\);$',
+                'pref("browser.gnome-search-provider.enabled", true);\n\n'
+                '// Aurora: WebAuthn through the credential portal where it exists\n'
+                'pref("security.webauthn.use-xdg-desktop-portal", 1);\n'
+                'pref("security.webauthn.use-xdg-desktop-portal.security-keys", false);', 'vendor.js')
     text = text[:match.start()] + f'source=({body})' + text[match.end():]
     header = ('# aurora-builder: heavy\n'
               '# Aurora Silicon: Arch Linux ARM\'s firefox recipe (archlinuxarm/PKGBUILDs\n'
@@ -92,11 +115,11 @@ def main():
     parser.add_argument('--check', action='store_true', help='fail if packages/firefox differs instead of writing')
     args = parser.parse_args()
     commit = args.commit or api(f'repos/{UPSTREAM}/commits?path={PATH}&per_page=1')[0]['sha']
-    patch = (PACKAGE / OURS).read_bytes()
-    wanted = {OURS: patch}
+    patches = {name: (PACKAGE / name).read_bytes() for name in (OURS,) + WEBAUTHN_PORTAL}
+    wanted = dict(patches)
     for name in KEEP:
         data = base64.b64decode(api(f'repos/{UPSTREAM}/contents/{PATH}/{name}?ref={commit}')['content'])
-        wanted[name] = edit_pkgbuild(data.decode(), commit, patch).encode() if name == 'PKGBUILD' else data
+        wanted[name] = edit_pkgbuild(data.decode(), commit, patches).encode() if name == 'PKGBUILD' else data
     present = {p.name: p.read_bytes() for p in PACKAGE.iterdir() if p.is_file()}
     if args.check:
         if present != wanted:
