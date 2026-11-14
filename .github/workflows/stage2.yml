@@ -16,6 +16,7 @@ on:
       - scripts/build-image
       - tests/test_bootchain.py
       - tests/test_update_m1n1.py
+      - tests/test_battery_charge_limit.py
   pull_request:
     paths:
       - .github/workflows/stage2.yml
@@ -28,6 +29,7 @@ on:
       - scripts/build-image
       - tests/test_bootchain.py
       - tests/test_update_m1n1.py
+      - tests/test_battery_charge_limit.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -53,10 +55,10 @@ jobs:
           fi
           sudo apt-get update -o APT::Update::Error-Mode=any
           sudo apt-get install -y device-tree-compiler shellcheck
-          shellcheck packages/asahi-scripts/update-m1n1 packages/asahi-scripts/aurora-stage2-commit \
+          shellcheck packages/asahi-scripts/battery-charge-limit-save packages/asahi-scripts/update-m1n1 packages/asahi-scripts/aurora-stage2-commit \
             scripts/test-stage2-transactions
           shellcheck -s sh packages/asahi-scripts/asahi-scripts.install
-          python3 -m unittest -v tests.test_bootchain tests.test_update_m1n1 2>&1 | tee unittest.log
+          python3 -m unittest -v tests.test_bootchain tests.test_update_m1n1 tests.test_battery_charge_limit 2>&1 | tee unittest.log
           # dtc is installed here, so nothing may be skipped for lack of it.
           if grep -F 'requires dtc' unittest.log; then exit 1; fi
   transactions:

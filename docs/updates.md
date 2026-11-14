@@ -163,3 +163,9 @@ The old manual inputs still work: `publish.yml -f build-run='<ids>' -f release-t
 - A tracker PR is left alone once anyone but the bot pushes to it.
 - `channels.json` on the `channels` branch is the record of what each channel serves; the deployed site
   carries a copy.
+
+### Battery threshold persistence
+
+Aurora's `asahi-scripts` saves the SMC battery's charge limit through `macsmc-battery-charge-control-end-threshold.path` and its service. The service is a oneshot with a three-second delay before reading the threshold, so notifications while it is active coalesce. Its helper accepts only 80 or 100, leaves an identical saved configuration untouched and publishes changed values with a same-directory atomic rename. A failed read or invalid value leaves the saved configuration intact. Systemd's existing start limits remain enabled.
+
+The package's `93-macsmc-battery-charge-control.rules` restores the saved value only on device add, avoiding a restore on every change event. Its existing two-digit match is unchanged; it does not restore 100. Omarchy's separately packaged add-only restore handles that value. This change does not qualify sustained connector-event traffic or manual limit changes on hardware, and does not automatically reset units that have already failed.
