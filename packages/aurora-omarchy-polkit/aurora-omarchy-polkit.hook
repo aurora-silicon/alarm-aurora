@@ -1,0 +1,11 @@
+[Trigger]
+Type = Package
+Operation = Upgrade
+Operation = Remove
+Target = fprintd-aurora
+Target = aurora-omarchy-polkit
+
+[Action]
+Description = Removing the Aurora polkit password-switch option before package changes
+When = PreTransaction
+Exec = /usr/bin/aurora-polkit-pam --pre-transaction
