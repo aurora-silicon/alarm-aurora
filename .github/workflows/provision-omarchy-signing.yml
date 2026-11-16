@@ -1,0 +1,58 @@
+name: Provision Omarchy Aurora signing trust
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  packages:
+    if: github.repository == 'aurora-silicon/alarm-aurora' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: testing-signing
+    steps:
+      - run: python3 -m pip install --user PyNaCl==1.6.2
+      - name: Seal the existing package signer to Omarchy's GitHub environment key
+        env:
+          PACKAGE_KEY: ${{ secrets.ALARM_SIGNING_KEY }}
+          PACKAGE_PASSPHRASE: ${{ secrets.ALARM_SIGNING_PASSPHRASE }}
+        run: |
+          umask 077
+          python3 - <<'PY'
+          import base64,json,os
+          from pathlib import Path
+          from nacl.public import PublicKey,SealedBox
+          key=PublicKey(base64.b64decode('PJlqJTlcmmtLkm3egYv6uqGBxW2gd/AnKGb5MMPIXlY='))
+          assert os.environ['PACKAGE_KEY']
+          Path('sealed').mkdir()
+          for name,value in [('ALARM_SIGNING_KEY',os.environ['PACKAGE_KEY']),('ALARM_SIGNING_PASSPHRASE',os.environ['PACKAGE_PASSPHRASE'])]:
+              Path('sealed',name+'.json').write_text(json.dumps({'key_id':'3380204578043523366','encrypted_value':base64.b64encode(SealedBox(key).encrypt(value.encode())).decode()}))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sealed-omarchy-package-trust
+          path: sealed/*.json
+          retention-days: 1
+  catalog:
+    if: github.repository == 'aurora-silicon/alarm-aurora' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: catalog-signing
+    steps:
+      - run: python3 -m pip install --user PyNaCl==1.6.2
+      - name: Seal the catalog signer to Omarchy's GitHub environment key
+        env:
+          CATALOG_KEY: ${{ secrets.INSTALLER_CATALOG_SIGNING_KEY }}
+        run: |
+          umask 077
+          python3 - <<'PY'
+          import base64,json,os
+          from pathlib import Path
+          from nacl.public import PublicKey,SealedBox
+          key=PublicKey(base64.b64decode('T/4nnO3OQrLWgd1dFdxKaXxmuXUAzN+0r0lpLGFcHVs='))
+          assert os.environ['CATALOG_KEY']
+          Path('sealed').mkdir()
+          Path('sealed/INSTALLER_CATALOG_SIGNING_KEY.json').write_text(json.dumps({'key_id':'3380204578043523366','encrypted_value':base64.b64encode(SealedBox(key).encrypt(os.environ['CATALOG_KEY'].encode())).decode()}))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sealed-omarchy-catalog-trust
+          path: sealed/*.json
+          retention-days: 1
