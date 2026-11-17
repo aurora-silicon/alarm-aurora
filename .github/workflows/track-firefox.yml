@@ -1,0 +1,129 @@
+name: Track ALARM Firefox
+# Aurora's Firefox is Arch Linux ARM's recipe plus the RDD V4L2 Request patch
+# (packages/firefox, scripts/import-alarm-firefox.py). [aurora] comes before
+# ALARM's repositories, so every ALARM Firefox update needs a rebuild here.
+# Each run:
+#   1. merges a proposal whose dispatched native build (packages.yml, which
+#      also runs the tests) passed, with a merge commit so publication can use
+#      that build, then starts publication;
+#   2. imports ALARM's newest extra/firefox and, when it changed, pushes a
+#      proposal branch auto/firefox-<version>-<commit> and dispatches its build.
+# A failed proposal build fails this workflow until a newer import replaces it.
+# Disable with the repository variable TRACK_FIREFOX=false; keep proposals
+# unmerged with AUTO_MERGE_FIREFOX=false.
+on:
+  schedule:
+    - cron: '23 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Report only; no push, dispatch or merge
+        type: boolean
+        default: true
+  pull_request:
+    paths:
+      - .github/workflows/track-firefox.yml
+      - scripts/import-alarm-firefox.py
+permissions: {}
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: track-firefox
+  cancel-in-progress: false
+jobs:
+  track:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      LIVE: >-
+        ${{ github.ref == 'refs/heads/main' && vars.TRACK_FIREFOX != 'false' &&
+            (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.dry-run == false)) }}
+      AUTO_MERGE: ${{ vars.AUTO_MERGE_FIREFOX != 'false' }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Merge a proposal that passed
+        id: merge
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          say() { echo "$*" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          act() { if [[ $LIVE == true ]]; then "$@"; else say "dry run: $*"; fi; }
+          failed=0
+          git switch -q --detach
+          for ref in $(git for-each-ref --format='%(refname:strip=4)' 'refs/remotes/origin/auto/firefox-*'); do
+            branch=auto/$ref
+            [[ $ref == firefox-* ]] || continue
+            head=$(git rev-parse "origin/$branch")
+            if git merge-base --is-ancestor "$head" HEAD; then
+              act git push origin --delete "$branch"
+              continue
+            fi
+            rpm=$(gh api "repos/$REPOSITORY/actions/workflows/packages.yml/runs?head_sha=$head&event=workflow_dispatch&per_page=20" \
+              --jq '[.workflow_runs[] | select(.head_branch == "'"$branch"'")] | sort_by(.created_at) | last | (.status + ":" + (.conclusion // "") + ":" + (.id|tostring))')
+            say "$branch ${head:0:12}: packages ${rpm:-none}"
+            if [[ -z $rpm || $rpm == ':'* ]]; then
+              act gh workflow run packages.yml --repo "$REPOSITORY" --ref "$branch" -f packages=firefox
+              continue
+            fi
+            if [[ $rpm == completed:* && $rpm != completed:success:* ]]; then
+              echo "::error::$branch: the Firefox proposal failed (packages $rpm)"
+              failed=1
+              continue
+            fi
+            [[ $rpm == completed:success:* ]] || continue
+            artifacts=$(gh api "repos/$REPOSITORY/actions/runs/${rpm##*:}/artifacts" --jq '[.artifacts[] | select(.expired | not) | .name] | join(" ")')
+            if [[ " $artifacts " != *" alarm-firefox "* ]]; then
+              echo "::error::$branch: run ${rpm##*:} has no alarm-firefox"
+              failed=1
+              continue
+            fi
+            if [[ $AUTO_MERGE != true ]]; then
+              say "$branch passed; automatic merging is off (AUTO_MERGE_FIREFOX)"
+              continue
+            fi
+            git merge -q --no-ff "$head" -m "Merge ALARM Firefox rebuild $ref"
+            act git push origin HEAD:main
+            act git push origin --delete "$branch"
+            act gh workflow run publish.yml --repo "$REPOSITORY" --ref main
+            say "$branch merged into main"
+          done
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+      - name: Propose ALARM's current Firefox
+        run: |
+          set -euo pipefail
+          say() { echo "$*" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          act() { if [[ $LIVE == true ]]; then "$@"; else say "dry run: $*"; fi; }
+          python3 scripts/import-alarm-firefox.py | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ -z $(git status --porcelain packages/firefox) ]]; then
+            say 'packages/firefox matches ALARM'
+            exit 0
+          fi
+          version=$(sed -n 's/^pkgver=//p' packages/firefox/PKGBUILD)
+          upstream=$(sed -n 's/^# extra\/firefox at \([0-9a-f]*\)).*/\1/p' packages/firefox/PKGBUILD)
+          branch=auto/firefox-$version-${upstream:0:7}
+          if git rev-parse -q --verify "origin/$branch" >/dev/null; then
+            say "$branch is already proposed"
+            exit 0
+          fi
+          git switch -q -c "$branch" "$(git rev-parse HEAD)"
+          git add -A packages/firefox
+          git commit -q -m "firefox: rebuild ALARM's Firefox $version" \
+            -m "archlinuxarm/PKGBUILDs extra/firefox at $upstream, with the RDD V4L2 Request patch."
+          act git push origin "HEAD:refs/heads/$branch"
+          act gh workflow run packages.yml --repo "$REPOSITORY" --ref "$branch" -f packages=firefox
+          # Older proposals are superseded by this one.
+          for old in $(git for-each-ref --format='%(refname:strip=4)' 'refs/remotes/origin/auto/firefox-*'); do
+            [[ auto/$old == "$branch" ]] || act git push origin --delete "auto/$old"
+          done
+          say "proposed $branch"
+      - if: steps.merge.outputs.failed == '1'
+        run: exit 1

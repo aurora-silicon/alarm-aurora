@@ -1,17 +1,17 @@
 pkgname=aurora-camera-denoise
 pkgver=0.1.0
-pkgrel=5
+pkgrel=9
 pkgdesc='PipeWire filter that denoises the built-in camera on Apple silicon laptops, like macOS'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/camera-denoise'
 license=('MIT')
-_commit=456c567527d6bbba27d0aaeec1199032e0ec88c3
+_commit=aa7a42ff3f26ac47c07b4cdb4ab1bfc5337291af
 depends=('glibc' 'pipewire')
 makedepends=('meson' 'ninja' 'systemd')
 install=aurora-camera-denoise.install
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/camera-denoise/tar.gz/$_commit")
-sha256sums=('14e5dd45487b260ac6abffcfbe0a787df76bfe21c72bad68f20fb8400f548f3a')
+sha256sums=('055616e027955455a6b21ef437aa46b061cd9176ab6f4241fa466e7b0d0bb15e')
 
 build() {
   # The binary looks for backends in $prefix/$libdir/aurora-camera-denoise, so
@@ -30,8 +30,10 @@ check() {
 
 package() {
   meson install -C build --destdir "$pkgdir"
-  # Backends such as the Neural Engine one install here later; the filter
-  # falls back to the built-in CPU backend while it is empty.
+  # Backends: cdn-backend-ave.so (the video encoder's temporal filter, used by
+  # default where the kernel has it) and cdn-backend-ane.so (the Neural Engine
+  # low-light stage, programs in /usr/share/aurora-camera-denoise/ane) install
+  # here; without them the filter uses the built-in CPU backend.
   install -dm755 "$pkgdir/usr/lib/aurora-camera-denoise"
   # On by default for every user, like the camera filtering on macOS. A user
   # turns it off in denoise.conf or with systemctl --user mask.

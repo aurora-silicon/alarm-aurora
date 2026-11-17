@@ -51,6 +51,42 @@ class PeripheralAdmissionTests(unittest.TestCase):
                 self.assertEqual(calls, ['dockchannel-hid', 'aop'])
                 self.assertNotIn(b'trackpad firmware missing', stderr)
 
+    def asmedia_bus(self, root, bound):
+        pci = root / 'pci'
+        device = pci / 'devices/0000:04:00.0'
+        device.mkdir(parents=True)
+        (device / 'vendor').write_text('0x1b21\n')
+        (device / 'device').write_text('0x2142\n')
+        if bound:
+            (device / 'driver').mkdir()
+        other = pci / 'devices/0000:03:00.0'
+        other.mkdir()
+        (other / 'vendor').write_text('0x1d6a\n')
+        (other / 'device').write_text('0x04c0\n')
+        (pci / 'drivers/xhci_hcd').mkdir(parents=True)
+        (pci / 'drivers/xhci_hcd/bind').write_text('')
+        return pci / 'drivers/xhci_hcd/bind'
+
+    def test_unbound_asmedia_xhci_is_probed_once_firmware_is_reachable(self):
+        compatible = b'apple,j575c\0apple,t6041\0'
+        for bound, firmware, expected in [(False, True, '0000:04:00.0\n'), (True, True, ''),
+                                          (False, False, '')]:
+            with tempfile.TemporaryDirectory() as temporary, self.subTest(bound=bound, firmware=firmware):
+                root = Path(temporary)
+                bind = self.asmedia_bus(root, bound)
+                if firmware:
+                    blob = root / 'firmware/asmedia/asm2214a-apple.bin'
+                    blob.parent.mkdir(parents=True)
+                    blob.write_bytes(b'fixture')
+                os.environ['AURORA_PCI_ROOT'] = str(root / 'pci')
+                try:
+                    calls, stderr = self.admit(root, compatible)
+                finally:
+                    del os.environ['AURORA_PCI_ROOT']
+                self.assertEqual(calls, ['dockchannel-hid', 'aop'])
+                self.assertEqual(bind.read_text(), expected)
+                self.assertEqual(b'probed with vendor firmware' in stderr, bool(expected))
+
     def test_keyboard_driver_autoload_waits_for_admission(self):
         blacklist = (PACKAGE / 'aurora-firmware-order.conf').read_text().splitlines()
         self.assertIn('blacklist dockchannel-hid', blacklist)

@@ -18,5 +18,11 @@ build() {
   add_file /usr/libexec/aurora/aurora-early-kms
   add_file /usr/lib/aurora/initrd/aurora-early-kms.service /usr/lib/systemd/system/aurora-early-kms.service
   add_symlink /usr/lib/systemd/system/sysinit.target.wants/aurora-early-kms.service ../aurora-early-kms.service
+  # Wait (bounded) for appledrm's card before the pivot, so Plymouth takes it
+  # over while the initramfs udevd runs (aurora-kms-handover.service).
+  add_binary sleep
+  add_file /usr/libexec/aurora/aurora-early-kms-wait
+  add_file /usr/lib/aurora/initrd/aurora-kms-handover.service /usr/lib/systemd/system/aurora-kms-handover.service
+  add_symlink /usr/lib/systemd/system/initrd.target.wants/aurora-kms-handover.service ../aurora-kms-handover.service
 }
 help() { echo 'Coldplug the Apple display and its DRM cards before the other devices in the systemd initrd.'; }

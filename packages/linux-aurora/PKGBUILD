@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=30
+pkgrel=40
 
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=15f88e1cf81a6b6a91a1856ca06822a093aedeac
-_sha256=0265bb06644e9a5df56105dd4963345249dd04cdcb1e85d7f0dc50cd1beb1db7
+_commit=9125b31475836ce0a6634df45b539c6d604f36a5
+_sha256=9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -27,8 +27,12 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # SN012776 amp settings come from the DT that aura 1.0.0b5 fills in
 # (https://github.com/aurora-silicon/linux/pull/981,
 # https://github.com/aurora-silicon/aura/pull/75); under an older Stage 2
-# the speakers stay off.
-_aura_version=1.0.0b5
+# the speakers stay off. 1.0.0b11: this kernel's MacBook Neo DT leaves the
+# video encoder for aura to enable from the ADT (aura/pull/167), and its
+# DisplayPort audio needs the T8140 SIO tables (aura/pull/122). 1.0.0b12:
+# with the T8140 fabric power states (linux#1298) only aura/pull/190 enables
+# the encoder's whole power-domain chain.
+_aura_version=1.0.0b12
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
 # /usr/lib/modules/<release>/dtb-abi). update-m1n1 refuses to put newer-
@@ -55,10 +59,10 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '0265bb06644e9a5df56105dd4963345249dd04cdcb1e85d7f0dc50cd1beb1db7'
+            '9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '54e0eb643926f6c036e5a45f2cb005e9cfe838823dc2730d7a1750d73d3eecd1'
+            '12a712faddcd8d624b28641b63187796e29732d34fb18d0b3a037443b74c3dcc'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
@@ -172,7 +176,9 @@ _package_kernel() {
   # No generic linux provide: on a shared aarch64 repository it would compete
   # with linux-aarch64 for any dependency on linux.
   provides=(WIREGUARD-MODULE linux-asahi=${pkgver} "${_ctxr_provides[@]}")
-  conflicts=(linux-asahi)
+  # sep-key interfaces 3 and 4 (linux#1506, #1544): aurora-fido before 0.2.0-2
+  # speaks only 1 and 2 and crash-loops against this kernel.
+  conflicts=(linux-asahi 'aurora-fido<0.2.0-2')
 
   local kernver="$(<$O/version)"
   local modulesdir="$pkgdir/usr/lib/modules/$kernver"

@@ -1,14 +1,21 @@
 pkgname=aurora-sep-luks
-pkgver=0.1.0
+pkgver=0.3.0
 pkgrel=1
-pkgdesc='Unlock LUKS2 volumes with the Apple Secure Enclave (aurora-sep-cryptenroll + cryptsetup token)'
+pkgdesc='Unlock LUKS2 volumes with the Apple Secure Enclave (aurora-sep-cryptenroll, aurora-sep-fde, cryptsetup token, PAM)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('MIT')
-_commit=63a51a73377dafc1aafdbe86d398d505fa939ff7
-makedepends=('gcc' 'make' 'pkgconf' 'cryptsetup' 'json-c')
-source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
-sha256sums=('426152b4504a4f98c141344387c3ddbabf6beac0c129d3cb7d482af057d1ecef')
+_commit=96f5aa45e6209cf94632d885a5b7c4c1bcc68209
+makedepends=('gcc' 'make' 'pkgconf' 'cryptsetup' 'json-c' 'pam')
+optdepends=('mkinitcpio: open SEP-sealed volumes, root included, in a systemd-based initramfs (aurora-sep hook)')
+install=aurora-sep-luks.install
+# Volume owners and the recovery mode are the owner's settings.
+backup=('etc/aurora-sep/fde.conf')
+source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit"
+        'sep-fde-pam' 'aurora-sep-fde-pam.hook')
+sha256sums=('d4f8f57c940d9d0fd8ea285cc49528e9559434b9ba7a64cff0b23dc992b8224f'
+            '7a16323a650506a74bbaa4159bdb136e14a24c058c03e26cf40185f0ea0d2802'
+            'f555e8358efc2acb9a52a463f78f29e26d3cd53c508c3fdccc2f004a6008342e')
 
 build() {
   make -C "aurora-sep-userspace-$_commit/luks" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
@@ -36,9 +43,21 @@ check() {
 package() {
   # Runtime dependencies here, as in aurora-fido: aurora-sep comes from the
   # Aurora repository, which the build root does not have.
-  depends=('cryptsetup' 'json-c' 'aurora-sep')
-  # Nothing is enrolled by installing: aurora-sep-cryptenroll is run per volume.
-  make -C "aurora-sep-userspace-$_commit/luks" install DESTDIR="$pkgdir" PREFIX=/usr TOKENDIR=/usr/lib/cryptsetup
-  install -Dm644 "aurora-sep-userspace-$_commit/docs/luks-sep.md" "$pkgdir/usr/share/doc/$pkgname/luks-sep.md"
+  depends=('cryptsetup' 'json-c' 'pam' 'aurora-sep')
+  # Nothing is enrolled by installing: aurora-sep-cryptenroll and
+  # aurora-sep-fde are run per volume. /usr/libexec as in aurora-sep and
+  # aurora-touchid-rearm; the PAM module's default helper is
+  # /usr/libexec/aurora-sep-fde-passwd.
+  make -C "aurora-sep-userspace-$_commit/luks" install install-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr \
+    TOKENDIR=/usr/lib/cryptsetup LIBEXECDIR=/usr/libexec PAMDIR=/usr/lib/security SYSCONFDIR=/etc
+  test -x "$pkgdir/usr/lib/security/pam_aurora_sep_fde.so"
+  test -x "$pkgdir/usr/libexec/aurora-sep-fde-passwd"
+  # passwd and every other password change through system-auth also change
+  # the user's disk password (sep-fde-pam, run by a pacman hook).
+  install -Dm755 sep-fde-pam "$pkgdir/usr/libexec/aurora/sep-fde-pam"
+  install -Dm644 aurora-sep-fde-pam.hook "$pkgdir/usr/share/libalpm/hooks/aurora-sep-fde-pam.hook"
+  for doc in luks-sep.md luks-sep-initrd.md luks-sep-owners.md; do
+    install -Dm644 "aurora-sep-userspace-$_commit/docs/$doc" "$pkgdir/usr/share/doc/$pkgname/$doc"
+  done
   install -Dm644 "aurora-sep-userspace-$_commit/LICENSES/MIT.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

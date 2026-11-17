@@ -419,11 +419,11 @@ def git_blob(path):
     return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
 
 
-# fedora-aurora packages/update-m1n1 (aurora-silicon/fedora-aurora#193, #207, #226, #232, #251) as git
+# fedora-aurora packages/update-m1n1 (aurora-silicon/fedora-aurora#193, #207, #226, #232, #251, #324) as git
 # blob ids: these files are shared with Fedora byte for byte.
 FEDORA_BLOBS = {
-    'bootchain.py': '78b96a05168e7ead90abc8e1d8149351ff214f54',
-    'test_bootchain.py': '28b5fe74520f754a0a69f4f14dcee83bd2e4a9cd',
+    'bootchain.py': 'cf6f7cfc8b0fde0b4f0cb6a9b94f0f820831837b',
+    'test_bootchain.py': '667f686c34fe7e79b90c1dcb40de6cc39138dd01',
     'aurora-stage2-commit.service': '6f9de701f9485dc4b869e8b73f4ef35aa67dbeae',
     'aurora-stage2-guard.service': '693a255c2bedb707e55fb0e7db45ae9d9d87949d',
     'aurora-stage2-guard.timer': '02dfb37c3eb71a9531276a026b25c62ac84ef1cb',
@@ -450,6 +450,8 @@ class Recipes(unittest.TestCase):
         self.assertIn('install -Dm644 -t "$pkgdir/usr/libexec/aurora" bootchain.py bootchain_arch.py', recipe)
         self.assertIn('install -Dm755 aurora-stage2-commit "$pkgdir/usr/libexec/aurora/aurora-stage2-commit"', recipe)
         self.assertIn('python3 test_bootchain.py\n  python3 test_bootchain_arch.py', recipe)
+        # aurora-secboot stage1 build --enforce wants this marker before it refuses unsigned Stage 2s.
+        self.assertIn('install -Dm644 /dev/null "$pkgdir/usr/share/aurora/stage2-sign-hook"', recipe)
 
     def test_shared_files_are_fedoras_byte_for_byte(self):
         for name, blob in FEDORA_BLOBS.items():
@@ -470,7 +472,7 @@ class Recipes(unittest.TestCase):
         # 20261023-4 brought the units; later releases must not preset them again.
         self.assertIn('vercmp "$2" 20261023-4', install)
         self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgver=20261023$')
-        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgrel=8$')
+        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgrel=9$')
 
     def test_the_hook_runs_after_kernel_removal_too(self):
         hook = (PKGBUILD.parent / '95-m1n1-install.hook').read_text()

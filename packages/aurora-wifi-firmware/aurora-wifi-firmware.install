@@ -1,0 +1,9 @@
+# Apply the shipped preset, as Fedora's systemd_post does. A unit already
+# enabled or disabled stays as it is. It runs at the next boot.
+post_install() {
+  systemctl --preset-mode=enable-only preset aurora-wifi-firmware.service >/dev/null 2>&1 || :
+}
+
+pre_remove() {
+  systemctl disable aurora-wifi-firmware.service >/dev/null 2>&1 || :
+}

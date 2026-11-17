@@ -44,13 +44,15 @@ jobs:
               paths=subprocess.check_output(['git','diff','--name-only',before,os.environ['GITHUB_SHA']],text=True).splitlines()
               # Every upgrade test sources the shared checks.
               if 'scripts/testlib.sh' in paths:
-                  paths += ['scripts/test-graphics-upgrade','scripts/test-upower-upgrade','scripts/test-networkmanager-upgrade','scripts/test-touchid-upgrade']
+                  paths += ['scripts/test-graphics-upgrade','scripts/test-upower-upgrade','scripts/test-networkmanager-upgrade','scripts/test-gnome-settings-daemon-upgrade','scripts/test-touchid-upgrade']
               if 'scripts/test-graphics-upgrade' in paths:
                   paths.append('packages/mesa-aurora/PKGBUILD')
               if {'scripts/test-upower-upgrade','scripts/ci-build-keep-config'}.intersection(paths) or any(p.startswith('packages/aurora-keep-config/') for p in paths):
                   paths.append('packages/upower-aurora/PKGBUILD')
               if 'scripts/test-networkmanager-upgrade' in paths:
                   paths.append('packages/networkmanager-aurora/PKGBUILD')
+              if 'scripts/test-gnome-settings-daemon-upgrade' in paths:
+                  paths.append('packages/gnome-settings-daemon-aurora/PKGBUILD')
               if {'scripts/test-touchid-upgrade','scripts/ci-test-touchid-upgrade'}.intersection(paths):
                   paths.append('packages/aurora-sep/PKGBUILD')
               if 'sources.json' in paths:
@@ -66,6 +68,10 @@ jobs:
               core={'scripts/ci-build-package','scripts/ci-build-alarm-container','scripts/ci-build-fex-guest','scripts/fetch-base.py','images/base.json','keys/archlinuxarm-build-system.asc','sources.json'}
               if not core.intersection(paths):
                   names=sorted({p.split('/')[1] for p in paths if p.startswith('packages/') and p.split('/')[1] in names})
+          # Recipes marked "# aurora-builder: heavy" (Firefox, hours) build only when
+          # a manual run names them; track-firefox.yml dispatches that run.
+          if not requested:
+              names=[n for n in names if '# aurora-builder: heavy' not in Path('packages',n,'PKGBUILD').read_text().splitlines()]
           print('packages='+json.dumps(names))
           # Any change to the Touch ID stack also replaces stock libfprint and fprintd with it.
           touchid={'libfprint-aurora','fprintd-aurora','aurora-xart','aurora-touchid-rearm','aurora-sep'}
@@ -148,6 +154,15 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+      - name: Prepare build capacity for Firefox
+        if: matrix.package == 'firefox'
+        run: |
+          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet /usr/local/share/boost /opt/hostedtoolcache /usr/local/.ghcup || true
+          docker system prune -af || true
+          sudo swapoff -a || true
+          sudo fallocate -l 24G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+          free -g
+          df -h "$GITHUB_WORKSPACE"
       - name: Build package in signed ALARM root filesystem
         if: matrix.package != 'mesa-aurora-fex-guest' && matrix.package != 'aurora-flatpak-gl'
         run: |
@@ -170,6 +185,10 @@ jobs:
               if [[ $1 == networkmanager-aurora ]]; then
                 chroot out/container /bin/bash /src/scripts/ci-build-keep-config /tmp/package-build
                 chroot out/container /bin/bash /src/scripts/test-networkmanager-upgrade /tmp/package-build
+              fi
+              if [[ $1 == gnome-settings-daemon-aurora ]]; then
+                chroot out/container /bin/bash /src/scripts/ci-build-keep-config /tmp/package-build
+                chroot out/container /bin/bash /src/scripts/test-gnome-settings-daemon-upgrade /tmp/package-build
               fi
             ' build '${{ matrix.package }}' 2>&1 | tee build.log
       - name: Build Flatpak GL in signed ALARM OCI root
@@ -206,6 +225,7 @@ jobs:
             out/graphics-upgrade/stock-packages.tar
             out/upower-upgrade/
             out/networkmanager-upgrade/
+            out/gnome-settings-daemon-upgrade/
           include-hidden-files: true
           retention-days: 30
       # A failed attempt keeps its log under a name publication never reads.
@@ -221,6 +241,7 @@ jobs:
             out/graphics-upgrade/stock-packages.tar
             out/upower-upgrade/
             out/networkmanager-upgrade/
+            out/gnome-settings-daemon-upgrade/
             out/container/tmp/package-build/src/linux-*/build/base/.config
           include-hidden-files: true
           retention-days: 14

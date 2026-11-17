@@ -98,3 +98,11 @@ and [26.134.222](https://gitlab.freedesktop.org/plymouth/plymouth/-/tree/1aacf81
 Install the matching core and theme together and rebuild the initramfs or
 NixOS boot generation. Preserve the previous packages, configuration and
 initramfs or generation, and restore them together to roll back.
+
+## Damage-only flushes
+
+`0003-drm-Flush-only-the-damaged-areas.patch` (the Fedora carry) passes the
+rectangles Plymouth copied to `drmModeDirtyFB()` instead of the whole
+buffer, so simpledrm no longer copies the whole boot framebuffer for every
+spinner frame (J616s: 18 ms -> 0.55 ms of plymouthd CPU per frame).
+`test-drm-damage.c` runs in `check()` against a mocked DRM device.

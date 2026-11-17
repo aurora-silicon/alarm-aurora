@@ -1,0 +1,62 @@
+# Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# Contributor: Eric Lehmann <katyl@katyl.info>
+# Contributor: Thomas Fanninger <thomas@fanninger.at>
+# Contributor: ultraviolet <ultravioletnanokitty@gmail.com>
+# Contributor: Pablo Lezeta <prflr88@gmail.com>
+
+# Arch's iio-sensor-proxy 3.9-1 recipe with one Aurora patch: the light
+# sensor's colour temperature is reported as the ColorTemperature property.
+# The same patch is in fedora-aurora's iio-sensor-proxy package.
+pkgname=iio-sensor-proxy-aurora
+_tag=3.9
+pkgver=3.9.aurora1
+pkgrel=1
+pkgdesc='IIO accelerometer sensor to input device proxy, reporting ambient colour temperature'
+arch=(aarch64)
+url='https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/'
+license=('GPL-3.0-only')
+depends=(glib2
+         glibc
+         libgcc
+         libgudev
+         libssc
+         polkit)
+makedepends=(git
+             meson)
+checkdepends=(python-dbusmock
+              python-gobject
+              python-psutil
+              umockdev)
+provides=("iio-sensor-proxy=$_tag")
+conflicts=(iio-sensor-proxy)
+replaces=(iio-sensor-proxy)
+source=(git+https://gitlab.freedesktop.org/hadess/iio-sensor-proxy#tag=$_tag
+        0001-light-report-ambient-colour-temperature.patch)
+sha512sums=('6667d70fd01285f9b48fa2dfc829e3186773457c4430f8373a8e0b4e25b0f31ee2780a3766206a13bcfb2721ce10978713b8bf61c844da027c444a754f910473'
+            '434401fa19b991d47ff7504a604686a249184d1e6db6fa32aeefdaa6ea00675f32ff52ad10abcce231925ab1e58f5ebc9ecc54dcc5419dadd6392d3700c861af')
+
+prepare() {
+  cd iio-sensor-proxy
+  git apply -v ../0001-light-report-ambient-colour-temperature.patch
+}
+
+build() {
+  arch-meson build iio-sensor-proxy \
+    -Dsystemdsystemunitdir=/usr/lib/systemd/system \
+    -Dudevrulesdir=/usr/lib/udev/rules.d \
+    -Dsysconfdir=/usr/share \
+    -Dtests=true
+  meson compile -C build
+}
+
+check() {
+  # The Qualcomm SSC tests need SSC services that the build container lacks;
+  # they fail the same way on the unpatched 3.9. Run everything else,
+  # including the colour temperature test.
+  mapfile -t tests < <(meson test -C build --list 2>/dev/null | grep -v ssc)
+  meson test -C build --print-errorlogs "${tests[@]}"
+}
+
+package() {
+  meson install -C build --destdir="$pkgdir"
+}

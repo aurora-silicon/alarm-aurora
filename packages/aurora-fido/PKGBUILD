@@ -1,20 +1,21 @@
 pkgname=aurora-fido
-pkgver=0.1.0
-pkgrel=1
+pkgver=0.2.0
+pkgrel=2
 pkgdesc='Touch ID as a FIDO2/U2F security key for WebAuthn, SSH, pam_u2f (opt in: sudo aurora-fido enable)'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
 license=('MIT')
-_commit=b214617b17ad0e421a2661c42c6e3b77932ac155
+_commit=2ea454e0a222aea7b970f9bf061ee6ea3cd326ec
 makedepends=('gcc' 'make' 'pkgconf' 'json-c')
 checkdepends=('python' 'python-cryptography')
 optdepends=('libnotify: the "Touch ID to sign in to <site>" notification'
             'libfido2: fido2-token and friends'
-            'pam-u2f: sudo and login with the security key')
+            'pam-u2f: sudo and login with the security key'
+            'python-jeepney: D-Bus front-end of the per-user passkey agent (vault = user)')
 backup=('etc/aurora-fido/aurora-fido.conf')
 source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
-sha256sums=('63c42a2c9b0bac5c85cae17a391462cdc58e0b005cb7d827f14217194cc122e7')
+sha256sums=('87bfd7cd5d70a009e6b5e93fbbe5c08c1193602a7fbfad196924bab31c8700af')
 
 build() {
   make -C "aurora-sep-userspace-$_commit/fido" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" \
@@ -29,7 +30,7 @@ check() {
 package() {
   # Runtime dependencies here, as in aurora-boot: aurora-sep comes from the
   # Aurora repository, which the build root does not have.
-  depends=('python' 'python-cryptography' 'python-gobject' 'fprintd' 'aurora-sep' 'json-c' 'systemd' 'polkit')
+  depends=('python' 'python-cryptography' 'aurora-sep' 'json-c' 'systemd')
   # Installed off: no install script enables it. `sudo aurora-fido enable` turns it on.
   make -C "aurora-sep-userspace-$_commit/fido" install DESTDIR="$pkgdir" PREFIX=/usr \
     LIBEXECDIR=/usr/lib/aurora-fido

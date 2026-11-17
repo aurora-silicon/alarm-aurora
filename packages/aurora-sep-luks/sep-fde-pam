@@ -1,0 +1,121 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Keep the disk password of Secure Enclave LUKS2 volumes (aurora-sep-fde)
+# equal to the login password: after pam_unix changed a password, the user's
+# key bag is re-wrapped and written to every registered volume.
+#
+# /etc/pam.d/passwd includes system-auth's password stack, as does every
+# other service that changes a password (an expired password at login, GNOME
+# Settings through passwd). Its pam_unix line
+#
+#   password   required                    pam_unix.so          ...
+#
+# becomes
+#
+#   password   [success=ok default=2]      pam_unix.so          ...
+#   -password  optional                    pam_aurora_sep_fde.so
+#   password   sufficient                  pam_permit.so
+#   password   required                    pam_deny.so
+#
+# so the disk password changes only after pam_unix changed the account's,
+# and a pam_unix failure still fails the stack (pam_deny). systemd-homed's
+# line ahead of it skips pam_unix when homed changed the password, which
+# lands on the disk-password line too. The module never fails the change it
+# follows, and the "-" skips it when it is not installed.
+#
+# pambase keeps the edit across updates (system-auth.pacnew). A line the
+# owner removed or changed is left as it is. Run by a pacman hook; "--remove"
+# puts the pam_unix line back as it was.
+set -eu
+
+pamd=${AURORA_PAM_DIR:-/etc/pam.d}
+state=${AURORA_SEP_STATE_DIR:-/var/lib/aurora-sep}
+comment='# Disk password (aurora-sep-luks): follows a password pam_unix changed.'
+control='[success=ok default=2]      '
+fde_line='-password  optional                    pam_aurora_sep_fde.so'
+permit_line='password   sufficient                  pam_permit.so'
+deny_line='password   required                    pam_deny.so'
+
+log() {
+    echo "aurora-sep-luks sep-fde-pam: $*" >&2
+}
+
+system_auth() {
+    f=$pamd/system-auth
+    marker=$state/pam-system-auth-fde
+    [ -f "$f" ] || return 0
+    if grep -q 'pam_aurora_sep_fde\.so' "$f"; then
+        [ -e "$marker" ] || : >"$marker"
+        return 0
+    fi
+    [ -e "$marker" ] && return 0  # the owner took it out
+    tmp=$(mktemp "$f.XXXXXX")
+    if awk -v comment="$comment" -v control="$control" -v fde="$fde_line" \
+        -v permit="$permit_line" -v deny="$deny_line" '
+        /^password[ \t]+required[ \t]+pam_unix\.so([ \t]|$)/ {
+            n++
+            original = $0
+            sub(/required[ \t]+/, control)
+            print comment
+            print
+            print fde
+            print permit
+            print deny
+            next
+        }
+        { print }
+        END {
+            if (n != 1)
+                exit 1
+            print original > "/dev/stderr"
+        }
+    ' "$f" >"$tmp" 2>"$tmp.orig"; then
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$f"
+        mv -f "$tmp.orig" "$marker"
+        log "a password change also changes the disk password on Secure Enclave volumes"
+    else
+        rm -f "$tmp" "$tmp.orig"
+        log "$f does not have exactly one \"password required pam_unix.so\" line; left as it is"
+    fi
+}
+
+remove() {
+    f=$pamd/system-auth
+    marker=$state/pam-system-auth-fde
+    if [ -s "$marker" ] && [ -f "$f" ]; then
+        tmp=$(mktemp "$f.XXXXXX")
+        awk -v comment="$comment" -v control="$control" -v fde="$fde_line" \
+            -v permit="$permit_line" -v deny="$deny_line" -v original="$(cat "$marker")" '
+            function ours(line) {
+                sub(/required[ \t]+/, control, line)
+                return line
+            }
+            { lines[NR] = $0 }
+            END {
+                for (i = 1; i <= NR; i++) {
+                    if (lines[i] == comment)
+                        continue
+                    if (lines[i] == ours(original) && lines[i + 1] == fde &&
+                        lines[i + 2] == permit && lines[i + 3] == deny) {
+                        print original
+                        i += 3
+                        continue
+                    }
+                    print lines[i]
+                }
+            }
+        ' "$f" >"$tmp"
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$f"
+    fi
+    rm -f "$marker"
+}
+
+mkdir -p "$state"
+if [ "${1:-}" = --remove ]; then
+    remove
+    exit 0
+fi
+system_auth || :

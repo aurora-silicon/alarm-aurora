@@ -157,3 +157,35 @@ fprintd to retain host records when deleting from the device fails.
 Keep the existing SEP OS identity and persistent state across this update.
 
 See the [controller-approved v4/v5 qualification plan](https://github.com/aurora-silicon/aurora-sep-userspace/blob/2799b51243708d0a551b67d902472319f132c417/docs/sep-v5-test-plan.md) before removing the kernel hold.
+
+## Suspend policy
+
+The common SEP integration also supplies the suspend policy, whether or not a
+fingerprint reader is present or SEP initialization succeeds. A suspend requests
+only `mem`; a refused request fails visibly instead of trying `standby` or
+`freeze`. Empty `MemorySleepMode=` preserves the kernel-selected mode, including
+`mem_sleep_default=s2idle` and a runtime selection in `/sys/power/mem_sleep`.
+No mode is forced to `deep` and no loader is started or retried by a sleep.
+The three suspend units retain only `After=aurora-sep.service`: they wait for
+an already queued load, including its existing timeout, without requiring success.
+
+This policy does not add a deep-sleep provider. The consolidated Linux sleep
+provider currently matches T8140 only; M5 experimental sleep is separate.
+Production delivery still requires a qualified kernel and matching released
+Stage 2. Merely installing this configuration does not establish hardware support
+or successful refusal recovery.
+
+The vendor file is `/usr/lib/systemd/sleep.conf.d/20-aurora-suspend.conf`.
+For an explicit service-level s2idle choice on systemd >=256, create
+`/etc/systemd/sleep.conf.d/90-local-suspend.conf` containing:
+
+```ini
+[Sleep]
+MemorySleepMode=s2idle
+```
+
+Remove that local override to return to kernel mode selection. An `/etc` file
+with the vendor file's name can also replace it. On systemd <256,
+`MemorySleepMode` is unknown and ignored; `SuspendState=mem` still prevents the
+state-list retry. Use the kernel command line or runtime selection for explicit
+s2idle on those older versions. Current distro systemd versions support both keys.
