@@ -5,7 +5,7 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=43
+pkgrel=44
 # RC8 pin: the one place to move (with the first sha256sums entry and
 # sources.json speakerguardd-v2).
 _commit=bbd9ed30ac43ff4fee3a8b279ff994180d8148cb
@@ -21,16 +21,21 @@ makedepends=('rust' 'cargo' 'python')
 # being refused. Drop it with the first pin that contains it.
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md
-        0001-wiring-selfcheck-supervisor-a-transport-that-carries-no-V-I-sense.patch)
+        0001-wiring-selfcheck-supervisor-a-transport-that-carries-no-V-I-sense.patch
+        0002-provision-upgrade-a-unit-the-package-s-own-wants-link-starts-is-on.patch)
 sha256sums=('fe81a2aae7c0d58b335ee5650db872c77b0de975fb369c323ddee303b29de83f'
             '4f8114220e567ff577cdd55d8086180b9376544acacad7087e1becedb2fb7d2c'
-            'fb6c8a2bd8f6721390bcf0e7e4bdba09a78a446ed5cff2ff3a8a50e0f9b7d84a')
+            'fb6c8a2bd8f6721390bcf0e7e4bdba09a78a446ed5cff2ff3a8a50e0f9b7d84a'
+            'd3a078ff1eafb4cc35ce85cc72a82c6470f381e57d588fcbc48a8770a583bb19')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 
 prepare() {
   cd "$_src"
   patch -Np1 -i "$srcdir/0001-wiring-selfcheck-supervisor-a-transport-that-carries-no-V-I-sense.patch"
+  # speakerguardd#215: the seat unit provisions at the first seat0 login although
+  # this package enables its units with /usr/lib wants links (is-enabled: disabled).
+  patch -Np1 -i "$srcdir/0002-provision-upgrade-a-unit-the-package-s-own-wants-link-starts-is-on.patch"
   # The upstream units, under their own names, with the programs where this
   # package installs them. Provisioning and the self-check are hard
   # prerequisites of the supervisor, and every system unit carries the gate:

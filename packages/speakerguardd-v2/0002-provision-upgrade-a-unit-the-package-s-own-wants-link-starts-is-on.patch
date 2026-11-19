@@ -1,0 +1,253 @@
+From 686737965c92b911e4bc1d50e7fb3ff86db00f92 Mon Sep 17 00:00:00 2001
+From: DjDeveloperr <hey@djdev.me>
+Date: Thu, 19 Nov 2026 12:36:00 -0500
+Subject: [PATCH] provision, upgrade: a unit the package's own wants link
+ starts is on
+
+speakerguardd-provision seat restarts the supervisor for a new seat0 user
+only when `systemctl is-enabled` succeeds. On Arch the package enables its
+units with links it ships in /usr/lib/systemd/system/multi-user.target.wants
+(pacman applies no presets), and is-enabled reports those units "disabled"
+although multi-user.target starts them every boot. So on a fresh install
+whose first regular user is created at first-run (no seat user at boot,
+provisioning fails "no seat user" as designed), the first login logged
+"speakerguardd-v2.service is not enabled, so nothing to provision" and the
+speakers stayed at the kernel's floor until the next reboot. Measured on
+the M4 Mac mini (J773g), speakerguardd-v2 1.0.0alpha.1-43 from
+alarm-aurora; every alarm-aurora package since RC8 (11-09) ships the same
+links. Fedora enables through presets (links in /etc) and is not affected.
+
+Treat the unit as on when it is enabled, or when it is loaded, not masked,
+and something wants or requires it (systemctl show WantedBy/RequiredBy,
+which lists the /usr/lib links too). A unit the administrator disabled
+(no link left) or masked is still left alone. aurora-speaker-upgrade's
+revert to a v2-only kernel had the same is-enabled test before restarting
+the supervisor; it uses the same rule now.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: DjDeveloperr <hey@djdev.me>
+---
+ packaging/session/speakerguardd-provision     | 24 ++++++-
+ packaging/session/test_provision.py           | 65 +++++++++++++++++++
+ .../upgrade/aurora_speaker_upgrade/upgrade.py | 21 +++++-
+ .../upgrade/tests/test_starts_at_boot.py      | 51 +++++++++++++++
+ 4 files changed, 158 insertions(+), 3 deletions(-)
+ create mode 100644 packaging/upgrade/tests/test_starts_at_boot.py
+
+diff --git a/packaging/session/speakerguardd-provision b/packaging/session/speakerguardd-provision
+index 1b2098e..c7a66cc 100755
+--- a/packaging/session/speakerguardd-provision
++++ b/packaging/session/speakerguardd-provision
+@@ -1093,6 +1093,26 @@ def cmd_is_seat(args, p):
+     return 0
+ 
+ 
++def starts_at_boot(unit):
++    """Whether the boot starts `unit`: it is enabled (a link in /etc, from
++    `systemctl enable` or a preset), or a target pulls it in through a link the
++    package ships in /usr/lib. The second is how a distribution without
++    presets turns it on (Arch: pacman applies none); `systemctl is-enabled`
++    says "disabled" there, although multi-user.target starts it every boot.
++    Never a masked unit, whatever lists it."""
++    if subprocess.run(["systemctl", "is-enabled", "--quiet", unit]).returncode == 0:
++        return True
++    r = subprocess.run(["systemctl", "show", "--property=LoadState", "--property=UnitFileState",
++                        "--property=WantedBy", "--property=RequiredBy", unit],
++                       capture_output=True, text=True)
++    if r.returncode != 0:
++        return False
++    props = dict(line.split("=", 1) for line in r.stdout.splitlines() if "=" in line)
++    if props.get("LoadState") != "loaded" or props.get("UnitFileState", "").startswith("masked"):
++        return False
++    return bool(props.get("WantedBy", "").split() or props.get("RequiredBy", "").split())
++
++
+ def cmd_seat(args, p):
+     """seat0 changed. A regular user other than the provisioned one is
+     active there: restart the supervisor, which provisions for them."""
+@@ -1106,8 +1126,8 @@ def cmd_seat(args, p):
+     provisioned = read_kv(p.conf).get("SGV2_USER")
+     if provisioned == user:
+         return 0
+-    if subprocess.run(["systemctl", "is-enabled", "--quiet", args.unit]).returncode != 0:
+-        log(f"{user} is on seat0; {args.unit} is not enabled, so nothing to provision")
++    if not starts_at_boot(args.unit):
++        log(f"{user} is on seat0; nothing starts {args.unit} (not enabled, not wanted, or masked), so nothing to provision")
+         return 0
+     log(f"{user} is on seat0 now (provisioned: {provisioned or 'nobody'}): restarting {args.unit}")
+     subprocess.run(["systemctl", "restart", "--no-block", args.unit])
+diff --git a/packaging/session/test_provision.py b/packaging/session/test_provision.py
+index ca0117a..b8c57a3 100644
+--- a/packaging/session/test_provision.py
++++ b/packaging/session/test_provision.py
+@@ -379,6 +379,71 @@ class Seat(Base):
+             f.write("[Autologin]\nSession=plasma\nUser=chloe\n")
+         self.assertEqual(prov.autologin_user(etc), "chloe")
+ 
++    def seat_change(self, is_enabled, show):
++        """seat0 changes to a regular user nobody provisioned (the first
++        login on a fresh install). `is_enabled` is `systemctl is-enabled`'s
++        exit status, `show` the unit's `systemctl show` properties. The
++        systemctl calls made, in order."""
++        calls = []
++
++        def run(cmd, **kw):
++            calls.append(cmd)
++            if cmd[1] == "is-enabled":
++                return prov.subprocess.CompletedProcess(cmd, is_enabled)
++            if cmd[1] == "show":
++                out = "".join(f"{k}={v}\n" for k, v in show.items())
++                return prov.subprocess.CompletedProcess(cmd, 0, out, "")
++            return prov.subprocess.CompletedProcess(cmd, 0)
++        self.patch(prov, "seat0_user", lambda rng: "alice")
++        self.patch(prov.subprocess, "run", run)
++        os.makedirs(self.p.state, exist_ok=True)
++        self.assertEqual(prov.cmd_seat(self.args("seat"), self.p), 0)
++        return calls
++
++    def restarted(self, calls):
++        return ["systemctl", "restart", "--no-block", "speakerguardd.service"] in calls
++
++    def test_seat_restarts_a_unit_the_package_wants_without_enabling_it(self):
++        # Arch (alarm-aurora): pacman applies no presets, so the package ships
++        # its multi-user.target.wants link in /usr/lib. `is-enabled` says
++        # "disabled", but multi-user.target starts the unit every boot: the
++        # first login must provision, not wait for the next boot.
++        calls = self.seat_change(1, {"LoadState": "loaded", "UnitFileState": "disabled",
++                                     "WantedBy": "multi-user.target", "RequiredBy": ""})
++        self.assertTrue(self.restarted(calls))
++
++    def test_seat_restarts_an_enabled_unit(self):
++        # Fedora (presets) and `systemctl enable`: the link is in /etc.
++        calls = self.seat_change(0, {})
++        self.assertTrue(self.restarted(calls))
++
++    def test_seat_leaves_a_unit_nothing_starts(self):
++        # Disabled by the administrator where the link was in /etc: nothing
++        # pulls the unit in, so nothing is provisioned.
++        calls = self.seat_change(1, {"LoadState": "loaded", "UnitFileState": "disabled",
++                                     "WantedBy": "", "RequiredBy": ""})
++        self.assertFalse(self.restarted(calls))
++
++    def test_seat_leaves_a_masked_unit(self):
++        # Masked over the package's own link (the only way to turn it off on
++        # Arch): the target still lists it, but it never starts.
++        for load, state in (("masked", "masked"), ("loaded", "masked-runtime")):
++            calls = self.seat_change(1, {"LoadState": load, "UnitFileState": state,
++                                         "WantedBy": "multi-user.target", "RequiredBy": ""})
++            self.assertFalse(self.restarted(calls))
++
++    def test_seat_leaves_a_unit_systemctl_cannot_show(self):
++        calls = []
++
++        def run(cmd, **kw):
++            calls.append(cmd)
++            return prov.subprocess.CompletedProcess(cmd, 1 if cmd[1] in ("is-enabled", "show") else 0, "", "")
++        self.patch(prov, "seat0_user", lambda rng: "alice")
++        self.patch(prov.subprocess, "run", run)
++        os.makedirs(self.p.state, exist_ok=True)
++        self.assertEqual(prov.cmd_seat(self.args("seat"), self.p), 0)
++        self.assertFalse(self.restarted(calls))
++
+     def test_uid_range(self):
+         f = os.path.join(self.t, "login.defs")
+         with open(f, "w") as fh:
+diff --git a/packaging/upgrade/aurora_speaker_upgrade/upgrade.py b/packaging/upgrade/aurora_speaker_upgrade/upgrade.py
+index cc05a7c..88ffa71 100644
+--- a/packaging/upgrade/aurora_speaker_upgrade/upgrade.py
++++ b/packaging/upgrade/aurora_speaker_upgrade/upgrade.py
+@@ -471,6 +471,24 @@ def systemctl(*args):
+     return run(["systemctl", *args])
+ 
+ 
++def starts_at_boot(unit):
++    """Whether the boot starts `unit`: it is enabled (a link in /etc, from
++    `systemctl enable` or a preset), or a target pulls it in through a link the
++    package ships in /usr/lib (Arch: pacman applies no presets, and
++    `systemctl is-enabled` says "disabled" there). Never a masked unit. The
++    same test as speakerguardd-provision's."""
++    if systemctl("is-enabled", "-q", unit).returncode == 0:
++        return True
++    r = systemctl("show", "--property=LoadState", "--property=UnitFileState",
++                  "--property=WantedBy", "--property=RequiredBy", unit)
++    if r.returncode != 0:
++        return False
++    props = dict(line.split("=", 1) for line in r.stdout.splitlines() if "=" in line)
++    if props.get("LoadState") != "loaded" or props.get("UnitFileState", "").startswith("masked"):
++        return False
++    return bool(props.get("WantedBy", "").split() or props.get("RequiredBy", "").split())
++
++
+ def v2_unit():
+     """The v2 supervisor's unit: the distributions name it
+     speakerguardd-v2.service beside speakerguardd 0.1; upstream names it
+@@ -961,7 +979,8 @@ def back_to_legacy(store, state, mode, card):
+     else:
+         # A fleet kernel (v2 interface only): the stack that ran before
+         # (speakerguardd v2 with the installer's bundle, or nothing) again.
+-        systemctl("restart", v2_unit()) if systemctl("is-enabled", "-q", v2_unit()).returncode == 0 else None
++        if starts_at_boot(v2_unit()):
++            systemctl("restart", v2_unit())
+ 
+ 
+ def cmd_revert(a):
+diff --git a/packaging/upgrade/tests/test_starts_at_boot.py b/packaging/upgrade/tests/test_starts_at_boot.py
+new file mode 100644
+index 0000000..7165295
+--- /dev/null
++++ b/packaging/upgrade/tests/test_starts_at_boot.py
+@@ -0,0 +1,51 @@
++# SPDX-License-Identifier: MIT
++"""Whether the boot starts the v2 supervisor, as each distribution enables it."""
++import pathlib
++import subprocess
++import sys
++import unittest
++from unittest import mock
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
++from aurora_speaker_upgrade import upgrade as up
++
++
++def systemctl(is_enabled, show):
++    """A stand-in for `systemctl`: is-enabled's exit status, show's properties."""
++    def run(*args):
++        if args[0] == "is-enabled":
++            return subprocess.CompletedProcess(args, is_enabled, "", "")
++        if args[0] == "show" and show is not None:
++            return subprocess.CompletedProcess(args, 0, "".join(f"{k}={v}\n" for k, v in show.items()), "")
++        return subprocess.CompletedProcess(args, 1, "", "")
++    return run
++
++
++class StartsAtBoot(unittest.TestCase):
++    def check(self, is_enabled, show):
++        with mock.patch.object(up, "systemctl", systemctl(is_enabled, show)):
++            return up.starts_at_boot("speakerguardd-v2.service")
++
++    def test_package_wants_link_counts(self):
++        # Arch: the package's multi-user.target.wants link in /usr/lib.
++        self.assertTrue(self.check(1, {"LoadState": "loaded", "UnitFileState": "disabled",
++                                       "WantedBy": "multi-user.target", "RequiredBy": ""}))
++
++    def test_enabled_counts(self):
++        # Fedora presets, `systemctl enable`.
++        self.assertTrue(self.check(0, None))
++
++    def test_nothing_starts_it(self):
++        self.assertFalse(self.check(1, {"LoadState": "loaded", "UnitFileState": "disabled",
++                                        "WantedBy": "", "RequiredBy": ""}))
++
++    def test_masked_never(self):
++        for load, state in (("masked", "masked"), ("loaded", "masked-runtime")):
++            self.assertFalse(self.check(1, {"LoadState": load, "UnitFileState": state,
++                                            "WantedBy": "multi-user.target", "RequiredBy": ""}))
++
++    def test_show_fails(self):
++        self.assertFalse(self.check(1, None))
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.55.0
+
