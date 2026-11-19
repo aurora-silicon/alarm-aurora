@@ -56,15 +56,13 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
+        rust-toolchain.toml bindgen-kernel.py config
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
             '12a712faddcd8d624b28641b63187796e29732d34fb18d0b3a037443b74c3dcc'
-            '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
-            '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
 
 
@@ -166,7 +164,7 @@ build() {
 
 _package_kernel() {
   pkgdesc="The $pkgdesc kernel and modules"
-  # aurora-userpages: an ordinary upgrade brings the launcher and user4k=on.
+  # aurora-userpages: an ordinary upgrade brings the launcher.
   # aurora-stage2-trial: the update-m1n1 that trials these trees before
   # committing them and checks the DT ABI generation.
   # The restored legacy interface needs the matching Asahi speaker graphs.
@@ -319,10 +317,8 @@ package_aurora-userpages() {
   cd $_srcname
   install -Dm755 tools/aurora-userpages/userpages "$pkgdir/usr/bin/userpages"
   install -Dm644 tools/aurora-userpages/README.rst "$pkgdir/usr/share/doc/aurora-userpages/README.rst"
-  # Arch's GRUB reads /etc/default/grub.d after /etc/default/grub; the hook
-  # regenerates grub.cfg so an installed system boots with user4k=on.
-  install -Dm644 "$srcdir/50-aurora-user4k.cfg" "$pkgdir/etc/default/grub.d/50-aurora-user4k.cfg"
-  install -Dm644 "$srcdir/aurora-userpages.hook" "$pkgdir/usr/share/libalpm/hooks/90-aurora-userpages.hook"
+  # The kernel offers 4K userspace pages by default (user4k=off turns them
+  # off), so the package adds no kernel argument.
 }
 
 pkgname=("$pkgbase" "$pkgbase-headers" aurora-userpages)

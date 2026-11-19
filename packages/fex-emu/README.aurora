@@ -7,8 +7,8 @@ repository, so `pacman -S fex-emu` and `pacman -S FEX-Emu` both install it.
 ## 4 KiB pages
 
 FEX needs a 4 KiB page size. Aurora kernels use 16 KiB pages but can give a
-process tree 4 KiB pages when the kernel is booted with `user4k=on` (the
-default on Aurora images; `aurora-userpages` adds it to the GRUB command line).
+process tree 4 KiB pages; the kernel offers them by default (`user4k=off` on
+the kernel command line turns them off).
 Start x86 programs inside a 4 KiB tree:
 
     userpages 4k FEXBash

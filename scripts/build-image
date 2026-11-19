@@ -219,8 +219,8 @@ printf 'GRUB_CMDLINE_LINUX_DEFAULT="%s"\n' "$cmdline" >> "$mountroot/etc/default
 chroot "$mountroot" mkinitcpio -P
 chroot "$mountroot" grub-install --target=arm64-efi --efi-directory=/boot/efi --removable --no-nvram
 chroot "$mountroot" grub-mkconfig -o /boot/grub/grub.cfg
-# aurora-userpages' GRUB drop-in turns per-process 4K userspace pages on.
-grep -Eq '^\s*linux\s.*\suser4k=on(\s|$)' "$mountroot/boot/grub/grub.cfg"
+# The kernel offers per-process 4K userspace pages by itself; no argument.
+nomatch -E '^\s*linux\s.*\suser4k=' "$mountroot/boot/grub/grub.cfg"
 mkdir -p "$mountroot/boot/efi/m1n1"
 # In the C locale t6040-j616s-tether.dtb sorts before t6040-j616s.dtb, and aura
 # boots the last tree of a board, so the board's main tree has to come last.

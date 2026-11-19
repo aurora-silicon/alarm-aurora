@@ -3,7 +3,7 @@
 pkgbase=fex-emu
 pkgname=(fex-emu fex-emu-steam)
 pkgver=2610.r202611061239.0c08727ae4c
-pkgrel=1
+pkgrel=2
 pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/fex'
@@ -45,7 +45,7 @@ sha256sums=("$_sha256"
             'aa68d77ef88475db710bf647017f5ccb13ceec6f55f3defa37e995b043eb990b'
             'e0099a9035521b29523915fae2e5f1b38229df896191e4a046f7b0d55a45c7d2'
             '34e71c085636fbc1726482996d92719d0a16e6a6097970ecf2990a27b3821162'
-            '6a39cc087a1a03a742adc792061f9a7228beb6823efbd171acfbe1fd54f033e1'
+            '9f621d7cd10f176a108d117d4180b70b0195f0ed65eef01be8da5bc4cde53690'
             '95d9d6dd1c9540ee57c489151854cf76cfe69342fd46a2424c1caf89c1a78846'
             'b34374b732dab132f329bb3da84fb85d058f6bc96cf6f67420339c60b2cb122c'
             'ea009220ed858aa2a545bce47063315431899f0bd7537388d206499d911ba318'
