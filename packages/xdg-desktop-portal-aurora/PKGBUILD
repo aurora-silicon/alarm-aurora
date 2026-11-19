@@ -1,0 +1,71 @@
+pkgname=xdg-desktop-portal-aurora
+_pkgname=xdg-desktop-portal
+pkgver=1.22.1
+pkgrel=1
+pkgdesc='Desktop integration portals for sandboxed apps, with the experimental credential portal (WebAuthn via credentialsd)'
+url='https://flatpak.github.io/xdg-desktop-portal/'
+arch=('aarch64')
+license=('LGPL-2.1-or-later')
+# Arch's xdg-desktop-portal 1.22.1-2 recipe, from the release archive, with
+# the credential portal patches. It replaces the stock package.
+provides=("xdg-desktop-portal=$pkgver" 'xdg-desktop-portal-credential')
+conflicts=('xdg-desktop-portal')
+replaces=('xdg-desktop-portal')
+depends=('fuse3' 'gdk-pixbuf2' 'glib2' 'glibc' 'gst-plugins-base-libs' 'gstreamer' 'json-glib'
+         'libdex' 'libgcc' 'libgudev' 'libpipewire' 'pipewire' 'systemd' 'systemd-libs')
+makedepends=('flatpak' 'gamemode' 'geoclue' 'glib2-devel' 'gst-plugins-good' 'libportal' 'meson'
+             'python-dbus' 'python-dbusmock' 'python-docutils' 'python-gobject' 'python-pytest'
+             'rtkit' 'umockdev')
+checkdepends=('python-pytest-xdist')
+optdepends=('gamemode: GameMode portal'
+            'geoclue: Location portal'
+            'rtkit: Realtime portal'
+            'xdg-desktop-portal-impl: Portal backends'
+            'credentialsd-aurora: Credential portal backend (passkeys)')
+source=("https://github.com/flatpak/xdg-desktop-portal/releases/download/$pkgver/$_pkgname-$pkgver.tar.xz"
+        # Arch: start even if graphical-session.target is not reached
+        # (xdg-desktop-portal#1983, PR 2027).
+        'allow-no-graphical-session-target.patch'
+        # The experimental credential portal: PR 2036 (libdex D-Bus
+        # skeletons) and PR 1889, rebased on 1.22.1 as openSUSE carries them.
+        '0001-xdp-pr-2036-dex-dbus-skeletons.patch'
+        '0002-xdp-pr-1889-credential-portal.patch'
+        # Both were written against main, which builds with libdex and its
+        # gdbus-codegen extension; 1.22.1 needs that added.
+        '0003-build-use-libdex-and-its-gdbus-codegen-extension.patch'
+        # Capability properties from credentialsd's GetClientCapabilities(),
+        # and backend lookup for experimental interfaces without a
+        # portals.conf entry.
+        '0004-credential-follow-the-handler-s-client-capabilities.patch')
+sha256sums=('d4879ddb3d65ff1a8f19187497e6f13dc5d267bcac404a5d501218be355753d3'
+            '11d06a2d5845b43df81baca9d6c9ed15683f2b3be10e8bd48b02e27353753a83'
+            '6b812f26bb988164f0b9e1388dfa3bde8638629cc4790cb4f92f059fc235da9b'
+            '5b998db2d892edec0dc170b358994613f60267669bbb3a06472d15693ac5bee0'
+            'ce87c3df56f24474dd3ba013101aed68253644f9f376c4b17f19ae7bfe68642b'
+            '03b4ef511c6ddabb49c05516808e276f78f034f74cca0209da74504f97823ae8')
+
+prepare() {
+  cd "$_pkgname-$pkgver"
+  patch -Np1 -i "$srcdir/allow-no-graphical-session-target.patch"
+  patch -Np1 -i "$srcdir/0001-xdp-pr-2036-dex-dbus-skeletons.patch"
+  patch -Np1 -i "$srcdir/0002-xdp-pr-1889-credential-portal.patch"
+  patch -Np1 -i "$srcdir/0003-build-use-libdex-and-its-gdbus-codegen-extension.patch"
+  patch -Np1 -i "$srcdir/0004-credential-follow-the-handler-s-client-capabilities.patch"
+}
+
+build() {
+  arch-meson "$_pkgname-$pkgver" build -Ddocumentation=disabled
+  meson compile -C build
+}
+
+check() {
+  # https://github.com/flatpak/xdg-desktop-portal/issues/1589
+  XDP_VALIDATE_ICON_INSECURE=1 XDP_VALIDATE_SOUND_INSECURE=1 \
+    meson test -C build --print-errorlogs
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  # The portal asks credentialsd for the capabilities (0004).
+  grep -q GetClientCapabilities "$pkgdir/usr/lib/xdg-desktop-portal"
+}
