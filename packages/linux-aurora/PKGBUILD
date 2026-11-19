@@ -147,6 +147,15 @@ prepare() {
       echo "linux-aurora requires CONFIG_${option} (y or m)" >&2; return 1;
     }
   done
+  # Apple N1 radios (T6050 and the J813/J873 transport): a pin whose source
+  # defines their drivers must build them, or those Macs ship with no Wi-Fi or
+  # Bluetooth. This catches a shared fragment that omits them.
+  for option in APPLE_CENTAURI APPLE_CENTAURI_T6050 APPLE_CENTAURI_T6050_WIFI BT_CENTAURI BT_HCICENTAURI; do
+    grep -rqx --include='Kconfig*' "config ${option}" drivers || continue
+    grep -Eqx "CONFIG_${option}=[ym]" build/base/.config || {
+      echo "linux-aurora requires CONFIG_${option} (y or m): this pin's source has the driver" >&2; return 1;
+    }
+  done
   _make O="$PWD/build/base" prepare
   _make -s O="$PWD/build/base" kernelrelease > build/base/version
 
