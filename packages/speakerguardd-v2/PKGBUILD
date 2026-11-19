@@ -5,7 +5,7 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.1
-pkgrel=42
+pkgrel=43
 # RC8 pin: the one place to move (with the first sha256sums entry and
 # sources.json speakerguardd-v2).
 _commit=bbd9ed30ac43ff4fee3a8b279ff994180d8148cb
@@ -147,7 +147,9 @@ package_speakerguardd-v2() {
   ln -s ../speakerguardd-v2-sleep.service "$pkgdir/usr/lib/systemd/system/sleep.target.wants/speakerguardd-v2-sleep.service"
   # The older daemons start only where v2 does not run and the kernel has no
   # v2 interface: exactly one stack holds the speakers on each boot.
-  for u in speakersafetyd speakerguardd; do
+  # speakerguardd@ is the 0.1 daemon's template unit (speakerguardd#197);
+  # speakerguardd.service its unit before that, kept for an older 0.1.
+  for u in speakersafetyd speakerguardd speakerguardd@; do
     install -Dm644 legacy-gate.conf "$pkgdir/usr/lib/systemd/system/$u.service.d/60-speakerguardd-v2-gate.conf"
   done
   install -Dm644 README.md docs/DESIGN.md docs/NEW-PLATFORM.md packaging/etc/speakerguardd.conf.example -t "$pkgdir/usr/share/doc/$pkgname/"

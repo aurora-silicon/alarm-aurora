@@ -26,7 +26,7 @@ class PinTests(unittest.TestCase):
         # The gate in every unit decides; the older daemons carry it the other way round.
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate v2'", text)
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate prepare'", text)
-        self.assertIn('for u in speakersafetyd speakerguardd; do', main)
+        self.assertIn('for u in speakersafetyd speakerguardd speakerguardd@; do', main)
         self.assertIn('packaging/session/gate.json', main)
         # verify needs the macOS parity attestation (speakerguardd#114).
         self.assertIn('packaging/session/parity.json', main)

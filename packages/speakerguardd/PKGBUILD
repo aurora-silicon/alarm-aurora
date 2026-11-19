@@ -1,31 +1,28 @@
 pkgname=speakerguardd
 pkgver=0.1.12
-pkgrel=4
+pkgrel=5
 pkgdesc='Apple speaker feed-forward protection with J700 profile'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd'
 license=('MIT')
-_commit=0287029648842be7b62ce9869ceaf5dbe9555831
+_commit=a434eed14c7ec408a27c988b338294772fd473de
 makedepends=('git' 'rust' 'cargo' 'python' 'alsa-lib' 'pkgconf')
 depends=('glibc' 'gcc-libs' 'alsa-lib')
 source=("speakerguardd::git+$url.git#commit=$_commit" use-feedback-guard 50-j700-guard.conf)
 sha256sums=('SKIP' 'bd2da656ad1dff69a0d64bb3a33d5eb4681b3573dcbfe098f405d8979bb436b5' '5bcc720660327927702f730719cd12fec8f0cf0e21991f158d08f4a733d71a81')
 prepare() {
+  # One instance per card (speakerguardd@AppleJ700.service), pulled in by the
+  # udev rule for every macaudio card; its start condition runs it only for
+  # a card with a profile here and none from speakersafetyd.  The unit is
+  # installed unchanged: check that the pinned one is that template.
   python3 - <<'PYUNIT'
 from pathlib import Path
-p = Path('speakerguardd/speakerguardd.service')
-s = p.read_text()
-# The unit keeps its own start limit (five attempts in 60 s); only the J700
-# model is named.
-for old, new in [
-    ('ExecStart=/usr/bin/speakerguardd -c /usr/share/speakerguardd --wait-for-card 30\n',
-     'ExecStart=/usr/bin/speakerguardd -c /usr/share/speakerguardd -C AppleJ700 --wait-for-card 30\n'),
-]:
-    if s.count(old) != 1:
-        raise SystemExit('Pinned speaker unit changed: ' + old.splitlines()[0])
-    s = s.replace(old, new, 1)
-p.write_text(s)
+s = Path('speakerguardd/speakerguardd@.service').read_text()
+for line in ('ExecCondition=/usr/bin/speakerguardd -c /usr/share/speakerguardd -C %I --owns-card',
+             'ExecStart=/usr/bin/speakerguardd -c /usr/share/speakerguardd -C %I --wait-for-card 30'):
+    if line not in s.splitlines():
+        raise SystemExit('Pinned speaker unit changed: ' + line)
 PYUNIT
 }
 build() {
@@ -43,7 +40,7 @@ package() {
   install -Dm755 "$binary" "$pkgdir/usr/bin/speakerguardd"
   install -d "$pkgdir/usr/share"
   cp -a speakerguardd/conf "$pkgdir/usr/share/speakerguardd"
-  install -Dm644 speakerguardd/speakerguardd.service "$pkgdir/usr/lib/systemd/system/speakerguardd.service"
+  install -Dm644 speakerguardd/speakerguardd@.service "$pkgdir/usr/lib/systemd/system/speakerguardd@.service"
   install -Dm644 speakerguardd/95-speakerguardd.rules "$pkgdir/usr/lib/udev/rules.d/95-speakerguardd.rules"
   install -Dm755 use-feedback-guard "$pkgdir/usr/lib/speakerguardd/use-feedback-guard"
   install -Dm644 50-j700-guard.conf "$pkgdir/usr/lib/systemd/system/speakersafetyd.service.d/50-j700-guard.conf"

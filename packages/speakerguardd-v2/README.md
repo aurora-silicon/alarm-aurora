@@ -57,7 +57,7 @@ Overrides, all optional, go in `/etc/speakerguardd/provision.conf`:
 | `speakerguardd-v2/` under `/usr/libexec` (Fedora), `/usr/lib` (Arch) or `libexec` (Nix) | The supervisor, `speakerguardd-provision`, `speakerguardd-gate`, `speakerguardd-selfcheck`, `speakerguardd-session` |
 | `speakerguardd-v2{,-provision,-selfcheck,-seat}.service`, `speakerguardd-v2-seat.path` | The upstream units, renamed and enabled, each one gated |
 | `speakerguardd-v2-session.service`, `speakerguardd-v2-graph.service` (user units) | The session helper, and the seat user's graph links |
-| `60-speakerguardd-v2-gate.conf` in `speakersafetyd.service.d` and `speakerguardd.service.d` | The gate on the older daemons' units |
+| `60-speakerguardd-v2-gate.conf` in `speakersafetyd.service.d`, `speakerguardd@.service.d` and `speakerguardd.service.d` | The gate on the older daemons' units |
 | `sgv2.lv2` in the distribution's LV2 directory | The protection unit for the PipeWire filter-chain |
 | `aurora-speaker-tuning` | Reader, validator and compiler for the Mac's own tuning bundle |
 | `/usr/share/speakerguardd/` | `gate.json` and the reference graphs |
