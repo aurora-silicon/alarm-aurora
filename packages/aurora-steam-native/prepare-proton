@@ -1,0 +1,9 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# Prepare the pinned GE tool once; never overwrite personal tool settings.
+set -euo pipefail
+source=$(readlink -e -- @PROTON@) || {
+  echo 'The packaged Aurora Proton tool is missing' >&2
+  exit 1
+}
+exec python3 "$source/prepare-proton.py" "$source"

@@ -19,6 +19,10 @@ fail() {
 if ! "$userpages" 4k true 2>/dev/null; then
 	fail "this kernel was started without 4 KiB process pages; @USER4K_HINT@"
 fi
+# The distribution owns the public launchers; per-user client installation
+# must not add copies that bypass this Proton/4K integration.
+export AURORA_SYSTEM_LAUNCHERS=1
+source "$lib/proton-env"
 if [ -z "${AURORA_STEAM_ROOT:-}" ]; then
 	root=$(readlink -f -- "$HOME/.steam/root" 2>/dev/null || true)
 	if [ -z "$root" ] || [ ! -x "$root/steamrtarm64/steam" ]; then
@@ -28,4 +32,6 @@ if [ -z "${AURORA_STEAM_ROOT:-}" ]; then
 			--prefix "${XDG_STATE_HOME:-$HOME/.local/state}/aurora-steam-native/prefix"
 	fi
 fi
+# steam-native4k bypasses Valve's steam.sh, which normally adds the runtime tools.
+export PATH="${AURORA_STEAM_ROOT:-$HOME/.steam/root}/steamapps/common/SteamLinuxRuntime_4-arm64/pressure-vessel/bin:$PATH"
 exec "$lib/bin/steam-native4k" "$@"

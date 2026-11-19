@@ -1,0 +1,110 @@
+# Native GE-Proton bundle with only its ABI-matched ARM64 ntdll rebuilt.
+pkgname=aurora-proton
+pkgver=11.9
+pkgrel=1
+pkgdesc='Native ARM64 Proton ntdll fix with verified first-launch GE preparation'
+arch=('aarch64')
+url='https://github.com/GloriousEggroll/proton-ge-custom'
+license=('BSD-3-Clause' 'LGPL-2.1-or-later' 'OFL-1.1')
+depends=('glibc' 'python' 'coreutils' 'ca-certificates')
+makedepends=('autoconf' 'bison' 'flex' 'perl' 'python' 'pkgconf' 'clang' 'lld' 'llvm' 'patchelf')
+# Retain the checked ntdll bytes; inherited hardening/LTO must not alter Wine's asm ABI.
+options=('!strip' '!debug' '!lto' '!buildflags')
+_commit=01bfbf67b35418fdd705f2be09e0bfb43eece24b
+_geversion=11-9
+_wine_commit=981e2f0b9007fd70a6e0ed6119cb18f4164e26f9
+_staging_commit=6cc805ea57132eeaf44764e9213823c9b8d0d300
+_revision=Aurora-Proton${_geversion}-${pkgrel}.alarm
+source=(
+  "GE-Proton11-9-aarch64.tar.gz::https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton11-9/GE-Proton11-9-aarch64.tar.gz"
+  "981e2f0b9007fd70a6e0ed6119cb18f4164e26f9.tar.gz::https://github.com/ValveSoftware/wine/archive/981e2f0b9007fd70a6e0ed6119cb18f4164e26f9.tar.gz"
+  "GE-Proton11-9.tar.gz::https://github.com/GloriousEggroll/proton-ge-custom/archive/refs/tags/GE-Proton11-9.tar.gz"
+  "6cc805ea57132eeaf44764e9213823c9b8d0d300.tar.gz::https://github.com/wine-staging/wine-staging/archive/6cc805ea57132eeaf44764e9213823c9b8d0d300.tar.gz"
+  "e813ca5771658b00875924ab88d525322e50d39f.patch::https://github.com/ValveSoftware/wine/commit/e813ca5771658b00875924ab88d525322e50d39f.patch"
+  "vk.xml::https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v1.4.357/xml/vk.xml"
+  "video.xml::https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v1.4.357/xml/video.xml"
+  build-ntdll.sh
+  verify-proton.py
+  wine-sve-guard.patch
+  README.md
+  prepare-proton.py
+)
+sha256sums=(
+  '948957ea8929b8a1b444c8b9278f87b7cba0006ccfee51cd551ab69555c34265'
+  'db685c888b6b5859b21a2383903a0c894ad3704068df7be4a1c6c07b2211ea08'
+  '1d52c4da7a67115856e7c03c081c15abf768388a87609a2729b0702acd8992a8'
+  '46fccc6412d5a0ac5e02047a545bba21c3db45abfa1c161119a1de2f7b8cb360'
+  'dc863a602638557496bf63d56c1d9bbbfbb44936652f4ecc36f6dd19517c649f'
+  '264d0d7350e37d70c82407fb430d085040fc01a9a961d43dec8c2d6ed1dfd183'
+  'd018b914014c06605e367a3b929670511e6f6de2f225c405a8b5e2d912408b76'
+  '6a5fcac14170282a649df4523539a67522fa915ffe5e286f108dcaf925292a4b'
+  '138aaf422b35cb679f326c300d355ddff88f0b2c5b9fb500a59b79056b142d0e'
+  'e01a7c998ed5b265ddbdd2eec2088ab2024741f4898763f884867da29b10a12f'
+  '44b658795a28ba1eec3150cf2d5b9c702a18ae3215e0c0c73f76293bdf0bfcd9'
+  'fd6065f6691fdc06b680c1bd13ba9715284950699dd7e946363902e288ddb8c5'
+)
+noextract=('GE-Proton11-9-aarch64.tar.gz' "$_wine_commit.tar.gz" 'GE-Proton11-9.tar.gz' "$_staging_commit.tar.gz")
+
+prepare() {
+  mkdir -p "$srcdir/bundle"
+  tar -xf "$srcdir/GE-Proton11-9-aarch64.tar.gz" -C "$srcdir/bundle" --strip-components=1
+}
+
+build() {
+  rm -rf "$srcdir/ntdll-build"
+  bash "$srcdir/build-ntdll.sh" "$srcdir/ntdll-build" \
+    "$srcdir/$_wine_commit.tar.gz" "$srcdir/GE-Proton11-9.tar.gz" \
+    "$srcdir/$_staging_commit.tar.gz" "$srcdir/e813ca5771658b00875924ab88d525322e50d39f.patch" \
+    "$srcdir/vk.xml" "$srcdir/video.xml" "$srcdir/wine-sve-guard.patch"
+  # Required even for makepkg --nocheck: refuse an incompatible replacement.
+  python "$srcdir/verify-proton.py" "$srcdir/bundle/files/lib/wine/aarch64-unix/ntdll.so" \
+    "$srcdir/ntdll-build/ge/wine/build/dlls/ntdll/ntdll.so"
+}
+
+check() {
+  python "$srcdir/verify-proton.py" "$srcdir/bundle/files/lib/wine/aarch64-unix/ntdll.so" \
+    "$srcdir/ntdll-build/ge/wine/build/dlls/ntdll/ntdll.so"
+  test -x "$srcdir/bundle/proton"
+  test -f "$srcdir/bundle/LICENSE" && test -f "$srcdir/bundle/LICENSE.OFL"
+}
+
+package() {
+  local destination="$pkgdir/usr/share/aurora-proton/$_revision"
+  local library="$srcdir/ntdll-build/ge/wine/build/dlls/ntdll/ntdll.so"
+  python "$srcdir/verify-proton.py" "$srcdir/bundle/files/lib/wine/aarch64-unix/ntdll.so" "$library"
+  install -dm755 "$destination"
+  install -m755 "$library" "$destination/ntdll.so"
+  install -m755 "$srcdir/prepare-proton.py" "$destination/prepare-proton.py"
+  python - "$destination" "$srcdir/GE-Proton11-9-aarch64.tar.gz" <<'PY'
+import hashlib, json, pathlib, sys
+destination, archive = map(pathlib.Path, sys.argv[1:])
+manifest = {
+    "schema": 1,
+    "revision": destination.name,
+    "ge_commit": "01bfbf67b35418fdd705f2be09e0bfb43eece24b",
+    "wine_commit": "981e2f0b9007fd70a6e0ed6119cb18f4164e26f9",
+    "staging_commit": "6cc805ea57132eeaf44764e9213823c9b8d0d300",
+    "archive_name": "GE-Proton11-9-aarch64.tar.gz",
+    "archive_root": "GE-Proton11-9-aarch64",
+    "archive_url": "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/GE-Proton11-9/GE-Proton11-9-aarch64.tar.gz",
+    "archive_sha256": "948957ea8929b8a1b444c8b9278f87b7cba0006ccfee51cd551ab69555c34265",
+    "archive_bytes": archive.stat().st_size,
+    "ntdll_sha256": hashlib.file_digest((destination / "ntdll.so").open("rb"), "sha256").hexdigest(),
+    "original_tool": "GE-Proton11-9-aarch64",
+    "tool": "Aurora-Proton11-9",
+}
+inputs = [archive.name, manifest["wine_commit"] + ".tar.gz", "GE-Proton11-9.tar.gz",
+          manifest["staging_commit"] + ".tar.gz", "e813ca5771658b00875924ab88d525322e50d39f.patch",
+          "vk.xml", "video.xml"]
+manifest["build_inputs"] = {name: hashlib.file_digest((archive.parent / name).open("rb"), "sha256").hexdigest()
+                            for name in inputs}
+(destination / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+PY
+  ln -s "$_revision" "$pkgdir/usr/share/aurora-proton/current"
+  install -dm755 "$pkgdir/usr/share/licenses/$pkgname"
+  install -m644 "$srcdir/bundle/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/GE-Proton-LICENSE"
+  install -m644 "$srcdir/bundle/LICENSE.OFL" "$pkgdir/usr/share/licenses/$pkgname/GE-Proton-LICENSE.OFL"
+  install -m644 "$srcdir/ntdll-build/ge/wine/COPYING.LIB" "$pkgdir/usr/share/licenses/$pkgname/LGPL-2.1"
+  install -Dm644 "$srcdir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 "$srcdir/wine-sve-guard.patch" "$pkgdir/usr/share/doc/$pkgname/wine-sve-guard.patch"
+}
