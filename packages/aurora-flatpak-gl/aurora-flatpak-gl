@@ -7,7 +7,10 @@
 #          Flatpak override that points the Vulkan loader, glvnd and the DRI
 #          loader at the merged GL driver files.
 # disable: undo all of that. Override keys an administrator has changed are
-#          left alone.
+#          left alone. Full runtime/GL.aurora/aarch64/branch pins are package
+#          policy, including old branches with no deployment or packaged repo.
+#          An identical administrator pin cannot be distinguished; partial
+#          patterns, wildcards, other IDs and other architectures are retained.
 #
 # The override paths are the GL extension point's merged directories, not a
 # single extension's. GL.aurora has a higher priority than GL.default, so it
@@ -32,6 +35,11 @@ installed_refs() {
   flatpak list --system --runtime --columns=ref 2>/dev/null | grep "^$id/" | sed 's|^|runtime/|'
 }
 
+is_policy_ref() {
+  # Literal ID and architecture, complete nonempty branch, no glob patterns.
+  [[ $1 =~ ^"runtime/$id/aarch64/"[a-zA-Z0-9_.-]+$ ]]
+}
+
 enable() {
   [ -d "$repo/objects" ] || { echo "aurora-flatpak-gl: no repository at $repo" >&2; return 1; }
   if flatpak remotes --system --columns=name | grep -qx "$remote"; then
@@ -42,7 +50,10 @@ enable() {
   fi
   local rc=0 ref
   for ref in $(repo_refs); do
-    flatpak install --system --noninteractive -y --or-update "$remote" "$ref" || rc=1
+    if ! flatpak install --system --noninteractive -y --or-update "$remote" "$ref"; then
+      rc=1
+      continue
+    fi
     # Unpinned, "flatpak uninstall --unused" would remove it.
     flatpak pin --system "$ref" >/dev/null || rc=1
   done
@@ -59,7 +70,7 @@ enable() {
 }
 
 disable() {
-  local ref rc=0
+  local pins ref rc=0
   if [ -f "$overrides" ]; then
     local line
     for line in "$env_vk" "$env_egl" "$env_dri"; do
@@ -70,9 +81,26 @@ disable() {
     # Drop the file if nothing but empty groups is left in it.
     grep -qvE '^(\[.*\]|[[:space:]]*)$' "$overrides" || rm -f "$overrides"
   fi
+  # Pins exist independently of deployments. Capture non-terminal output
+  # (one indented pattern per line) and reject even partial output on failure.
+  pins=$(flatpak pin --system) || {
+    echo "aurora-flatpak-gl: failed to query pins" >&2
+    return 1
+  }
+  while read -r ref; do
+    is_policy_ref "$ref" || continue
+    # Flatpak removes an exact stored pattern and errors if it is absent.
+    # Only remove enumerated pins; never suppress a genuine removal failure.
+    flatpak pin --system --remove "$ref" >/dev/null || {
+      echo "aurora-flatpak-gl: failed to remove pin $ref; retry disable" >&2
+      rc=1
+    }
+  done <<< "$pins"
+  # Keep deployments and the remote until all package pins are removed.
+  # A retry rediscovers any failed orphan pins too, without a state database.
+  [ "$rc" -eq 0 ] || return "$rc"
   for ref in $(installed_refs); do
-    # A ref that was never pinned has no pattern to remove; that is fine.
-    flatpak pin --system --remove "$ref" >/dev/null 2>&1 || true
+    is_policy_ref "$ref" || continue
     flatpak uninstall --system --noninteractive -y "$ref" || rc=1
   done
   if flatpak remotes --system --columns=name | grep -qx "$remote"; then
