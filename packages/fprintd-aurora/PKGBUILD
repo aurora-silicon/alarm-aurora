@@ -1,27 +1,34 @@
 pkgname=fprintd-aurora
 pkgver=1.94.5
-pkgrel=5
+pkgrel=6
 pkgdesc='D-Bus fingerprint service with Aurora enrolment and durable-delete handling'
 arch=('aarch64')
 license=('GPL-2.0-or-later' 'GFDL-1.1-or-later')
 url='https://github.com/aurora-silicon/aurora-sep-userspace'
-# libfprint-aurora reports DATA_FULL only to a daemon carrying 0004.
+# libfprint-aurora reports DATA_FULL only to a daemon carrying 0006.
 provides=("fprintd=$pkgver" 'fprintd-aurora-no-enroll-gc=1')
 conflicts=('fprintd')
 replaces=('fprintd')
 depends=('libfprint' 'dbus' 'glib2' 'polkit' 'systemd-libs' 'pam')
 makedepends=('meson' 'ninja' 'gettext' 'gtk-doc' 'glib2-devel' 'systemd' 'python' 'perl')
+checkdepends=('python-dbus' 'python-gobject')
 source=('https://gitlab.freedesktop.org/libfprint/fprintd/-/archive/v1.94.5/fprintd-v1.94.5.tar.gz'
         '0001-preserve-print-on-device-delete-failure.patch' 'test_account_gate.py'
         '0002-report-lockout-and-fall-back-to-the-password.patch'
         '0003-say-why-the-reader-needs-the-password.patch'
         '0004-dont-ask-for-a-finger-the-reader-will-not-take.patch'
-        '0005-aurora-report-data-full-without-garbage-collection.patch'
-        'test_enroll_capacity.py')
-sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c' 'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a' '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83'
+        '0005-opt-in-polkit-fingerprint-cancellation.patch' 'test_password_switch.py' 'pam-test.c' 'mock-fprintd.py'
+        '0006-aurora-report-data-full-without-garbage-collection.patch' 'test_enroll_capacity.py')
+sha256sums=('a026ef34c31b25975275cc29a5e4eba2b54524769672095a5228098a08acd82c'
+            'ea41766b42cfd259e32ce37cf84c5557b2f31eb9db4b63160c54ddb5c6a11e7a'
+            '9d09fd49cb988b4b70784151d9d6757a40fa60b19c85048067598decd480bb83'
             'b29df6766dafadbdc2dac34b5fc0396ac24a7628e822018285189cf30f52c34e'
             '1db338603ce2bbf15688c909d4c24120c7933755ca390358b940ac4579cb82d3'
             'ca498a36e63e39450e8bd7bb090134093942e4ffc7919bd8748a579e1669db1a'
+            '1ab4c5de74555b51c1995f66190db86bf955616506179a77e4855c458a37e492'
+            '5d4639fec7bb498f508d51aa49ff26d511b3ac0460db4b34fb791a41e6789670'
+            '43cc8710668fcd3aac406e3068ca608e4a3b4f2a4e0f6d67a70ea0eab79c073c'
+            'a1a57e28ea75530bc9e107a57f164a0f538ceee80d81f70a446d87a1c0e9caf7'
             '14b1e47887fe641e3232e3ca1aa561cd769c2fe7c9696300b0c58ddaca18af9d'
             '10fa4d0a957576901e493b5f60f271eefc529668e4946b78424fbd3b8c2e1803')
 
@@ -31,7 +38,8 @@ prepare() {
   patch -Np1 -i "$srcdir/0002-report-lockout-and-fall-back-to-the-password.patch"
   patch -Np1 -i "$srcdir/0003-say-why-the-reader-needs-the-password.patch"
   patch -Np1 -i "$srcdir/0004-dont-ask-for-a-finger-the-reader-will-not-take.patch"
-  patch -Np1 -i "$srcdir/0005-aurora-report-data-full-without-garbage-collection.patch"
+  patch -Np1 -i "$srcdir/0005-opt-in-polkit-fingerprint-cancellation.patch"
+  patch -Np1 -i "$srcdir/0006-aurora-report-data-full-without-garbage-collection.patch"
 }
 
 build() {
@@ -56,12 +64,19 @@ build() {
 
 check() {
   python "$srcdir/test_account_gate.py" "$srcdir/fprintd-v$pkgver/src/device.c"
+  local test_dir="$srcdir/password-switch-tests"
+  mkdir -p "$test_dir"
+  cp "$srcdir/test_password_switch.py" "$srcdir/mock-fprintd.py" "$test_dir/"
+  ln -sf "$srcdir/build/pam/pam_fprintd.so" "$test_dir/pam_fprintd-switch.so"
+  cc -DMOCK_PASSWORD -fPIC -shared -o "$test_dir/pam_mock_password.so" "$srcdir/pam-test.c" -lpam
+  cc -o "$test_dir/pam-test" "$srcdir/pam-test.c" -lpam
+  python "$test_dir/test_password_switch.py"
   grep -q 'verify-lockout' "$srcdir/fprintd-v$pkgver/src/device.c"
   grep -q 'verify-lockout' "$srcdir/fprintd-v$pkgver/pam/pam_fprintd.c"
   grep -q 'verify-password-required-after-boot' "$srcdir/fprintd-v$pkgver/src/device.c"
   grep -q 'Your password is required to enable Touch ID.' "$srcdir/fprintd-v$pkgver/pam/pam_fprintd.c"
   grep -q 'fp_device_get_password_required' "$srcdir/fprintd-v$pkgver/src/device.c"
-  # 0005: apple-sep DATA_FULL reports enroll-data-full without collecting a print.
+  # 0006: apple-sep DATA_FULL reports enroll-data-full without collecting a print.
   python "$srcdir/test_enroll_capacity.py" "$srcdir/fprintd-v$pkgver/src/device.c" \
     --enroll-utils "$srcdir/fprintd-v$pkgver/utils/enroll.c"
 }
