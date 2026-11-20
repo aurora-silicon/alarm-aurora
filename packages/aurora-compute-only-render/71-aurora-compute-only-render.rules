@@ -1,0 +1,5 @@
+# A GPU whose driver reports DRM_ASAHI_FEATURE_COMPUTE_ONLY refuses render commands, but
+# compositors (aquamarine's sole-renderD fallback) adopt the only render node for GL and abort.
+# Keep such a node to root and the render group, so desktop sessions render in software.
+SUBSYSTEM=="drm", KERNEL=="renderD*", ACTION!="remove", DRIVERS=="aurora|asahi", IMPORT{program}="/usr/lib/aurora/aurora-drm-compute-only $devnode"
+SUBSYSTEM=="drm", KERNEL=="renderD*", ENV{AURORA_DRM_COMPUTE_ONLY}=="1", GROUP="render", MODE="0660"
