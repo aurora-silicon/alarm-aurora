@@ -1,0 +1,7 @@
+[Unit]
+Description=Start x86_64 Flatpak apps in a 4 KiB page tree
+ConditionPathExists=/usr/bin/userpages
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/aurora-flatpak-gl/aurora-flatpak-x86-exports

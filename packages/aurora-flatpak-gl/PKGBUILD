@@ -2,7 +2,7 @@ pkgname=aurora-flatpak-gl
 epoch=1
 pkgver=26.3.0_devel.202611150611.d4ad4a4dce6
 pkgrel=1
-pkgdesc='Aurora Mesa Flatpak GL extension for Freedesktop 25.08 and 26.08'
+pkgdesc='Aurora Mesa Flatpak GL extension for Freedesktop 25.08 and 26.08 (aarch64, and x86_64 apps under FEX)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('MIT')
@@ -14,8 +14,23 @@ backup=('etc/profile.d/aurora-flatpak-gl.sh')
 _commit=d4ad4a4dce6d1d23ecd897d6d73fadf9ab618614
 _sha256=6f8d930b3d846af6416dab55c82a9ccf8ec0d4cbbbe739016262268d7dc9ec4b
 source=(aurora-flatpak-gl 60-aurora-flatpak-gl.conf aurora-flatpak-gl.sh
-        build-extension.sh org.freedesktop.Platform.GL.aurora.yml.in validate-repo.sh validate-repository.py LICENSE)
-sha256sums=('52c6ffed0efa0890d6d23f8cc0030a5228b0ea86e5a540ce4131d31a54f4db05' '32cf9c71aef5f13664369f299a2872835302410fd1a03ddca2a13a87879357b3' 'e193fb70d360d81729615a18e9eb08dd715839f78767d82fde218727b1ca49f2' 'fbf43ba7469f68af08def39f87881a2e717424c317d5c7130c13c5556a969b0b' 'b88c55dc31d08a55e5a94a8122457c037b8ee1fc901163851fcff517f552ed29' 'da14ca864bda4cb8f1e7b10f8f2b08527fb5761b89ed848b336a284ea53843c7' 'f1134c780eee79487b6b29cc14d3c91ec423813289e2d9faa1f131ab1ef5cc53' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+        build-extension.sh org.freedesktop.Platform.GL.aurora.yml.in validate-repo.sh validate-repository.py LICENSE
+        70-aurora-flatpak-gl-x86_64.hook aurora-flatpak-x86-exports aurora-flatpak-x86-exports.path
+        aurora-flatpak-x86-exports.service 61-aurora-flatpak-x86-exports zz-aurora-flatpak-x86-exports.sh)
+sha256sums=('6cc8df9604f6fb6eb8abf0c33287b4234fdfeb3385cb29e4a480913b455b9719'
+            '32cf9c71aef5f13664369f299a2872835302410fd1a03ddca2a13a87879357b3'
+            'e193fb70d360d81729615a18e9eb08dd715839f78767d82fde218727b1ca49f2'
+            'fbf43ba7469f68af08def39f87881a2e717424c317d5c7130c13c5556a969b0b'
+            'b88c55dc31d08a55e5a94a8122457c037b8ee1fc901163851fcff517f552ed29'
+            'da14ca864bda4cb8f1e7b10f8f2b08527fb5761b89ed848b336a284ea53843c7'
+            'f1134c780eee79487b6b29cc14d3c91ec423813289e2d9faa1f131ab1ef5cc53'
+            '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9'
+            '3e3e00e7f6984ca8b1712059e60dfc407ecee23c95011bc9de7bf7dc814f4fd8'
+            '9b9d8ffd2544301ece193762fb7d9cc782da2385ebb5249c2c65805c68d03cce'
+            'b9aa59ee59c101cbf82a511700898429ad50aa2a12cecc6d98d8438f2f4f52b0'
+            '28ee52818dba4ed600ae6084bc9f8bf4639cd0e9158b6d401fcdd723e211a053'
+            'bbda5e947e705ed0ef80ca10a30c94de46575c90048907ab93594bd2f37c99d9'
+            '707111e2c1d0ad199a4a610cf18206da2b7185fccf1306727da6a4730770d893')
 
 build() {
   export AURORA_MESA_COMMIT=$_commit AURORA_MESA_SHA256=$_sha256
@@ -49,4 +64,19 @@ package() {
   install -Dm644 aurora-flatpak-gl.sh "$pkgdir/etc/profile.d/aurora-flatpak-gl.sh"
   install -d "$pkgdir/usr/share/aurora-flatpak-gl"
   cp -a "$srcdir/repo" "$pkgdir/usr/share/aurora-flatpak-gl/repo"
+  # enable also exports and installs the x86_64 extension, so x86_64 apps
+  # find the files the override lists for their architecture; the hook does
+  # it again when the trees or the FEX bundle change.
+  depends+=("aurora-flatpak-gl-x86_64=$epoch:$pkgver-$pkgrel" 'aurora-userpages')
+  install -Dm644 70-aurora-flatpak-gl-x86_64.hook "$pkgdir/usr/share/libalpm/hooks/70-aurora-flatpak-gl-x86_64.hook"
+  # Stopgap until FEX starts itself in a 4 KiB page tree: x86_64 app entries
+  # start their app through userpages 4k. Wanted by paths.target from the
+  # package, so upgrades get it too.
+  install -Dm755 aurora-flatpak-x86-exports "$pkgdir/usr/lib/aurora-flatpak-gl/aurora-flatpak-x86-exports"
+  install -Dm644 aurora-flatpak-x86-exports.path "$pkgdir/usr/lib/systemd/system/aurora-flatpak-x86-exports.path"
+  install -Dm644 aurora-flatpak-x86-exports.service "$pkgdir/usr/lib/systemd/system/aurora-flatpak-x86-exports.service"
+  install -d "$pkgdir/usr/lib/systemd/system/paths.target.wants"
+  ln -s ../aurora-flatpak-x86-exports.path "$pkgdir/usr/lib/systemd/system/paths.target.wants/aurora-flatpak-x86-exports.path"
+  install -Dm755 61-aurora-flatpak-x86-exports "$pkgdir/usr/lib/systemd/user-environment-generators/61-aurora-flatpak-x86-exports"
+  install -Dm644 zz-aurora-flatpak-x86-exports.sh "$pkgdir/etc/profile.d/zz-aurora-flatpak-x86-exports.sh"
 }

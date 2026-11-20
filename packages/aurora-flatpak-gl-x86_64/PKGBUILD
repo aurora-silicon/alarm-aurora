@@ -1,0 +1,78 @@
+# The x86_64 GL.aurora Flatpak extension, for x86_64 apps that run under FEX.
+# CI builds this recipe on x86_64 Arch. The package carries the extension
+# trees; aurora-flatpak-gl adds fex-emu's FEX bundle and exports them on the
+# Mac (see its aurora-flatpak-gl helper).
+pkgname=aurora-flatpak-gl-x86_64
+epoch=1
+pkgver=26.3.0_devel.202611150611.d4ad4a4dce6
+pkgrel=1
+pkgdesc='Aurora Mesa x86_64 Flatpak GL extension for Freedesktop 25.08 and 26.08, for apps under FEX'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+makedepends=('flatpak' 'flatpak-builder' 'dbus' 'python' 'cmake' 'ninja' 'clang' 'llvm' 'lld'
+             'openssl' 'fmt' 'pkgconf')
+# The extension is x86_64 and runs against the Freedesktop runtime, not this host.
+options=('!strip' '!debug')
+_commit=d4ad4a4dce6d1d23ecd897d6d73fadf9ab618614
+_sha256=6f8d930b3d846af6416dab55c82a9ccf8ec0d4cbbbe739016262268d7dc9ec4b
+# The guest vDSO thunk comes from the FEX that fex-emu packages.
+_fex_commit=0c08727ae4c0c30601c962d982d4864b77dd17a2
+_fex_sha256=b0e90b68f4eb009c02147d8859c2111baaf257dee916924be7ac833e09379665
+source=("fex-$_fex_commit.tar.gz::https://codeload.github.com/aurora-silicon/fex/tar.gz/$_fex_commit"
+        build-extension.sh org.freedesktop.Platform.GL.aurora.yml.in validate-tree.py LICENSE)
+sha256sums=("$_fex_sha256"
+            '00e6f2b41e8efb4ad7764a90a3d05942473c0703d8ba193bda9d6770f7e2c750' 'b020812f2fcbe396e4d4b93123a4ce48b19d395b22b5ed374408e413b0f8d1d0' '5d90ea41097d7a0af0a587509dc5ee74b3afdffee1254391fae050e61be1e68d' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+
+build() {
+  [[ $(uname -m) == x86_64 ]] || { echo 'Build the x86_64 GL extension on x86_64 Arch' >&2; return 1; }
+  export AURORA_MESA_COMMIT=$_commit AURORA_MESA_SHA256=$_sha256
+  # Build in makepkg's isolated home. Never use a host Flatpak installation.
+  export XDG_DATA_HOME="$srcdir/flatpak-data" XDG_CACHE_HOME="$srcdir/flatpak-cache"
+  export XDG_RUNTIME_DIR="$srcdir/flatpak-runtime"
+  install -d -m700 "$XDG_RUNTIME_DIR"
+  dbus-run-session -- bash -euo pipefail -c '
+    flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    for branch in 25.08 26.08; do
+      flatpak install --user --noninteractive --no-related -y flathub \
+        "org.freedesktop.Platform/x86_64/$branch" \
+        "org.freedesktop.Sdk/x86_64/$branch" \
+        "org.freedesktop.Sdk.Extension.llvm22/x86_64/$branch"
+      bash ./build-extension.sh "$branch" "$PWD/trees/$branch" "$PWD/work-$branch"
+    done
+  '
+  # Only the guest vDSO thunk (libVDSO-guest.so): x86_64 code that calls
+  # into FEX itself and needs no host library. Programs that read
+  # AT_SYSINFO_EHDR (Sober's loader) crash without an x86 vDSO. thunkgen is
+  # built for this x86_64 builder, then the guest library project alone.
+  local fex="$srcdir/fex-$_fex_commit"
+  mkdir -p thunkgen
+  cat > thunkgen/CMakeLists.txt <<CMAKE
+cmake_minimum_required(VERSION 3.14)
+project(aurora-thunkgen C CXX)
+set(CMAKE_CXX_STANDARD 20)
+find_package(fmt REQUIRED)
+add_subdirectory("$fex/ThunkLibs/Generator" generator)
+CMAKE
+  cmake -S thunkgen -B thunkgen-build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+  cmake --build thunkgen-build --target thunkgen
+  cmake -S "$fex/ThunkLibs/GuestLibs" -B guest-thunks -G Ninja -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DENABLE_CLANG_THUNKS=ON \
+    -DBITNESS=64 -DFEX_PROJECT_SOURCE_DIR="$fex" -DX86_DEV_ROOTFS=/ \
+    -DGENERATOR_EXE="$srcdir/thunkgen-build/generator/thunkgen"
+  cmake --build guest-thunks --target VDSO-guest
+}
+
+package() {
+  depends=('fex-emu')
+  local branch tree
+  for branch in 25.08 26.08; do
+    tree="$pkgdir/usr/share/aurora-flatpak-gl/x86_64/$branch"
+    install -d "$tree"
+    cp -a "trees/$branch/." "$tree/"
+    install -Dm644 guest-thunks/libVDSO-guest.so "$tree/files/GuestThunks/libVDSO-guest.so"
+  done
+  python3 validate-tree.py --trees "$pkgdir/usr/share/aurora-flatpak-gl/x86_64" --commit "$_commit"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

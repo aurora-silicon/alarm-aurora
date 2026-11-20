@@ -1,0 +1,11 @@
+# Flatpak rewrites its system-wide exports on every install, update and
+# removal; wrap the x86_64 entries again then.
+[Unit]
+Description=Watch Flatpak's exports for x86_64 apps
+
+[Path]
+PathChanged=/var/lib/flatpak/exports/share/applications
+Unit=aurora-flatpak-x86-exports.service
+
+[Install]
+WantedBy=paths.target

@@ -1,6 +1,7 @@
 post_install() {
   /usr/lib/aurora-flatpak-gl/aurora-flatpak-gl enable || \
     echo 'Aurora Flatpak GL setup failed; run /usr/lib/aurora-flatpak-gl/aurora-flatpak-gl enable to retry.' >&2
+  [ -x /usr/bin/userpages ] && /usr/lib/aurora-flatpak-gl/aurora-flatpak-x86-exports || true
 }
 
 post_upgrade() {
@@ -9,4 +10,5 @@ post_upgrade() {
 
 pre_remove() {
   /usr/lib/aurora-flatpak-gl/aurora-flatpak-gl disable
+  rm -rf /var/lib/aurora-flatpak-gl/exports
 }

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Runs after Flatpak's 60-flatpak, so the x86_64 entries that start their app
+# in a 4 KiB page tree come ahead of Flatpak's exports of the same name.
+dir=/var/lib/aurora-flatpak-gl/exports/share
+case ":${XDG_DATA_DIRS-}:" in
+  *":$dir:"*) exit 0 ;;
+esac
+echo "XDG_DATA_DIRS=$dir:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"

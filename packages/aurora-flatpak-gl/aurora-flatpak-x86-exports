@@ -1,0 +1,38 @@
+#!/bin/bash
+# aurora-flatpak-x86-exports
+#
+# A stopgap until FEX starts itself in a 4 KiB page tree when it finds 16 KiB
+# pages (aurora-silicon/fex). x86_64 Flatpak apps run under FEX, which only
+# works with 4 KiB pages: started from a 16 KiB process, the guest's jemalloc
+# stops with "Unsupported system page size", and so does Flatpak's ldconfig
+# step. For every system-wide exported desktop entry that starts an x86_64
+# app, write a copy whose Exec lines start it through `userpages 4k`. The
+# copies are in a directory the session lists ahead of Flatpak's exports
+# (61-aurora-flatpak-x86-exports, zz-aurora-flatpak-x86-exports.sh), so they
+# replace the entries of the same name. Flatpak rewrites its exports on every
+# install, update and removal; aurora-flatpak-x86-exports.path runs this
+# again then, and copies whose entry is gone or no longer x86_64 are removed.
+set -euo pipefail
+exports=${AURORA_FLATPAK_EXPORTS:-/var/lib/flatpak/exports/share/applications}
+out=${AURORA_FLATPAK_X86_EXPORTS:-/var/lib/aurora-flatpak-gl/exports/share/applications}
+userpages=${AURORA_USERPAGES:-/usr/bin/userpages}
+x86_64() {
+  [[ -f $1 ]] && grep -Eq '^Exec=.*flatpak run .*--arch=x86_64( |$)' "$1"
+}
+install -d -m755 "$out"
+for entry in "$exports"/*.desktop; do
+  x86_64 "$entry" || continue
+  name=${entry##*/}
+  copy=$(mktemp "$out/.$name.XXXXXX")
+  if ! sed -E "/^Exec=.*flatpak run /{/^Exec=${userpages//\//\\/} 4k /!s|^Exec=|Exec=$userpages 4k |;}" \
+      "$entry" > "$copy"; then
+    rm -f "$copy"
+    exit 1
+  fi
+  chmod 644 "$copy"
+  mv -f "$copy" "$out/$name"
+done
+for copy in "$out"/*.desktop; do
+  [[ -e $copy ]] || continue
+  x86_64 "$exports/${copy##*/}" || rm -f "$copy"
+done

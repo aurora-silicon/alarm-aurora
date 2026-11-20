@@ -3,9 +3,11 @@
 #
 # enable:  install org.freedesktop.Platform.GL.aurora for every branch in the
 #          packaged OSTree repository (system installation, pinned so
-#          "flatpak uninstall --unused" keeps it), and set the system-wide
-#          Flatpak override that points the Vulkan loader, glvnd and the DRI
-#          loader at the merged GL driver files.
+#          "flatpak uninstall --unused" keeps it), export and install the
+#          x86_64 branches (aurora-flatpak-gl-x86_64's trees with fex-emu's
+#          FEX bundle) the same way, and set the system-wide Flatpak override
+#          that points the Vulkan loader, glvnd and the DRI loader at the
+#          merged GL driver files.
 # disable: undo all of that. Override keys an administrator has changed are
 #          left alone.
 #
@@ -13,40 +15,119 @@
 # single extension's. GL.aurora has a higher priority than GL.default, so it
 # owns those file names whenever it is installed for the app's runtime; for a
 # runtime branch it was not built for, the same paths fall back to GL.default.
+# Overrides cannot be per architecture, so each variable lists the aarch64 and
+# the x86_64 files: a sandbox only has its own architecture's GL directory,
+# and the loaders skip the other one's files.
 set -u
 repo=/usr/share/aurora-flatpak-gl/repo
 remote=aurora-gl
 id=org.freedesktop.Platform.GL.aurora
-gl=/usr/lib/aarch64-linux-gnu/GL
+# The x86_64 extension trees, and the FEX bundle each of them carries as
+# files/fex: Flatpak mounts it at the path where fex-emu installs it, so the
+# loader and RPATH of the FEX that binfmt_misc starts resolve in the sandbox.
+x86_trees=/usr/share/aurora-flatpak-gl/x86_64
+fex=/usr/lib/x86_64-linux-gnu/GL/aurora/fex
+x86_repo=/var/lib/aurora-flatpak-gl/repo
+x86_remote=aurora-gl-x86_64
+a64=/usr/lib/aarch64-linux-gnu/GL
+x64=/usr/lib/x86_64-linux-gnu/GL
 overrides=/var/lib/flatpak/overrides/global
-env_vk="VK_DRIVER_FILES=$gl/vulkan/icd.d/asahi_icd.aarch64.json:$gl/vulkan/icd.d/lvp_icd.aarch64.json"
-env_egl="__EGL_VENDOR_LIBRARY_FILENAMES=$gl/glvnd/egl_vendor.d/50_mesa.json"
-env_dri="LIBGL_DRIVERS_PATH=$gl/lib/dri"
+env_vk="VK_DRIVER_FILES=$a64/vulkan/icd.d/asahi_icd.aarch64.json:$a64/vulkan/icd.d/lvp_icd.aarch64.json:$x64/vulkan/icd.d/asahi_icd.x86_64.json:$x64/vulkan/icd.d/lvp_icd.x86_64.json"
+env_egl="__EGL_VENDOR_LIBRARY_FILENAMES=$a64/glvnd/egl_vendor.d/50_mesa.json:$x64/glvnd/egl_vendor.d/50_mesa.json"
+env_dri="LIBGL_DRIVERS_PATH=$a64/lib/dri:$x64/lib/dri"
+# FEX in an x86_64 sandbox maps this guest vDSO (no host library needed).
+env_thunks="FEX_THUNKGUESTLIBS=$x64/aurora/GuestThunks"
+# Values earlier releases wrote; enable replaces them, disable removes them.
+legacy=("VK_DRIVER_FILES=$a64/vulkan/icd.d/asahi_icd.aarch64.json:$a64/vulkan/icd.d/lvp_icd.aarch64.json"
+        "__EGL_VENDOR_LIBRARY_FILENAMES=$a64/glvnd/egl_vendor.d/50_mesa.json"
+        "LIBGL_DRIVERS_PATH=$a64/lib/dri")
 
 repo_refs() {
   local d=$repo/refs/heads/runtime/$id/aarch64
   [ -d "$d" ] && ls -1 "$d" | sort | sed "s|^|runtime/$id/aarch64/|"
 }
 
+x86_branches() {
+  [ -d "$x86_trees" ] || return 0
+  local d
+  for d in "$x86_trees"/*/; do
+    [ -f "$d/metadata" ] && basename "$d"
+  done | sort
+}
+
 installed_refs() {
   flatpak list --system --runtime --columns=ref 2>/dev/null | grep "^$id/" | sed 's|^|runtime/|'
 }
 
-enable() {
-  [ -d "$repo/objects" ] || { echo "aurora-flatpak-gl: no repository at $repo" >&2; return 1; }
-  if flatpak remotes --system --columns=name | grep -qx "$remote"; then
-    flatpak remote-modify --system --url="file://$repo" "$remote"
+drop_line() {
+  [ -f "$overrides" ] || return 0
+  grep -vxF "$1" "$overrides" > "$overrides.tmp" || true
+  cat "$overrides.tmp" > "$overrides"
+  rm -f "$overrides.tmp"
+}
+
+add_remote() {
+  local name=$1 url=$2 title=$3
+  if flatpak remotes --system --columns=name | grep -qx "$name"; then
+    flatpak remote-modify --system --url="$url" "$name"
   else
     flatpak remote-add --system --no-gpg-verify --no-enumerate --no-use-for-deps \
-      --title="Aurora Mesa (local)" "$remote" "file://$repo"
+      --title="$title" "$name" "$url"
   fi
+}
+
+install_ref() {
+  flatpak install --system --noninteractive -y --or-update "$1" "$2" || return 1
+  flatpak pin --system "$2" >/dev/null 2>&1 || true
+}
+
+# Export the x86_64 trees with this host's FEX bundle into a local repository
+# and install them. Run again when fex-emu or the trees change (the package's
+# pacman hook does).
+enable_x86() {
+  local branches
+  branches=$(x86_branches)
+  [ -n "$branches" ] || return 0
+  if [ ! -x "$fex/FEX" ]; then
+    echo "aurora-flatpak-gl: no FEX bundle at $fex; the x86_64 GL extension needs fex-emu" >&2
+    return 1
+  fi
+  local rc=0 branch work
+  # flatpak build-export creates the repository; it must not exist empty.
+  install -d -m755 "${x86_repo%/*}"
+  for branch in $branches; do
+    work=$(mktemp -d "${TMPDIR:-/var/tmp}/aurora-flatpak-gl.XXXXXX") || return 1
+    if cp -a "$x86_trees/$branch/." "$work/" && cp -a "$fex" "$work/files/fex" &&
+       flatpak build-export --runtime --files=files --arch=x86_64 \
+         --subject="Aurora Mesa $(cat "$work/files/.aurora-mesa-commit") and fex-emu's FEX for $branch" \
+         "$x86_repo" "$work" "$branch"; then
+      :
+    else
+      rc=1
+    fi
+    rm -rf "$work"
+  done
+  flatpak build-update-repo "$x86_repo" || rc=1
+  add_remote "$x86_remote" "file://$x86_repo" "Aurora Mesa x86_64 (local)" || return 1
+  for branch in $branches; do
+    install_ref "$x86_remote" "runtime/$id/x86_64/$branch" || rc=1
+  done
+  return $rc
+}
+
+enable() {
+  [ -d "$repo/objects" ] || { echo "aurora-flatpak-gl: no repository at $repo" >&2; return 1; }
+  add_remote "$remote" "file://$repo" "Aurora Mesa (local)" || return 1
   local rc=0 ref
   for ref in $(repo_refs); do
-    flatpak install --system --noninteractive -y --or-update "$remote" "$ref" || rc=1
-    flatpak pin --system "$ref" >/dev/null 2>&1 || true
+    install_ref "$remote" "$ref" || rc=1
   done
+  enable_x86 || rc=1
   local line key
-  for line in "$env_vk" "$env_egl" "$env_dri"; do
+  for line in "${legacy[@]}"; do
+    drop_line "$line"
+  done
+  for line in "$env_vk" "$env_egl" "$env_dri" "$env_thunks"; do
     key=${line%%=*}
     # An administrator's explicit loader choice wins over packaged policy.
     if [ -f "$overrides" ] && grep -q "^$key=" "$overrides"; then
@@ -58,13 +139,10 @@ enable() {
 }
 
 disable() {
-  local ref
+  local ref line
   if [ -f "$overrides" ]; then
-    local line
-    for line in "$env_vk" "$env_egl" "$env_dri"; do
-      grep -vxF "$line" "$overrides" > "$overrides.tmp" || true
-      cat "$overrides.tmp" > "$overrides"
-      rm -f "$overrides.tmp"
+    for line in "$env_vk" "$env_egl" "$env_dri" "$env_thunks" "${legacy[@]}"; do
+      drop_line "$line"
     done
     # Drop the file if nothing but empty groups is left in it.
     grep -qvE '^(\[.*\]|[[:space:]]*)$' "$overrides" || rm -f "$overrides"
@@ -73,13 +151,18 @@ disable() {
     flatpak pin --system --remove "$ref" >/dev/null 2>&1 || true
     flatpak uninstall --system --noninteractive -y "$ref" || true
   done
-  if flatpak remotes --system --columns=name | grep -qx "$remote"; then
-    flatpak remote-delete --system --force "$remote" || true
-  fi
+  for line in "$remote" "$x86_remote"; do
+    if flatpak remotes --system --columns=name | grep -qx "$line"; then
+      flatpak remote-delete --system --force "$line" || true
+    fi
+  done
+  rm -rf "$x86_repo"
 }
 
 status() {
   echo "repository branches:"; repo_refs | sed 's/^/  /'
+  echo "x86_64 trees:"; x86_branches | sed 's/^/  /'
+  echo "FEX bundle: $( [ -x "$fex/FEX" ] && echo "$fex" || echo none)"
   echo "installed:"; installed_refs | sed 's/^/  /'
   echo "system override ($overrides):"; [ -f "$overrides" ] && sed 's/^/  /' "$overrides"
   echo "FLATPAK_GL_DRIVERS=${FLATPAK_GL_DRIVERS-}"

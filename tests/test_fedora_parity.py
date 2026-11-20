@@ -31,7 +31,8 @@ class ParityTests(unittest.TestCase):
         sources = json.loads((ROOT / 'sources.json').read_text())
         self.assertEqual(sources['mesa-aurora'], sources['mesa-aurora-fex-guest'])
         recipes = [(ROOT / 'packages' / name / 'PKGBUILD').read_text()
-                   for name in ('mesa-aurora', 'mesa-aurora-fex-guest', 'aurora-flatpak-gl')]
+                   for name in ('mesa-aurora', 'mesa-aurora-fex-guest', 'aurora-flatpak-gl',
+                                'aurora-flatpak-gl-x86_64')]
         for field in ('epoch', 'pkgver', 'pkgrel', '_commit'):
             values = [re.search(rf'^{field}=(.*)$', text, re.M)[1] for text in recipes]
             self.assertEqual(len(set(values)), 1, (field, values))
@@ -41,7 +42,7 @@ class ParityTests(unittest.TestCase):
     def test_local_source_checksums_are_current(self):
         # Parse through bash so source array ordering and variable expansion match makepkg.
         names = ('alsa-utils-aurora', 'aurora-audio', 'aurora-system-fixes',
-                 'aurora-flatpak-gl', 'mesa-aurora-fex-guest', 'linux-aurora')
+                 'aurora-flatpak-gl', 'aurora-flatpak-gl-x86_64', 'mesa-aurora-fex-guest', 'linux-aurora')
         for name in names:
             directory = ROOT / 'packages' / name
             result = subprocess.check_output(['bash', '-c',

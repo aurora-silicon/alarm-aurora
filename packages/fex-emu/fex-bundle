@@ -1,0 +1,31 @@
+#!/bin/bash
+# fex-bundle BUILD DEST
+#
+# Copies FEX and FEXServer from the build directory BUILD into DEST with the
+# AArch64 loader and every library they need, taken from this build root, and
+# points their interpreter and RPATH at DEST's final path. The same tree, at
+# the same path, is on the host and in the x86_64 GL.aurora Flatpak extension,
+# so PT_INTERP and the RPATH resolve in every sandbox. A static-pie FEX is no
+# alternative: under 4 KiB user pages it crashes in its first malloc.
+set -euo pipefail
+build=${1:?FEX build directory}
+dest=${2:?bundle directory in pkgdir}
+final=/usr/lib/x86_64-linux-gnu/GL/aurora/fex
+[[ $dest == *"$final" ]]
+install -d "$dest"
+install -m755 "$build/Bin/FEX" "$build/Bin/FEXServer" "$dest/"
+queue=("$dest/FEX" "$dest/FEXServer")
+while ((${#queue[@]})); do
+  object=${queue[0]}
+  queue=("${queue[@]:1}")
+  while read -r library; do
+    [[ -e $dest/$library ]] && continue
+    install -m755 "$(readlink -f "/usr/lib/$library")" "$dest/$library"
+    queue+=("$dest/$library")
+  done < <(readelf -d "$object" | sed -n 's/.*(NEEDED).*\[\(.*\)\]$/\1/p')
+done
+[[ -f $dest/ld-linux-aarch64.so.1 ]] || install -m755 "$(readlink -f /usr/lib/ld-linux-aarch64.so.1)" "$dest/"
+for program in FEX FEXServer; do
+  # DT_RPATH, not RUNPATH: it also applies to the libraries' own dependencies.
+  patchelf --set-interpreter "$final/ld-linux-aarch64.so.1" --force-rpath --set-rpath "$final" "$dest/$program"
+done
