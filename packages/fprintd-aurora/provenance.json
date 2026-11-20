@@ -8,5 +8,5 @@
     "0003-say-why-the-reader-needs-the-password.patch": "1db338603ce2bbf15688c909d4c24120c7933755ca390358b940ac4579cb82d3",
     "0004-dont-ask-for-a-finger-the-reader-will-not-take.patch": "ca498a36e63e39450e8bd7bb090134093942e4ffc7919bd8748a579e1669db1a"
   },
-  "adaptations": "Local 0005 skips DATA_FULL garbage collection for apple-sep and explains full storage in fprintd-enroll. pkgrel 5 provides fprintd-aurora-no-enroll-gc=1 and runs test_enroll_capacity.py against the patched source in check(). The file hashes above remain the original provenance."
+  "adaptations": "Local 0005 and its password-switch test assets are copied unchanged from alarm-aurora main at 6b9376c6b44f1160b1cfcd824df1c0292eac0b9e. Local 0006 (renamed from PR229 0005, bytes unchanged) skips DATA_FULL garbage collection for apple-sep and explains full storage in fprintd-enroll. pkgrel 6 preserves both patches and check suites, provides fprintd-aurora-no-enroll-gc=1, and runs test_enroll_capacity.py against the patched source in check(). The file hashes above remain the original userspace provenance; local source hashes are in PKGBUILD."
 }
