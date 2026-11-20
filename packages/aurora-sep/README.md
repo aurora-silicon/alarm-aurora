@@ -114,7 +114,9 @@ stacks as their packages ship them. The login screen asks for the password
 because a session started with a fingerprint cannot unlock the keyring or
 KWallet. GNOME can offer fingerprint there as well:
 `sudo systemctl enable aurora-sep-greeter-fingerprint.service` does it from
-the next boot (it needs `gresource` from glib2-devel).
+the next boot (it needs `gresource` from glib2-devel). The login screen does
+not wait for Touch ID: the one right after boot takes the password anyway (as on
+macOS); later login screens find the reader.
 
 For `sudo` and polkit, a pacman hook runs `/usr/libexec/aurora/touchid-pam`,
 which puts `-auth sufficient pam_fprintd.so` in front of their own auth
