@@ -419,11 +419,11 @@ def git_blob(path):
     return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
 
 
-# fedora-aurora packages/update-m1n1 (aurora-silicon/fedora-aurora#193, #207, #226, #232, #251, #324) as git
-# blob ids: these files are shared with Fedora byte for byte.
+# fedora-aurora packages/update-m1n1 (aurora-silicon/fedora-aurora#193, #207, #226, #232, #251, #324, #368,
+# #372, #453) as git blob ids: these files are shared with Fedora byte for byte.
 FEDORA_BLOBS = {
-    'bootchain.py': 'cf6f7cfc8b0fde0b4f0cb6a9b94f0f820831837b',
-    'test_bootchain.py': '667f686c34fe7e79b90c1dcb40de6cc39138dd01',
+    'bootchain.py': '8ce53f5ee23f898045ddc07cf84e65a3c4f1b257',
+    'test_bootchain.py': '07e9e31b715c06e4e912b49a18ab1557379279c3',
     'aurora-stage2-commit.service': '6f9de701f9485dc4b869e8b73f4ef35aa67dbeae',
     'aurora-stage2-guard.service': '693a255c2bedb707e55fb0e7db45ae9d9d87949d',
     'aurora-stage2-guard.timer': '02dfb37c3eb71a9531276a026b25c62ac84ef1cb',
@@ -472,7 +472,7 @@ class Recipes(unittest.TestCase):
         # 20261023-4 brought the units; later releases must not preset them again.
         self.assertIn('vercmp "$2" 20261023-4', install)
         self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgver=20261023$')
-        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgrel=9$')
+        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgrel=10$')
 
     def test_the_hook_runs_after_kernel_removal_too(self):
         hook = (PKGBUILD.parent / '95-m1n1-install.hook').read_text()
