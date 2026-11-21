@@ -82,6 +82,14 @@ jobs:
           for file in packages/*/PKGBUILD scripts/*; do
             [[ $file == *.py ]] || bash -n "$file"
           done
+      # This runner has no pacman, so the unit tests above skip the check of
+      # alpm_vercmp (feed downgrade detection) against pacman's own vercmp.
+      - name: alpm_vercmp agrees with pacman's vercmp
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src archlinux:base bash -euo pipefail -c '
+            pacman -Syu --noconfirm --needed python > /dev/null
+            python -m unittest -v tests.test_updatelib.VersionComparisonTests 2>&1 | tee /tmp/vercmp.log
+            grep -Eq "^test_matches_pacman_vercmp .* ok$" /tmp/vercmp.log'
       - name: No recipe builds an older version than the published feed
         run: python3 scripts/check-published-versions.py
   fex-overlay:
