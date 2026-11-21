@@ -1,14 +1,14 @@
 pkgbase=mesa-aurora
 pkgname=('mesa-aurora' 'vulkan-aurora' 'opencl-rusticl-aurora' 'vulkan-lavapipe-aurora')
 epoch=1
-pkgver=26.3.0_devel.202611150611.d4ad4a4dce6
+pkgver=26.3.0_devel.202611160723.7c34f6f2241
 pkgrel=1
 pkgdesc='Aurora Asahi Gallium, Zink and Honeykrisp'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/mesa'
 license=('MIT')
-_commit=d4ad4a4dce6d1d23ecd897d6d73fadf9ab618614
+_commit=7c34f6f22416cf8697274f440810a4334e2ec069
 # Matched to the DRM UAPI in aurora-silicon/linux integration/aurora.
 # Native GL/Honeykrisp link neither LLVM nor SPIRV-Tools; software drivers
 # retain those runtimes in their separate packages. Arch Linux ARM moves both
