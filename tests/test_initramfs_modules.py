@@ -1,5 +1,6 @@
 """The initramfs carries the USB4 router with the Type-C port controllers."""
 from pathlib import Path
+import shlex
 import subprocess
 import unittest
 
@@ -24,6 +25,16 @@ class InitramfsModuleTests(unittest.TestCase):
                       (BOOT/'PKGBUILD').read_text())
         config = (ROOT/'packages/linux-aurora/config').read_text().splitlines()
         self.assertIn('CONFIG_USB4_APPLE_SOC=m', config)
+
+    def test_bolt_authorizes_usb4_pcie_tunnels_on_every_install(self):
+        # The domain's security level is user: a device's PCIe tunnel waits for
+        # bolt. Minimal installs have no desktop that pulls it in.
+        line = next(line.strip() for line in (BOOT/'PKGBUILD').read_text().splitlines()
+                    if line.strip().startswith('depends=('))
+        self.assertIn('bolt', shlex.split(line[len('depends=('):-1]))
+        image = (ROOT/'scripts/build-image').read_text()
+        common = image[image.index('packages=(base '):image.index('\ncase $profile in')]
+        self.assertIn(' bolt', common)
 
     def test_display_chain_and_pmp_come_before_the_root_is_unlocked(self):
         # The T6041 display gate waits 20 s for the PMP driver; on an encrypted
