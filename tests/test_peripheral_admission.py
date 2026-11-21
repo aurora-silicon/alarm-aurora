@@ -92,6 +92,16 @@ class PeripheralAdmissionTests(unittest.TestCase):
         self.assertIn('blacklist dockchannel-hid', blacklist)
         self.assertIn('  add_module dockchannel-hid', (PACKAGE / 'aurora-vendor.install').read_text().splitlines())
 
+    def test_handoff_waits_for_the_esp_not_for_udev_to_settle(self):
+        unit = (PACKAGE / 'aurora-vendor-firmware.service').read_text()
+        self.assertNotIn('systemd-udev-settle', unit)
+        for line in ('Wants=systemd-udevd.service systemd-udev-trigger.service',
+                     'After=systemd-udevd.service systemd-udev-trigger.service'):
+            self.assertIn(line, unit.splitlines())
+        script = (PACKAGE / 'load-vendor-firmware').read_text()
+        self.assertIn('udevadm wait --timeout=60 "$device"', script)
+        self.assertNotIn('udevadm settle', script)
+
     def test_failed_firmware_handoff_still_admits_input(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
