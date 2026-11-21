@@ -1,0 +1,24 @@
+pkgname=aurora-compute-only-render
+pkgver=1
+pkgrel=1
+pkgdesc='Keep a compute-only Apple GPU render node to root and the render group, so desktops render in software'
+arch=('aarch64')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+depends=('glibc' 'systemd')
+makedepends=('gcc')
+install=aurora-compute-only-render.install
+source=(aurora-drm-compute-only.c 71-aurora-compute-only-render.rules LICENSE)
+sha256sums=('3b6a9561c4b3fc98685a755fea2c3aa23bf27037b826872cae1d0fe6792ebd39'
+            '3d131da435fc6a126d4998f0c4450cb9f3b412b2d0bcb44e63bb2d856880e2b9'
+            'd74b21234e71d54dec84a84c255644ec63a209f564296d5903b1607779697175')
+
+build() {
+  ${CC:-cc} $CPPFLAGS $CFLAGS $LDFLAGS -o aurora-drm-compute-only aurora-drm-compute-only.c
+}
+
+package() {
+  install -Dm755 aurora-drm-compute-only "$pkgdir/usr/lib/aurora/aurora-drm-compute-only"
+  install -Dm644 71-aurora-compute-only-render.rules "$pkgdir/usr/lib/udev/rules.d/71-aurora-compute-only-render.rules"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

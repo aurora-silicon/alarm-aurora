@@ -1,0 +1,13 @@
+# Apply the rule to a render node that is already present: on the upgrade that
+# installs it, no add event comes. Never fails the transaction.
+post_install() {
+  udevadm trigger --subsystem-match=drm --action=change >/dev/null 2>&1 || :
+}
+
+post_upgrade() {
+  post_install
+}
+
+post_remove() {
+  post_install
+}
