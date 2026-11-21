@@ -21,7 +21,9 @@ build() {
 }
 package() {
   # A new U-Boot reaches Stage 2 through the updater's aura-try trial.
-  depends=('aurora-stage2-trial')
+  # This U-Boot starts ANS from off and no longer adopts a running session: the aura on the
+  # ESP has to power ANS off after use and pass its SART entries on (aura#107).
+  depends=('aurora-stage2-trial' 'aura>=1.0.0b10')
   install -Dm644 u-boot/build-aurora/u-boot-nodtb.bin "$pkgdir/usr/lib/asahi-boot/u-boot-nodtb.bin"
   install -d "$pkgdir/usr/lib/asahi-boot-j700"
   ln -s ../asahi-boot/u-boot-nodtb.bin "$pkgdir/usr/lib/asahi-boot-j700/u-boot-nodtb.bin"

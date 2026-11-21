@@ -58,7 +58,8 @@ package() {
   # Required on the installed system, not to build the bootloader. A Mach-O Mac
   # needs the update-m1n1 that leaves boot.bin alone, or this aura could overwrite it.
   # A new aura reaches Stage 2 through the updater's aura-try trial.
-  depends=('asahi-scripts>=20260127.1' 'aurora-stage2-ctxr-slot' 'aurora-stage2-trial' 'uboot-aurora' "${_ctxr_kernel[@]}")
+  # aura powers ANS off after use; only a U-Boot that starts it from off can then use NVMe (u-boot#38).
+  depends=('asahi-scripts>=20260127.1' 'aurora-stage2-ctxr-slot' 'aurora-stage2-trial' 'uboot-aurora>=2026.07.aurora8' "${_ctxr_kernel[@]}")
   # Building a PR candidate does not assert release/hardware qualification.
   install -Dm644 aura/build/aura.bin "$pkgdir/usr/lib/asahi-boot/m1n1.bin"
   install -d "$pkgdir/usr/lib/m1n1-neo"
