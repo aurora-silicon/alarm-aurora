@@ -1,15 +1,16 @@
 pkgname=speakersafetyd-aurora-profiles
 pkgver=1
-pkgrel=2
+pkgrel=3
 pkgdesc='speakersafetyd profiles for Aurora-supported Macs and warm restarts'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('GPL-2.0-only')
-source=('j616.conf' 'j575c.conf' '96-speakersafetyd-aurora.rules' '50-aurora-warm-restart.conf')
+source=('j616.conf' 'j575c.conf' 'j604.conf' '96-speakersafetyd-aurora.rules' '50-aurora-warm-restart.conf')
 sha256sums=('a410bfd1a17cb4ebaed95278152029c6e9dd5862d52a918c12a4b3db01f0ffaf'
             '76be6775346992cdae9506af593181fa22a3271917bd08c0208df64e286c14b1'
-            '40363041bdbe7b3686212ae1bd58dcb369253a921e45e6cb7c78cfb37787e7c3'
+            '06a66a382772c24322c5de53db46229f0926d9f3c6cd50e30d03cf038ce1daf4'
+            'e91ac02b8e1ccd965f1f33a382cc8c6fb3a137092299c876c6689d060cf330a5'
             '63e866903fec3e48c810d67fe86e8e1ba17253644e3de9ac2dfc2a562591a521')
 package() {
   # speakersafetyd comes from asahi-alarm; the profile files build without it.
@@ -24,6 +25,9 @@ package() {
   # Studio speaker) with the AOP stream's twelve-channel sense. speakersafetyd
   # starts for its card (AppleJ575) from its own udev rules.
   install -Dm644 j575c.conf "$pkgdir/usr/share/speakersafetyd/apple/j575c.conf"
+  # The J604 (MacBook Pro 14-inch M4): speakersafetyd's j504.conf unchanged.
+  # Its six amps, sense layout and protection values are the J504's.
+  install -Dm644 j604.conf "$pkgdir/usr/share/speakersafetyd/apple/j604.conf"
   install -Dm644 96-speakersafetyd-aurora.rules "$pkgdir/usr/lib/udev/rules.d/96-speakersafetyd-aurora.rules"
   # A restart within the same boot starts from the worst-case temperature.
   install -Dm644 50-aurora-warm-restart.conf "$pkgdir/usr/lib/systemd/system/speakersafetyd.service.d/50-aurora-warm-restart.conf"
