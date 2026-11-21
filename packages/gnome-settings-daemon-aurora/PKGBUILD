@@ -1,5 +1,6 @@
-# Arch's gnome-settings-daemon 51.1-1 recipe with one Aurora patch: an opt-in
-# ambient white point in the colour plugin. The same patch is in
+# Arch's gnome-settings-daemon 51.1-1 recipe with one Aurora patch: an
+# ambient white point in the colour plugin, on by default where a light
+# sensor reports colour. The same patch is in
 # fedora-aurora's gnome-settings-daemon package.
 # Maintainer: Fabian Bornschein <fabiscafe@archlinux.org>
 # Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
@@ -7,7 +8,7 @@
 pkgname=gnome-settings-daemon-aurora
 _tag=51.1
 pkgver=51.1.aurora1
-pkgrel=1
+pkgrel=2
 pkgdesc="GNOME Settings Daemon"
 url="https://gitlab.gnome.org/GNOME/gnome-settings-daemon"
 arch=(aarch64)
@@ -72,7 +73,7 @@ source=(
 )
 b2sums=('52dd4163a11446ad7de40f0ac736dcbed18d72efbdb164bd790c947c375c840adde0d88a2ad2a920b29ed70611b87cf838c07478c228ccbf8cbde618582853f8'
         'SKIP'
-        'cc88b5e361e3d87e26c526c9ec45578be930f99ec228bb49cfce133b5e4df3f84666d853871a0b547aaab5045459b73e8f05608639a00db9e005054ebd40faba')
+        'fe5b13b7692731d522d52aa0795debd3239f4edb03d6fb141a4b08b74c16a87235ad6bc20137d89405dc7f2bc19b35cfeacd9759c6f0dcf4a0e9be582c815937')
 
 prepare() {
   cd gnome-settings-daemon
