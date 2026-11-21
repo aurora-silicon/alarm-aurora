@@ -37,28 +37,37 @@ ac_add_options --with-google-safebrowsing-api-keyfile=${PWD@Q}/google-api-key
 ac_add_options --with-system-nss
 END
 }
+package() {
+  install -Dvm644 /dev/stdin "$appdir/browser/defaults/preferences/vendor.js" <<END
+pref("browser.gnome-search-provider.enabled", true);
+END
+}
 """
+PATCHES = {'rdd-v4l2-request.patch': b'patch', **{name: name.encode() for name in importer.WEBAUTHN_PORTAL}}
 
 
 class FirefoxRecipeTests(unittest.TestCase):
     def test_pkgbuild_edit(self):
-        text = importer.edit_pkgbuild(ALARM, 'a' * 40, b'patch')
+        text = importer.edit_pkgbuild(ALARM, 'a' * 40, PATCHES)
         self.assertTrue(text.startswith('# aurora-builder: heavy\n'))
-        self.assertIn('\npkgrel=2.2\n', text)
+        self.assertIn('\npkgrel=2.3\n', text)
         self.assertIn('\narch=(aarch64)\n', text)
         self.assertIn('\n_google_api_key=\n', text)
         self.assertNotIn('api-keyfile', text)
         self.assertNotIn('validpgpkeys', text)
         self.assertNotIn('SKIP', text)
         self.assertIn('.source.tar.xz\n', text)
-        self.assertIn('  rdd-v4l2-request.patch\n)', text)
-        self.assertRegex(text, r"sha256sums=\('aa'\n\s+'bb'\n\s+'[0-9a-f]{64}'\)")
-        self.assertRegex(text, r"b2sums=\('cc'\n\s+'dd'\n\s+'[0-9a-f]{128}'\)")
+        self.assertIn('  rdd-v4l2-request.patch\n  # Aurora: WebAuthn through the credential portal', text)
+        self.assertIn(f'  {importer.WEBAUTHN_PORTAL[-1]}\n)', text)
+        self.assertRegex(text, r"sha256sums=\('aa'\n\s+'bb'(\n\s+'[0-9a-f]{64}'){8}\)")
+        self.assertRegex(text, r"b2sums=\('cc'\n\s+'dd'(\n\s+'[0-9a-f]{128}'){8}\)")
+        self.assertIn('pref("security.webauthn.use-xdg-desktop-portal", 1);\n', text)
+        self.assertIn('pref("security.webauthn.use-xdg-desktop-portal.security-keys", false);\n', text)
 
     def test_pkgbuild_edit_refuses_an_unknown_recipe(self):
         for old in ('pkgrel=2\n', '_google_api_key=AIzaSyFAKE\n', "            'SKIP'\n"):
             with self.subTest(removed=old), self.assertRaises(SystemExit):
-                importer.edit_pkgbuild(ALARM.replace(old, ''), 'a' * 40, b'patch')
+                importer.edit_pkgbuild(ALARM.replace(old, ''), 'a' * 40, PATCHES)
 
     def test_imported_recipe(self):
         text = (PACKAGE / 'PKGBUILD').read_text()
@@ -66,6 +75,9 @@ class FirefoxRecipeTests(unittest.TestCase):
         self.assertRegex(text, r'(?m)^pkgrel=\d+\.\d+$')
         self.assertRegex(text, r'(?m)^_google_api_key=$')
         self.assertIn('  rdd-v4l2-request.patch\n', text)
+        for name in importer.WEBAUTHN_PORTAL:
+            self.assertIn(f'  {name}\n', text)
+            self.assertTrue((PACKAGE / name).is_file(), name)
         self.assertNotRegex(text, r'AIza')
 
     def test_seccomp_admits_exactly_four_media_ioctls(self):
