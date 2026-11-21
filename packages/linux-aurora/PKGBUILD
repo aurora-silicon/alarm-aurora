@@ -11,8 +11,8 @@ pkgrel=41
 # Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=9125b31475836ce0a6634df45b539c6d604f36a5
-_sha256=9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b
+_commit=6f618bccf94f777eb91c2174591065a0c724fe5c
+_sha256=8d88c5196951c33b66c2abc30a4292a86de88c6753b8d771cf42dbfd4b4318c1
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -59,10 +59,10 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b'
+            '8d88c5196951c33b66c2abc30a4292a86de88c6753b8d771cf42dbfd4b4318c1'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '12a712faddcd8d624b28641b63187796e29732d34fb18d0b3a037443b74c3dcc'
+            '7492fd56caffc6362df45a9e4ae78bd40739ba795aee51a3cdf69b72e311134f'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
