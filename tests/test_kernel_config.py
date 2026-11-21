@@ -22,23 +22,22 @@ def values(path):
 
 
 class KernelConfigTests(unittest.TestCase):
-    def test_full_config_keeps_the_desktop_requirements(self):
-        config = values(KERNEL / 'config')
-        for option in REQUIRED:
-            with self.subTest(option=option):
-                self.assertIn(config.get('CONFIG_' + option, 'n'), ('y', 'm'))
-        self.assertEqual(config.get('CONFIG_RUST'), 'y')
-
     def test_hardware_has_one_source(self):
         recipe = (KERNEL / 'PKGBUILD').read_text()
         self.assertIn('arch/arm64/configs/asahi.config', recipe)
         self.assertNotIn('common.config', recipe)
         self.assertFalse((KERNEL / 'common.config').exists())
 
-    def test_build_starts_from_the_full_config_and_checks_requirements(self):
+    def test_build_uses_the_kernel_source_configuration_and_checks_requirements(self):
         recipe = (KERNEL / 'PKGBUILD').read_text()
-        self.assertIn('cp ../config build/base/.config', recipe)
-        self.assertNotIn(' defconfig\n', recipe)
+        self.assertIn('_make O="$PWD/build/base" aurora_defconfig', recipe)
+        # No packaged base or overlay; only the release name is set here.
+        self.assertFalse((KERNEL / 'config').exists())
+        self.assertNotIn('merge_config.sh', recipe)
+        changes = re.findall(r'^\s*scripts/config (.*)$', recipe, re.M)
+        self.assertEqual(changes, ["--file build/base/.config --set-str LOCALVERSION '-ARCH' --disable LOCALVERSION_AUTO"])
+        self.assertIn('arch/arm64/configs/aurora-base.config arch/arm64/configs/asahi.config build/base/.config',
+                      recipe)
         found = re.search(r'for option in ([A-Z0-9_ ]+); do\n\s+grep -Eqx "CONFIG_\$\{option\}=\[ym\]"', recipe)
         self.assertIsNotNone(found)
         self.assertEqual(set(found[1].split()), set(REQUIRED))

@@ -527,8 +527,6 @@ class Recipes(unittest.TestCase):
         ctxr_execmem = self.flag('linux-aurora', '_ctxr_execmem')
         if monitor_free:
             self.assertEqual(ctxr_execmem, 1, 'aura without the monitor needs CONFIG_ARM64_CTXR_EXECMEM=y')
-        config = (ROOT / 'packages/linux-aurora/config').read_text().splitlines()
-        self.assertIn('CONFIG_ARM64_CTXR_EXECMEM=y', config)
 
     def test_the_flags_become_the_requirement_and_its_provider(self):
         for value, expected in ((0, []), (1, ['aurora-ctxr-execmem'])):
