@@ -7,7 +7,7 @@ build() {
   add_module dockchannel-hid
   add_module vfat
   add_file /usr/lib/modprobe.d/aurora-firmware-order.conf
-  for binary in bash mount umount mkdir tr cpio grep modprobe udevadm; do
+  for binary in bash mount umount mkdir tr cpio grep find head modprobe udevadm; do
     add_binary "$(command -v "$binary")"
   done
   add_file /usr/libexec/aurora/peripheral-firmware
