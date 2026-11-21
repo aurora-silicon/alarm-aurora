@@ -31,12 +31,21 @@ sha256sum /var/lib/fprint/upgrade-test/print /var/lib/aurora-sep/upgrade-test > 
 # Local unsigned candidates are permitted only by this disposable test config.
 cp /etc/pacman.conf "$proof/pacman.conf"
 sed -i '/^\[options\]$/a LocalFileSigLevel = Optional' "$proof/pacman.conf"
+# libfprint-aurora reports full storage as DATA_FULL, which stock fprintd
+# answers by deleting a SEP print it does not know: pacman must refuse the
+# library next to the stock daemon.
+status=0
+pacman --config "$proof/pacman.conf" -U --noconfirm "${candidates[0]}" > "$proof/unguarded.txt" 2>&1 || status=$?
+cat "$proof/unguarded.txt"
+[[ $status != 0 ]]
+grep -F "unable to satisfy dependency 'fprintd-aurora-no-enroll-gc>=1'" "$proof/unguarded.txt"
+installed libfprint
 # Answer the conflict-removal prompts; do not force files or ignore deps.
 printf 'y\ny\ny\ny\ny\ny\ny\ny\n' | pacman --config "$proof/pacman.conf" -U "${candidates[@]}"
 pacman -Q "${stack[@]}" | tee "$proof/after.txt"
 refute installed libfprint
 refute installed fprintd
-pacman -T 'libfprint=1.94.100' 'libfprint-2.so' 'fprintd=1.94.5'
+pacman -T 'libfprint=1.94.100' 'libfprint-2.so' 'fprintd=1.94.5' 'fprintd-aurora-no-enroll-gc>=1'
 pacman -Dk
 sha256sum --check "$proof/state.sha256"
 # The pacman hook offered Touch ID to sudo and polkit, and the re-arm to
