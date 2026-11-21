@@ -95,12 +95,24 @@ case $profile in
   arch-kde) packages+=(kwin-aurora iio-sensor-proxy-aurora plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth plymouth-theme-aurora gamemode aurora-gamemode);;
   arch-gnome) packages+=(mutter-aurora gnome-settings-daemon-aurora iio-sensor-proxy-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora gamemode aurora-gamemode);;
 esac
-# GitHub release downloads sometimes stall; finished packages stay cached.
+# GitHub release downloads sometimes stall, so only downloads are tried
+# again (finished packages stay cached). The package set is resolved once
+# first: -p prints the transaction without downloading anything and fails at
+# once on a missing package or an unresolvable dependency, which no retry can
+# fix. The install then runs once, from the cache: a conflict or scriptlet
+# failure fails the build at once.
 attempt=1
-until chroot "$mountroot" pacman -Syu --noconfirm --needed "${packages[@]}"; do
+until chroot "$mountroot" pacman -Sy; do
   (( attempt++ < 3 ))
   sleep 30
 done
+chroot "$mountroot" pacman -Sup --noconfirm --needed "${packages[@]}" >/dev/null
+attempt=1
+until chroot "$mountroot" pacman -Suw --noconfirm --needed "${packages[@]}"; do
+  (( attempt++ < 3 ))
+  sleep 30
+done
+chroot "$mountroot" pacman -Su --noconfirm --needed "${packages[@]}"
 # A fresh Arch root generates no locale, so sessions ran in the C locale and
 # gnome-terminal refused to start. Generate a UTF-8 default; first-boot
 # setup may change the language afterwards.
