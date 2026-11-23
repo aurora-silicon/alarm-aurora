@@ -90,7 +90,7 @@ import edgelib
 p=Path(sys.argv[2])
 p.write_text(edgelib.add_sections(p.read_text(), sys.argv[3], sys.argv[4] or None))
 PY
-packages=(base sudo bash python btrfs-progs cryptsetup networkmanager-aurora bluez bluez-utils wireless-regdb linux-firmware
+packages=(base sudo bash python btrfs-progs cryptsetup networkmanager-aurora bluez bluez-utils wireless-regdb
   asahi-alarm-keyring aurora-keyring linux-aurora aurora-userpages aurora-boot aurora-firstboot aurora-sep libfprint-aurora aurora-firmware aura uboot-aurora
   avd-fw libva-v4l2-request-avd upower-aurora mesa-aurora vulkan-aurora mesa-aurora-fex-guest aurora-flatpak-gl aurora-system-fixes aurora-logos
   aurora-audio alsa-utils-aurora alsa-ucm-conf-aurora aurora-bless aurora-nvram aurora-btsync aurora-panel-nits aurora-camera-denoise aurora-kbd-light aurora-wifi-firmware lzfse aurora-fido aurora-sep-sk tiny-dfr pipewire-pulse pipewire-alsa openssh)
@@ -131,6 +131,11 @@ if chroot "$mountroot" pacman -Q linux-aarch64 >/dev/null 2>&1; then
   chroot "$mountroot" pacman -R --noconfirm linux-aarch64
 fi
 [[ ! -e $mountroot/etc/mkinitcpio.d/linux-aarch64.preset ]]
+# The generic base can carry the stock firmware bundle. Remove its unused
+# dependencies too. Keep any package another installed package requires.
+if installed "$mountroot" linux-firmware; then
+  chroot "$mountroot" pacman -Rss --noconfirm linux-firmware
+fi
 chroot "$mountroot" pacman -Q linux-aurora aurora-userpages avd-fw libva-v4l2-request-avd upower-aurora openssh
 chroot "$mountroot" pacman -Q alsa-utils-aurora aurora-system-fixes aurora-flatpak-gl mesa-aurora-fex-guest
 # The camera filter is on for every user; its install script applies the

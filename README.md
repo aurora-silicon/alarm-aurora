@@ -35,3 +35,10 @@ Native local Aura, U-Boot, ALSA/audio, bless, speakerguardd, firmware and boot p
 The default image includes Aurora's `avd-fw` and `upower-aurora` forks plus the pinned `libva-v4l2-request-avd` VA-API bridge. The bridge uses a system driver alias rather than a global environment override. UPower is selected in the initial desktop transaction so its provider satisfies desktop dependencies; the image rejects stock `upower` alongside it. The kernel uses the shared 7.3.0 tree with one universal defconfig plus the shared hardware requirements and Arch integration options.
 
 PipeWire (`packages/pipewire`) is Arch Linux ARM's 1.6.11 recipe with the Aurora patches Fedora carries: filter-graph keeps the software volume at unity on every volume or mute update, so a repeated volume or mute write no longer applies the speaker volume a second time (-31 dB at a 30 % slider on every speaker sink), filter-graph follows its plugins' latency after activation, spa-alsa waits a period between attempts after a refused start (and reports refusals at most once per 5 s), and five AirPlay (RAOP) sender fixes. Its pkgrel (2.1) sorts above ALARM's, and `[aurora]` comes before `[core]` and `[extra]` in `pacman.conf`, so pacman keeps these packages when ALARM ships a newer PipeWire; the recipe moves to that release, with the patches rebased, in its own update.
+
+### Firmware for accessories
+
+Aurora provisions firmware for the target Mac. For a USB Wi-Fi or Bluetooth
+adapter, install the firmware package for its chipset with Pacman. The stock
+`linux-firmware` bundle is available for users who need several families of
+external devices. Existing systems can keep any packages already installed.
