@@ -1,10 +1,13 @@
 [Unit]
 Description=Offer fingerprint at the GNOME login screen
 Documentation=file:///usr/share/doc/aurora-sep/README.md
-# The login screen asks fprintd for the reader once, as it comes up. Hold it
-# back until Touch ID is up, so that it finds the reader and the fingerprints.
-Wants=aurora-sep-ready.service
-After=aurora-sep-ready.service
+# Only prepares the login screen's shell, so it does not wait for Touch ID.
+# The login screen asks fprintd for the reader once, as it comes up. One that
+# comes up before Touch ID, as the one right after boot does, takes the
+# password and does not offer the fingerprint, whatever
+# require_password_after_boot says in /etc/aurora/touchid.conf
+# (aurora-touchid-rearm). Later login screens (after a log out) and the lock
+# screen find the reader once it is up.
 Before=gdm.service
 
 [Service]

@@ -1,6 +1,6 @@
 pkgname=aurora-sep
 pkgver=1
-pkgrel=30
+pkgrel=32
 pkgdesc='SEP trusted-key and fingerprint integration for Aurora'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
@@ -14,7 +14,7 @@ source=('load-driver' 'aurora-sep.service' 'fprintd-aurora.conf' 'README.md' 'XA
 sha256sums=('65839f2f4bc36e1f0fac997a27c4fd7f20c040be4ccba7501e36467497ea7397'
             'ef6e9067fe20b05c64bebe8445d1ea18b2f9800721522c3e84be21a2c47bb4eb'
             'e7898b3e409bde5b23453e22448b434dc4861642f575dab56148c78114f577b8'
-            '13cd5784631eae55c4a6d0bb6430f91d95fd51b764067f67fc4510afd3cdcf89'
+            '22d8c86c7561c44728790604aa2a1580b7ba6974850c0f1774781836b7bec983'
             '251a18f800dfe0814ec88477e16a33de715dbcc0d4bb2565a74208dd0af0e248'
             '52020e636e62b60f0c3e6251c3b67b8a8c409bff0486bc3463f356fd3073384b'
             '6bec7ecf92a835b641540a66da0df860ab811f976c81eed9e878ba3e528fd403'
@@ -26,9 +26,9 @@ sha256sums=('65839f2f4bc36e1f0fac997a27c4fd7f20c040be4ccba7501e36467497ea7397'
             '3ddb49b290365ecb569da19357a64f4ddce59b83dca89284c51215bd071f4716'
             '1a10476157907f7a68cc2a432ab3801e602a8f1431e9c1a92e4741f7dbb8b4f7'
             '5936eb76db666496a8700dade7ac6bcb3785b517958dcea10685690f1822c86f'
-            'ffab97b20bfd5f0eb1ab641179a131843349cf16890fff0cf2d893f0b5681b37'
+            '4562819f004f7485ea2c3599ee1115fcd2dee0a22795c3c5160802de82ed1ffc'
             '3a0dddce914ea7789211975c2aa36e40cdb6d0aa210b522b29e318b96d3c7cbe'
-            'cd256447cc32911339a4ec73f05a879ca1a099b502a4116ca2a9c6b8830a86bf'
+            '2f93cffe30ec22d1f75270eb28b338deaa96a319642e07fff8370a18fa658557'
             '71305d392a68f623d351e0addf5a821fb0900b9a0fba7169c1ed62fd6bebe9ca'
             '371a0f8d874692a74581f884d7cc3db9e9e52fedaa7f099c0930a7c3a4080408'
             'e40e79ae7d9e54918078c620d425f59ac6ff201a706869637ddb4d4bca794d4c'
