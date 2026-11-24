@@ -37,8 +37,18 @@ class BootSplashTests(unittest.TestCase):
         self.assertIn('*Capple,display-subsystem*|*Capple,dcp*)', script)
         # appledrm waits for every DCP: an external DCP's Type-C chain comes up with it.
         self.assertIn('*Capple,*atcphy*|*Capple,*-i2cC*|*Capple,i2c)', script)
-        for module in ('i2c-pasemi-platform', 'phy-apple-atc', 'phy-ti-cd2e22', 'tps6598x'):
+        for module in ('i2c-pasemi-platform', 'phy-ti-cd2e22', 'tps6598x'):
             self.assertIn(f'\n  add_module {module}?\n', install)
+        # Every Apple PHY driver, whatever the SoC's DCPs need.
+        self.assertIn("\n  add_all_modules '/drivers/phy/apple/'\n", install)
+        # The pre-pivot wait (tests/test_early_kms_wait.py) is one udev event
+        # wait on the card's by-path link; the hook carries what it runs.
+        for line in ('add_binary modprobe', 'add_binary tr', 'add_udev_rule 60-drm.rules',
+                     'add_file /usr/libexec/aurora/aurora-early-kms-wait'):
+            self.assertIn('\n  ' + line + '\n', install)
+        self.assertNotIn('add_binary sleep', install)
+        wait = (BOOT/'aurora-early-kms-wait').read_text()
+        self.assertIn('udevadm wait --timeout=2 "/dev/dri/by-path/platform-${dev##*/}-card"', wait)
         self.assertIn('"$dev"/supplier:*', script)
         self.assertTrue(script.rstrip().endswith('udevadm trigger --action=add --subsystem-match=drm'))
         # It queues the display ahead of the coldplug but never waits for it.
@@ -52,7 +62,8 @@ class BootSplashTests(unittest.TestCase):
             self.assertIn(line, pkgbuild)
         hook = (BOOT/'aurora-boot.hook').read_text().splitlines()
         for target in ('usr/lib/initcpio/install/aurora-early-kms', 'usr/libexec/aurora/aurora-early-kms',
-                       'usr/lib/aurora/initrd/aurora-early-kms.service'):
+                       'usr/lib/aurora/initrd/aurora-early-kms.service', 'usr/libexec/aurora/aurora-early-kms-wait',
+                       'usr/lib/aurora/initrd/aurora-kms-handover.service'):
             self.assertIn('Target = ' + target, hook)
 
     def test_plymouth_starts_without_waiting_for_the_coldplug(self):

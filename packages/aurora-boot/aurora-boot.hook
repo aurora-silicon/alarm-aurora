@@ -9,6 +9,8 @@ Target = usr/lib/initcpio/install/aurora-display
 Target = usr/lib/initcpio/install/aurora-early-kms
 Target = usr/libexec/aurora/aurora-early-kms
 Target = usr/lib/aurora/initrd/aurora-early-kms.service
+Target = usr/libexec/aurora/aurora-early-kms-wait
+Target = usr/lib/aurora/initrd/aurora-kms-handover.service
 
 [Action]
 Description = Updating the Aurora initramfs...

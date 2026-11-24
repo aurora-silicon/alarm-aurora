@@ -10,17 +10,17 @@ build() {
   # every DCP) registers only on the real root, and the panel is black from
   # the internal DCP's start until then.
   add_module i2c-pasemi-platform?
-  add_module phy-apple-atc?
   add_module phy-ti-cd2e22?
   add_module tps6598x?
-  # T6041's Type-C PHY (the external DCPs' dp-phy suppliers) and the HDMI
-  # LPDPTX PHY. The image builder's autodetect runs on another machine, so
-  # without them a fresh install starts appledrm only from the real root;
-  # when the initramfs takes longer than the deferred probe timeout (the
-  # first boot's in-place encryption, a passphrase typed late), every DCP
-  # gives up and the boot has no display at all.
-  add_module phy-apple-t6040-usb2?
-  add_module phy-apple-dptx?
+  # Every Apple PHY driver, not a list of the ones known today: which PHYs
+  # a display's DCPs need depends on the SoC (T6041's external DCPs need
+  # its USB2 PHY and the HDMI output's LPDPTX PHY besides the Type-C one).
+  # The image builder's autodetect runs on another machine, so without
+  # them a fresh install starts appledrm only from the real root; when the
+  # initramfs takes longer than the deferred probe timeout (the first
+  # boot's in-place encryption, a passphrase typed late), every DCP gives
+  # up and the boot has no display at all.
+  add_all_modules '/drivers/phy/apple/'
   add_binary bash
   add_binary udevadm
   add_file /usr/libexec/aurora/aurora-early-kms
@@ -28,7 +28,10 @@ build() {
   add_symlink /usr/lib/systemd/system/sysinit.target.wants/aurora-early-kms.service ../aurora-early-kms.service
   # Wait (bounded) for appledrm's card before the pivot, so Plymouth takes it
   # over while the initramfs udevd runs (aurora-kms-handover.service).
-  add_binary sleep
+  # What it runs, and the by-path card link it names.
+  add_binary modprobe
+  add_binary tr
+  add_udev_rule 60-drm.rules
   add_file /usr/libexec/aurora/aurora-early-kms-wait
   add_file /usr/lib/aurora/initrd/aurora-kms-handover.service /usr/lib/systemd/system/aurora-kms-handover.service
   add_symlink /usr/lib/systemd/system/initrd.target.wants/aurora-kms-handover.service ../aurora-kms-handover.service
