@@ -42,6 +42,22 @@ class InitramfsModuleTests(unittest.TestCase):
         for option in ('CONFIG_DRM_APPLE=m', 'CONFIG_APPLE_PMP=m'):
             self.assertIn(option, config)
 
+    def test_cpu_frequency_driver_comes_with_every_initramfs(self):
+        # Without it the cores stay at the boot loader's clock until the real
+        # root loads the driver (MacBook Neo: 744 MHz until ~7 s). autodetect
+        # alone misses it when the image is built on another machine.
+        hooks = sourced('HOOKS')
+        self.assertIn('aurora-cpufreq', hooks)
+        self.assertLess(hooks.index('aurora-cpufreq'), hooks.index('sd-encrypt'))
+        hook = [line.strip() for line in (BOOT/'aurora-cpufreq.install').read_text().splitlines()]
+        self.assertIn('add_module apple-soc-cpufreq?', hook)
+        self.assertIn('install -Dm644 aurora-cpufreq.install "$pkgdir/usr/lib/initcpio/install/aurora-cpufreq"',
+                      (BOOT/'PKGBUILD').read_text())
+        self.assertIn('Target = usr/lib/initcpio/install/aurora-cpufreq',
+                      (BOOT/'aurora-boot.hook').read_text().splitlines())
+        config = (ROOT/'packages/linux-aurora/config').read_text().splitlines()
+        self.assertIn('CONFIG_ARM_APPLE_SOC_CPUFREQ=m', config)
+
     def test_modules_have_no_optional_suffix(self):
         # The systemd hook writes MODULES to modules-load.d unchanged, and
         # systemd-modules-load has no optional "name?" form.

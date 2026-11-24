@@ -1,0 +1,14 @@
+#!/bin/bash
+# The CPU frequency driver belongs in the initramfs, as Fedora's
+# 90-aurora-cpufreq.conf puts it there. Without it every core stays at the
+# clock the boot loader left until udev on the real root loads the driver: on
+# a MacBook Neo (A18 Pro) that is the 744 MHz hand-off clock until about 7 s
+# into the boot. autodetect only carries it when mkinitcpio runs on a Mac with
+# the driver bound; the image builder's autodetect runs on another machine, so
+# a fresh install would not have it. It binds by the cluster controllers'
+# compatible, so udev loads it during the initramfs coldplug on every Apple
+# silicon Mac.
+build() {
+  add_module apple-soc-cpufreq?
+}
+help() { echo 'Add the Apple SoC CPU frequency driver to the initramfs.'; }

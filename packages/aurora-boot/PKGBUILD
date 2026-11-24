@@ -1,12 +1,12 @@
 pkgname=aurora-boot
 pkgver=20261018
-pkgrel=21
+pkgrel=23
 pkgdesc='Aurora Alarm boot integration'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/alarm-aurora'
-source=('90-aurora.conf' 'initialize-keyring' 'aurora-alarm-keyring.service' 'aurora-boot.hook' '80-aurora-image.preset' 'aurora-usb4.install' 'aurora-display.install' 'aurora-early-kms.install' 'aurora-early-kms' 'aurora-early-kms.service' '40-aurora-console.cfg' 'aurora-grub.hook' 'aurora-early-kms-wait' 'aurora-kms-handover.service' '45-aurora-mte.cfg')
-sha256sums=('9e0d1f9c7f1410ab2d84dce18e4fa4b5b5fc025b778bd567da6e617e7fc5c69a' '6acabc8e3aceb74725a82d4488ec81382bf77fe4baa86cb407a4014985837b66' 'd1abff109369303df4e5ead2977d2642e0c13ce8a43a8841b97f9625aed6b59c' '5d60a9aae7c951dbb1de4c9723bed35b03376cb6f6bd74280da10cf48cf025e7' '92eddf89ceab1c399a7601d16571d6b22f515b6a7148fd25300dcdb9f4ea6ec2' '83c9f4a85658401161aa860544cbf4e4ddeb2e26c0759e2605dc775774d41d2d' 'c76ddae94811c2b1f55be9a0ec1622c9c66496b929de322e0ea45628f714a710' '911b9dc0799ba4e578552d2ce3ead2621e2f805c218ae2897bc01ace08a9bdb8' '2f5340c4fcdba96be0e7d3df9089f054b799400f032656de8fcaad483f0a9e56' 'af791540c692e1d3c4c016e20839252e91ad4701651a4677e3c898808f1626ed' '1f82359775d046b787756ca06b6ce274c67b169b0e0bff7578670fea5f9039fe' '2f7d86e0885e4bfce40eca05d8a197d8db23dd3fe9be8f50abcd64363f424280' 'c25b8ced2773f7d129d35ef24092355f65fdacb7beed5b29b253638b30dcbb7b' 'c9c484403313cec79d278d4f2dff226fc876856924fb2c6aa75078b2e8cb3d74' '1b50f992e7a6a0c7ddb15ec0f60d6182b29fad8d15b198b00ea44785a56ffd55')
+source=('90-aurora.conf' 'initialize-keyring' 'aurora-alarm-keyring.service' 'aurora-boot.hook' '80-aurora-image.preset' 'aurora-usb4.install' 'aurora-display.install' 'aurora-early-kms.install' 'aurora-early-kms' 'aurora-early-kms.service' '40-aurora-console.cfg' 'aurora-grub.hook' 'aurora-early-kms-wait' 'aurora-kms-handover.service' '45-aurora-mte.cfg' 'aurora-cpufreq.install')
+sha256sums=('87fdc242967cdf20670b749b712366e4d04ac8ec0d30ddcb419f5fb420f85d81' '6acabc8e3aceb74725a82d4488ec81382bf77fe4baa86cb407a4014985837b66' 'd1abff109369303df4e5ead2977d2642e0c13ce8a43a8841b97f9625aed6b59c' '8fdca18717087b60e9dc9013dd120884ccacc6aaa42d6ed6604e94d8d28084c7' '92eddf89ceab1c399a7601d16571d6b22f515b6a7148fd25300dcdb9f4ea6ec2' '83c9f4a85658401161aa860544cbf4e4ddeb2e26c0759e2605dc775774d41d2d' 'c76ddae94811c2b1f55be9a0ec1622c9c66496b929de322e0ea45628f714a710' '911b9dc0799ba4e578552d2ce3ead2621e2f805c218ae2897bc01ace08a9bdb8' '2f5340c4fcdba96be0e7d3df9089f054b799400f032656de8fcaad483f0a9e56' 'af791540c692e1d3c4c016e20839252e91ad4701651a4677e3c898808f1626ed' '1f82359775d046b787756ca06b6ce274c67b169b0e0bff7578670fea5f9039fe' '2f7d86e0885e4bfce40eca05d8a197d8db23dd3fe9be8f50abcd64363f424280' 'c25b8ced2773f7d129d35ef24092355f65fdacb7beed5b29b253638b30dcbb7b' 'c9c484403313cec79d278d4f2dff226fc876856924fb2c6aa75078b2e8cb3d74' '1b50f992e7a6a0c7ddb15ec0f60d6182b29fad8d15b198b00ea44785a56ffd55' 'dc11ad2d6716ac65b7f822b00cba389edf4ebb4769548dc42a7167c715101763')
 package() {
   # T6050 boots without arm64.nomte (45-aurora-mte.cfg): aura 1.0.0b13 reserves the MTE tag
   # storage, and linux-aurora 7.3.0.aurora1-37 keeps MTE off on an Apple SoC that reserves none.
@@ -14,6 +14,7 @@ package() {
   install -Dm644 90-aurora.conf "$pkgdir/etc/mkinitcpio.conf.d/90-aurora.conf"
   install -Dm644 aurora-usb4.install "$pkgdir/usr/lib/initcpio/install/aurora-usb4"
   install -Dm644 aurora-display.install "$pkgdir/usr/lib/initcpio/install/aurora-display"
+  install -Dm644 aurora-cpufreq.install "$pkgdir/usr/lib/initcpio/install/aurora-cpufreq"
   install -Dm644 aurora-early-kms.install "$pkgdir/usr/lib/initcpio/install/aurora-early-kms"
   install -Dm755 aurora-early-kms "$pkgdir/usr/libexec/aurora/aurora-early-kms"
   install -Dm644 aurora-early-kms.service "$pkgdir/usr/lib/aurora/initrd/aurora-early-kms.service"
