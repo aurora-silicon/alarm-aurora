@@ -1,5 +1,6 @@
 """The splash comes up early and GRUB leaves the boot logo on screen (Fedora #148, #149, #151)."""
 from pathlib import Path
+import re
 import subprocess
 import unittest
 
@@ -73,15 +74,29 @@ class BootSplashTests(unittest.TestCase):
         # git cherry-pick needs a clean tree for ply-device-manager.c.
         self.assertGreater(pkgbuild.index(apply), pkgbuild.index('git cherry-pick -n cea90be39d263e388003a07d125b469c0803d55c'))
 
-    def test_a_serial_console_does_not_force_the_text_splash(self):
-        def cmdline(defaults):
-            script = defaults + '\n. "$1"\nprintf "%s" "${GRUB_CMDLINE_LINUX-}"'
-            return subprocess.run(['sh', '-c', script, 'sh', str(DROPIN)], check=True,
-                                  capture_output=True, text=True).stdout
-        self.assertEqual(cmdline('GRUB_CMDLINE_LINUX=""'), 'plymouth.ignore-serial-consoles')
-        self.assertEqual(cmdline('GRUB_CMDLINE_LINUX="rw"'), 'rw plymouth.ignore-serial-consoles')
-        # Already there, on either line: added once only.
-        self.assertEqual(cmdline('GRUB_CMDLINE_LINUX_DEFAULT="quiet plymouth.ignore-serial-consoles"'), '')
+    def test_the_dropin_adds_no_kernel_arguments(self):
+        # aura drops a debug UART's stdout-path on normal boots, so Plymouth
+        # sees no serial console and needs no plymouth.ignore-serial-consoles.
+        script = 'GRUB_CMDLINE_LINUX="rw"\nGRUB_CMDLINE_LINUX_DEFAULT="quiet"\n. "$1"\n' \
+                 'printf "%s|%s" "$GRUB_CMDLINE_LINUX" "$GRUB_CMDLINE_LINUX_DEFAULT"'
+        out = subprocess.run(['sh', '-c', script, 'sh', str(DROPIN)], check=True,
+                             capture_output=True, text=True).stdout
+        self.assertEqual(out, 'rw|quiet')
+        self.assertNotIn('plymouth.ignore-serial-consoles', DROPIN.read_text())
+
+    def test_the_boot_loader_that_makes_the_argument_unnecessary_is_required(self):
+        # aura 1.0.0b5 is the first that removes a debug UART's stdout-path:
+        # grub.cfg is regenerated without the argument only next to such a one.
+        pkgbuild = (DROPIN.parent / 'PKGBUILD').read_text()
+        depends = re.search(r"(?m)^  depends=\((.*)\)$", pkgbuild).group(1)
+        needs = re.search(r"'aura>=([^']+)'", depends)
+        self.assertIsNotNone(needs, 'aurora-boot depends on aura without a minimum version')
+        version = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:b(\d+))?(?:\.\d+)*', needs.group(1))
+        self.assertIsNotNone(version, needs.group(1))
+        release = tuple(int(part) for part in version.groups()[:3])
+        # A version without bN is the release, later than every beta.
+        beta = int(version.group(4)) if version.group(4) else float('inf')
+        self.assertGreaterEqual((release, beta), ((1, 0, 0), 5))
 
     def test_grub_stays_on_the_console_unless_the_owner_chose(self):
         arch = 'GRUB_TIMEOUT=5\nGRUB_TIMEOUT_STYLE=menu\n#GRUB_TERMINAL_OUTPUT=console'

@@ -241,9 +241,9 @@ printf 'UUID=%s / btrfs subvol=root,compress=zstd:1 0 0\nUUID=%s /home btrfs sub
 printf '\nGRUB_CMDLINE_LINUX="rootflags=subvol=root"\n' >> "$mountroot/etc/default/grub"
 # Quiet by default: failures still reach the console, and systemd shows
 # status only when a unit fails or stalls. Desktop images boot to the splash.
-# The console is the display: when a device tree names a serial console,
-# Plymouth would otherwise draw its prompt as text there and on the screen.
-cmdline='quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto console=tty0'
+# No console=: aura keeps a debug UART out of stdout-path on normal boots, so
+# the display (tty0) is the only console.
+cmdline='quiet loglevel=3 rd.udev.log_level=3 systemd.show_status=auto'
 [[ $profile == arch-minimal ]] || cmdline+=' splash'
 printf 'GRUB_CMDLINE_LINUX_DEFAULT="%s"\n' "$cmdline" >> "$mountroot/etc/default/grub"
 chroot "$mountroot" mkinitcpio -P

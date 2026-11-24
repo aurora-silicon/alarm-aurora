@@ -91,8 +91,11 @@ class DesktopFirstBootTests(unittest.TestCase):
         self.assertNotIn('sddm.conf.d', BUILD_IMAGE)
         self.assertNotIn('sddm.service.d', BUILD_IMAGE)
 
-    def test_every_profile_draws_on_the_display_console(self):
-        self.assertRegex(BUILD_IMAGE, r"(?m)^cmdline='[^']*\bconsole=tty0\b[^']*'$")
+    def test_no_profile_names_a_console(self):
+        # The display is the only console without one: aura drops a debug
+        # UART's stdout-path on normal boots.
+        line = re.search(r"(?m)^cmdline='([^']*)'$", BUILD_IMAGE).group(1)
+        self.assertNotIn('console=', line)
 
     def test_kde_display_manager_checks_fail_the_build(self):
         # Run build-image's own KDE checks against stub roots: chroot answers
