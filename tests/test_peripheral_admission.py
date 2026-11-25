@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 
 
@@ -91,6 +92,104 @@ class PeripheralAdmissionTests(unittest.TestCase):
         blacklist = (PACKAGE / 'aurora-firmware-order.conf').read_text().splitlines()
         self.assertIn('blacklist dockchannel-hid', blacklist)
         self.assertIn('  add_module dockchannel-hid', (PACKAGE / 'aurora-vendor.install').read_text().splitlines())
+
+    def test_handoff_waits_for_the_esp_not_for_udev_to_settle(self):
+        unit = (PACKAGE / 'aurora-vendor-firmware.service').read_text()
+        self.assertNotIn('systemd-udev-settle', unit)
+        for line in ('Wants=systemd-udevd.service systemd-udev-trigger.service',
+                     'After=systemd-udevd.service systemd-udev-trigger.service'):
+            self.assertIn(line, unit.splitlines())
+        script = (PACKAGE / 'load-vendor-firmware').read_text()
+        self.assertIn('udevadm wait --timeout=60 "$device"', script)
+        self.assertNotIn('udevadm settle', script)
+        # The keyboard is admitted before the disk unlock prompt, and the ESP
+        # wait (60 s) ends inside systemd's default start timeout (90 s), so a
+        # missing ESP cannot get the unit killed before admission.
+        self.assertIn('cryptsetup-pre.target', unit.split('Before=', 1)[1].splitlines()[0].split())
+        self.assertNotIn('TimeoutStartSec', unit)
+
+    def esp_wait(self, root, appears_after, mode='initrd'):
+        """Run the handoff while the ESP's device node shows up late or never.
+
+        The fake udevadm honours --timeout in 50 ms ticks, so the 60 s bound
+        is 3 s here; findmnt reports the ESP only once its node exists.
+        """
+        node = root / 'esp-node'
+        esp = root / 'esp'
+        (esp / 'vendorfw').mkdir(parents=True)
+        (esp / 'vendorfw/firmware.cpio').write_bytes(b'fixture')
+        tools = root / 'bin'
+        tools.mkdir()
+        for name, body in (
+                ('udevadm', '[ "$1" = wait ] || exit 0\n'
+                            'echo "udevadm $*" >> "$AURORA_TEST_CALLS"\n'
+                            'ticks=${2#--timeout=}; ticks=$((ticks))\n'
+                            'while [ ! -e "$AURORA_TEST_ESP_NODE" ]; do\n'
+                            '  [ "$ticks" -gt 0 ] || exit 1\n'
+                            '  sleep 0.05; ticks=$((ticks - 1))\n'
+                            'done'),
+                ('findmnt', f'[ -e "$AURORA_TEST_ESP_NODE" ] && echo "{esp}"'),
+                ('mount', 'echo "mount $*" >> "$AURORA_TEST_CALLS"; exit 32'),
+                ('cpio', 'echo cpio >> "$AURORA_TEST_CALLS"; mkdir -p vendorfw; '
+                         'cat > vendorfw/.vendorfw.manifest'),
+                ('modprobe', 'echo "modprobe $1" >> "$AURORA_TEST_CALLS"'),
+                # The real admission script, installed executable by the package.
+                ('admission', f'exec sh "{PACKAGE / "aurora-peripheral-firmware.sh"}"')):
+            (tools / name).write_text(f'#!/bin/sh\n{body}\n')
+            (tools / name).chmod(0o755)
+        (root / 'property').write_bytes(b'5A1E0001-0000-4000-8000-00000000E5B0\0')
+        (root / 'compatible').write_bytes(b'apple,j413\0apple,t8112\0')
+        env = dict(
+            os.environ,
+            PATH=f'{tools}:{os.environ["PATH"]}',
+            AURORA_ESP_PROPERTY=str(root / 'property'),
+            AURORA_PERIPHERAL_ADMISSION=str(tools / 'admission'),
+            AURORA_DT_COMPATIBLE=str(root / 'compatible'),
+            AURORA_PCI_ROOT=str(root / 'pci'),
+            AURORA_FIRMWARE_DESTINATION=str(root / 'destination'),
+            AURORA_FIRMWARE_SEARCH_PATH=str(root / 'search-path'),
+            AURORA_TEST_ESP_NODE=str(node),
+            AURORA_TEST_CALLS=str(root / 'calls'),
+        )
+        start = time.monotonic()
+        handoff = subprocess.Popen(['bash', str(PACKAGE / 'load-vendor-firmware'), mode], env=env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if appears_after is not None:
+            time.sleep(appears_after)
+            node.touch()
+        stdout, stderr = handoff.communicate(timeout=30)
+        elapsed = time.monotonic() - start
+        return handoff.returncode, stderr, (root / 'calls').read_text().splitlines(), elapsed
+
+    def test_late_esp_is_waited_for_and_its_firmware_reaches_the_keyboard_probe(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            status, stderr, calls, elapsed = self.esp_wait(root, appears_after=0.5)
+            self.assertEqual(status, 0, stderr)
+            # The firmware is unpacked before the keyboard driver probes.
+            self.assertEqual(calls, [
+                'udevadm wait --timeout=60 /dev/disk/by-partuuid/5a1e0001-0000-4000-8000-00000000e5b0',
+                'cpio', 'modprobe dockchannel-hid', 'modprobe aop'])
+            self.assertEqual((root / 'search-path').read_text(), str(root / 'destination/vendorfw'))
+            # The wait ends when the node appears, not at its bound.
+            self.assertLess(elapsed, 2.5)
+
+    def test_missing_esp_is_bounded_and_still_admits_the_keyboard(self):
+        for mode, expected_status, message in (
+                ('initrd', 0, b'handoff failed; the real root will retry it'),
+                ('runtime', 1, b'handoff failed; admitting peripherals without it')):
+            with tempfile.TemporaryDirectory() as temporary, self.subTest(mode=mode):
+                root = Path(temporary)
+                status, stderr, calls, elapsed = self.esp_wait(root, appears_after=None, mode=mode)
+                self.assertEqual(status, expected_status, stderr)
+                self.assertIn(message, stderr)
+                self.assertEqual(calls, [
+                    'udevadm wait --timeout=60 /dev/disk/by-partuuid/5a1e0001-0000-4000-8000-00000000e5b0',
+                    'modprobe dockchannel-hid', 'modprobe aop'])
+                self.assertFalse((root / 'search-path').exists())
+                # 60 ticks of 50 ms: the wait gives up at its bound.
+                self.assertGreaterEqual(elapsed, 2.5)
+                self.assertLess(elapsed, 10)
 
     def test_failed_firmware_handoff_still_admits_input(self):
         with tempfile.TemporaryDirectory() as temporary:
