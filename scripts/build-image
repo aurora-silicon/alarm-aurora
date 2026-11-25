@@ -111,7 +111,7 @@ packages=(base sudo bash python btrfs-progs cryptsetup networkmanager-aurora blu
 # game under it.
 case $profile in
   arch-kde) packages+=(kwin-aurora iio-sensor-proxy-aurora plasma-meta plasma-workspace-wallpapers kinfocenter plasma-login-manager konsole dolphin plasma-nm firefox xdg-desktop-portal-kde plasma-setup plymouth plymouth-theme-aurora gamemode aurora-gamemode);;
-  arch-gnome) packages+=(mutter-aurora gnome-settings-daemon-aurora iio-sensor-proxy-aurora gnome-shell gdm gnome-control-center nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora gamemode aurora-gamemode);;
+  arch-gnome) packages+=(mutter-aurora gnome-settings-daemon-aurora iio-sensor-proxy-aurora gnome-shell gdm gnome-control-center-aurora nautilus gnome-terminal gnome-keyring gvfs firefox xdg-desktop-portal-gnome gnome-initial-setup gnome-backgrounds plymouth plymouth-theme-aurora gamemode aurora-gamemode);;
 esac
 # GitHub release downloads sometimes stall, so only downloads are tried
 # again (finished packages stay cached). The package set is resolved once
