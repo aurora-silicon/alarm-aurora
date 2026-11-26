@@ -51,13 +51,9 @@ packaging report in [#335](https://github.com/aurora-silicon/alarm-aurora/issues
   loops and relative paths escaping the layer fail. The package's layer location
   itself cannot be redirected to a source/build directory.
 
-This command complements #344's layout fix and its author's stand-in-root `ldd`
-checks. It does not implement that fix. While main still packages the old Fedora
-layout, validating its finished package is expected to fail. For that reason the
-post-package invocation is explicit rather than an unconditional step in
-`scripts/ci-build-fex-guest`. Once the corrected layout lands, builders can run
-the extraction and check above after that script finishes, before publishing
-the archive. The regression tests already run in the existing package workflow's
+`scripts/ci-build-fex-guest` runs this check on the archive it has just built,
+before copying it to `out/packages`, so a package that fails it is not uploaded.
+The regression tests already run in the existing package workflow's
 `unittest discover` step, without building Mesa:
 
 ```sh

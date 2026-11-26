@@ -12,6 +12,13 @@ cp -a "$root/packages/mesa-aurora-fex-guest/." /tmp/package-build/
 chown -R builder:builder /tmp/package-build
 cd /tmp/package-build
 runuser -u builder -- makepkg --syncdeps --noconfirm
+# Check the finished archive: package() adds the bundled libraries and the
+# provider after check() has run.
+payload=$(mktemp -d)
+for archive in ./*.pkg.tar.*; do
+  bsdtar -xf "$archive" -C "$payload"
+done
+python3 "$root/scripts/check-fex-guest-payload.py" --package-root "$payload"
 mkdir -p "$root/out/packages"
 for archive in ./*.pkg.tar.*; do
   name=${archive##*/}

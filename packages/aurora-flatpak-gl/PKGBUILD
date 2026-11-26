@@ -1,7 +1,7 @@
 pkgname=aurora-flatpak-gl
 epoch=1
 pkgver=26.3.0_devel.202611150611.d4ad4a4dce6
-pkgrel=1
+pkgrel=2
 pkgdesc='Aurora Mesa Flatpak GL extension for Freedesktop 25.08 and 26.08'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/alarm-aurora'
