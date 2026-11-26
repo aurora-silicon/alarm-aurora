@@ -18,7 +18,7 @@ import updatelib as lib  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 SINGLE_ARCHIVE_RECIPES = (
-    'aurora-diag', 'aurora-firstboot', 'aurora-kbd-light', 'aurora-neo-platform-config',
+    'aurora-camera-denoise', 'aurora-diag', 'aurora-firstboot', 'aurora-kbd-light', 'aurora-neo-platform-config',
     'aurora-xart', 'upower-aurora',
 )
 GIT_RECIPES = ('alsa-ucm-conf-aurora', 'aurora-bless')
