@@ -1,3 +1,4 @@
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -142,10 +143,11 @@ class PeripheralAdmissionTests(unittest.TestCase):
             self.assertIn(b'handoff failed; the real root will retry it', result.stderr)
             self.assertEqual(calls.read_text().splitlines(), ['0'])
 
-    def runtime_handoff(self, root, esp):
+    def runtime_handoff(self, root, esp, cmdline=''):
         """The real-root retry, with the ESP already mounted at esp."""
         tools = root / 'bin'
         tools.mkdir()
+        (root / 'cmdline').write_text(cmdline + '\n')
         for name, body in (('udevadm', 'exit 0'), ('findmnt', f'echo "{esp}"'),
                            ('mount', 'echo "mount $*" >> "$AURORA_TEST_CALLS"; exit 32'),
                            ('cpio', 'echo "cpio $*" >> "$AURORA_TEST_CALLS"; mkdir -p vendorfw; '
@@ -160,6 +162,7 @@ class PeripheralAdmissionTests(unittest.TestCase):
             os.environ,
             PATH=f'{tools}:{os.environ["PATH"]}',
             AURORA_ESP_PROPERTY=str(root / 'property'),
+            AURORA_KERNEL_CMDLINE=str(root / 'cmdline'),
             AURORA_PERIPHERAL_ADMISSION=str(admission),
             AURORA_FIRMWARE_DESTINATION=str(root / 'destination'),
             AURORA_FIRMWARE_SEARCH_PATH=str(root / 'search-path'),
@@ -181,6 +184,44 @@ class PeripheralAdmissionTests(unittest.TestCase):
             self.assertEqual(calls, ['cpio --quiet --extract --unconditional --no-absolute-filenames', 'admit 1'])
             self.assertEqual((root / 'destination/vendorfw/.vendorfw.manifest').read_bytes(), b'fixture')
             self.assertEqual((root / 'search-path').read_text(), str(root / 'destination/vendorfw'))
+
+    def test_signed_boot_extracts_only_the_archive_it_binds(self):
+        # A signed UKI's command line carries the archive's digest; the ESP is
+        # outside the signature, so any other archive is refused before cpio
+        # runs and the firmware search path is left alone.
+        digest = 'sha256:' + hashlib.sha256(b'fixture').hexdigest()
+        other = 'sha256:' + hashlib.sha256(b'replaced').hexdigest()
+        cases = {
+            'matching digest': (f'root=UUID=x aurora.vendorfw={digest} lockdown=integrity', 0),
+            'other digest': (f'aurora.vendorfw={other}', 1),
+            'no archive trusted': ('aurora.vendorfw=none', 1),
+            'malformed digest': ('aurora.vendorfw=sha256:XYZ', 1),
+            'unsigned boot': ('root=UUID=x', 0),
+        }
+        for name, (cmdline, status) in cases.items():
+            with self.subTest(name), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / 'esp/vendorfw').mkdir(parents=True)
+                (root / 'esp/vendorfw/firmware.cpio').write_bytes(b'fixture')
+                result, calls = self.runtime_handoff(root, root / 'esp', cmdline)
+                destination = root / 'destination'
+                self.assertEqual(result.returncode, status, result.stderr)
+                self.assertFalse((destination / '.vendorfw.cpio').exists(), 'the private copy is removed')
+                if status == 0:
+                    self.assertEqual(calls, ['cpio --quiet --extract --unconditional --no-absolute-filenames',
+                                             'admit 1'])
+                    self.assertEqual((destination / 'vendorfw/.vendorfw.manifest').read_bytes(), b'fixture')
+                    self.assertEqual((root / 'search-path').read_text(), str(destination / 'vendorfw'))
+                else:
+                    self.assertEqual(calls, ['admit 1'])
+                    self.assertIn(b'<3>Aurora:', result.stderr)
+                    self.assertFalse((destination / 'vendorfw').exists())
+                    self.assertFalse((root / 'search-path').exists())
+
+    def test_initrd_carries_the_digest_tools(self):
+        install = (PACKAGE / 'aurora-vendor.install').read_text()
+        for binary in ('cp', 'rm', 'sha256sum'):
+            self.assertRegex(install, rf'for binary in [^;]*\b{binary}\b')
 
     def test_esp_without_vendor_firmware_admits_cleanly(self):
         with tempfile.TemporaryDirectory() as temporary:
