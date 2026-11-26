@@ -91,7 +91,7 @@ Such an aura moves the kernel into the CTXR window, which only a kernel built wi
 `aurora-ctxr-execmem`, which `linux-aurora` provides when its `_ctxr_execmem=1`. Its `prepare()` checks
 that flag against the resolved configuration, so it can be set only with a kernel pin that has
 aurora-silicon/linux#985. `tests/test_update_m1n1.py` fails if `_monitor_free` is set without it.
-Every kernel pin since 4731456 has it, and `packages/linux-aurora/config` turns it on, so `_ctxr_execmem` is 1.
+Every kernel pin since 4731456 has it, and the kernel's `arch/arm64/configs/asahi.config` turns it on, so `_ctxr_execmem` is 1.
 
 With the marker, a Mac that boots a Mach-O Stage 1 (`/proc/device-tree/compatible` names one of the chips
 in the installer's `AuraStage1Format.usesMachO`: T8130 and later, T6040 and later) gets

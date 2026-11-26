@@ -56,13 +56,12 @@ makedepends=(
 )
 options=('!strip')
 source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/linux/tar.gz/${_commit}"
-        rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
+        rust-toolchain.toml bindgen-kernel.py 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
             '9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '12a712faddcd8d624b28641b63187796e29732d34fb18d0b3a037443b74c3dcc'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
@@ -117,10 +116,10 @@ prepare() {
   export RUSTUP_TOOLCHAIN=1.99.0
   rustup toolchain install 1.99.0 --profile minimal --component rust-src
   mkdir -p build/base
-  # The full distribution configuration (resolved against this pin) is the
-  # base; the source-pinned asahi.config owns shared Apple hardware settings.
-  cp ../config build/base/.config
-  scripts/kconfig/merge_config.sh -m -O "$PWD/build/base" build/base/.config arch/arm64/configs/asahi.config
+  # The kernel source owns the one configuration every Aurora kernel uses
+  # (aurora-base.config with asahi.config merged over it). Only the release
+  # name below is ours.
+  _make O="$PWD/build/base" aurora_defconfig
   # Keep shared kexec support: apple_piodma_lock_transition() in
   # pcie-apple-piodma-diag.c acquires the kernel kexec blocker before Neo radio
   # admission retains DMA/firmware ownership. Both kexec
@@ -129,7 +128,7 @@ prepare() {
   # device trees under /lib/modules/*-ARCH.
   scripts/config --file build/base/.config --set-str LOCALVERSION '-ARCH' --disable LOCALVERSION_AUTO
   _make O="$PWD/build/base" olddefconfig
-  python3 ../validate-config.py arch/arm64/configs/asahi.config build/base/.config
+  python3 ../validate-config.py arch/arm64/configs/aurora-base.config arch/arm64/configs/asahi.config build/base/.config
   local ctxr=0
   if grep -qx 'CONFIG_ARM64_CTXR_EXECMEM=y' build/base/.config; then ctxr=1; fi
   if (( ctxr != _ctxr_execmem )); then
