@@ -1,0 +1,11 @@
+# mesa-aurora-fex-guest is gone: its service's stop already moved FEX back to
+# the stock image unless the provider stayed mounted in use. Check again.
+[Trigger]
+Operation = Remove
+Type = Path
+Target = usr/share/guestos/aurora-fex-mesa-layer/.aurora-mesa-commit
+
+[Action]
+Description = Checking FEX's default root filesystem...
+When = PostTransaction
+Exec = /usr/lib/fex-emu/aurora-fex-rootfs

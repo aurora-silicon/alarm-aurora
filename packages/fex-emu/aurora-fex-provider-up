@@ -1,14 +1,24 @@
 #!/bin/sh
 # Bring Aurora's FEX guest graphics provider up once its lower layer (the
 # stock guest root filesystem) can mount: on the first install, or when that
-# filesystem image arrives or changes. Leaves a disabled provider alone.
+# filesystem image arrives or changes. Leaves a disabled provider alone. FEX's
+# global RootFS then follows whether the provider is mounted.
 [ -d /run/systemd/system ] || exit 0
-systemctl -q is-enabled aurora-fex-mesa.service 2>/dev/null || exit 0
-# The new mount unit and drop-in may not be loaded yet in this transaction.
-systemctl daemon-reload || :
-lower='usr-share-guestos-fex\x2dmesa.mount'
-if systemctl -q is-active "$lower"; then
-	# A replaced image needs a fresh loop mount; the overlay holds it busy.
-	systemctl stop aurora-fex-mesa.service "$lower" || :
+if systemctl -q is-enabled aurora-fex-mesa.service 2>/dev/null; then
+	# The new mount unit and drop-in may not be loaded yet in this transaction.
+	systemctl daemon-reload || :
+	lower='usr-share-guestos-fex\x2dmesa.mount'
+	if systemctl -q is-active "$lower"; then
+		# A replaced image needs a fresh loop mount; the overlay holds it busy.
+		systemctl stop aurora-fex-mesa.service "$lower" || :
+	elif systemctl -q is-active aurora-fex-mesa.service &&
+		[ -e /usr/share/fex-emu/RootFS/default.erofs ] &&
+		[ -z "$(ls -A /usr/share/guestos/fex-mesa 2>/dev/null)" ]; then
+		# Up before the image arrived, over an empty lower directory: only
+		# Mesa. Mount it again with the image below it.
+		systemctl stop aurora-fex-mesa.service || :
+	fi
+	systemctl start aurora-fex-mesa.service || :
 fi
-systemctl start aurora-fex-mesa.service || :
+# Also when the provider was already up and its drop-in is new.
+/usr/lib/fex-emu/aurora-fex-rootfs || :

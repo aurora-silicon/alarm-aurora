@@ -1,9 +1,13 @@
 """FEX and Steam come from Aurora under the names users type."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
+import time
+import shutil
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -127,8 +131,102 @@ class FexSteamTests(unittest.TestCase):
         for source, digest in sources('aurora-steam-native'):
             if '://' not in source:
                 self.assertEqual(hashlib.sha256((d / source).read_bytes()).hexdigest(), digest)
+        # Games run under GameMode with Aurora's settings; upgrades bring it.
+        self.assertIn('aurora-gamemode', field('aurora-steam-native', 'package_steam', 'depends'))
+        self.assertIn('AURORA_STEAM_GAMEMODE', (d / 'steam').read_text())
         subprocess.run(['bash', '-n', str(d / 'steam')], check=True)
 
+    def test_steam_registers_each_game_process_with_gamemode(self):
+        # The watcher follows the client's logs/gameprocess_log.txt through
+        # inotify, registers every tracked PID and sleeps in between.
+        def watchers(root):
+            found = []
+            for proc in Path('/proc').iterdir():
+                try:
+                    argv = (proc / 'cmdline').read_bytes().split(b'\0')
+                except OSError:
+                    continue
+                if argv[0] == b'aurora-steam-gamemode' and str(root).encode() in b' '.join(argv):
+                    found.append(proc)
+            return found
+
+        def wait(condition):
+            deadline = time.monotonic() + 10
+            while not condition():
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(0.05)
+
+        def switches(proc):
+            status = (proc / 'status').read_text()
+            return int(re.search(r'(?m)^voluntary_ctxt_switches:\s+(\d+)$', status)[1])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lib, home, stubs, client = root / 'lib', root / 'home', root / 'stubs', root / 'client'
+            for path in (lib / 'bin', client / 'steamrtarm64', client / 'logs', stubs, home / '.steam'):
+                path.mkdir(parents=True)
+            (home / '.steam/root').symlink_to(client)
+            gamelog, log = client / 'logs/gameprocess_log.txt', root / 'busctl.log'
+            gamelog.write_text('[2026-11-17 19:14:50] AppID 9 adding PID 999 as a tracked process\n')
+            log.write_text('')
+            bash = shutil.which('bash')
+
+            def script(path, body):
+                path.write_text(f'#!{bash}\n' + body)
+                path.chmod(0o755)
+            script(client / 'steamrtarm64/steam', '')
+            script(lib / 'bin/steam-native4k', 'exec sleep 60\n')
+            script(root / 'userpages', '')
+            script(stubs / 'busctl', f'echo "busctl $*" >> {log}\n'
+                   'case "$*" in *ListActivatableNames*) echo \'as 2 "org.freedesktop.DBus" "com.feralinteractive.GameMode"\';; esac\n')
+            wrapper = root / 'steam'
+            wrapper.write_text((ROOT / 'packages/aurora-steam-native/steam').read_text().replace('@LIBDIR@', str(lib))
+                               .replace('@USERPAGES@', str(root / 'userpages')).replace('@USER4K_HINT@', 'hint'))
+            wrapper.chmod(0o755)
+            env = {'HOME': str(home), 'PATH': f'{stubs}:{os.environ["PATH"]}', 'USER': 'test'}
+
+            def registered():
+                return [line.split()[-1] for line in log.read_text().splitlines() if 'RegisterGameByPID ii' in line]
+
+            steam = subprocess.Popen([bash, str(wrapper)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                wait(lambda: len(watchers(client)) == 1)
+                watcher = watchers(client)[0]
+                wait(lambda: (watcher / 'stat').read_text().rsplit(')', 1)[1].split()[0] == 'S')
+                with gamelog.open('a') as f:
+                    f.write('[2026-11-20 10:00:00] AppID 383870 adding PID 4242 as a tracked process "x"\n'
+                            '[2026-11-20 10:00:00] AppID 383870 adding PID 4243 as a')
+                wait(lambda: registered() == ['4242'])
+                with gamelog.open('a') as f:
+                    f.write(' tracked process\n')
+                wait(lambda: registered() == ['4242', '4243'])
+                # Idle: blocked in select(), no wake-ups at all.
+                time.sleep(0.5)
+                before = switches(watcher)
+                time.sleep(2)
+                self.assertEqual(switches(watcher), before)
+                # Steam rotates the log and starts a new one.
+                gamelog.rename(gamelog.with_name('gameprocess_log.previous.txt'))
+                gamelog.write_text('[2026-11-20 10:05:00] AppID 1 adding PID 5000 as a tracked process\n')
+                wait(lambda: registered() == ['4242', '4243', '5000'])
+                self.assertIn('busctl --user call com.feralinteractive.GameMode /com/feralinteractive/GameMode '
+                              'com.feralinteractive.GameMode RegisterGameByPID ii', log.read_text())
+            finally:
+                steam.kill()
+                steam.wait()
+            # The watcher ends with Steam.
+            wait(lambda: not watchers(client))
+            # Opt-out: no watcher while Steam runs.
+            steam = subprocess.Popen([bash, str(wrapper)], env={**env, 'AURORA_STEAM_GAMEMODE': '0'},
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                wait(lambda: (Path('/proc') / str(steam.pid) / 'cmdline').read_bytes().startswith(b'sleep'))
+                time.sleep(0.5)
+                self.assertEqual(watchers(client), [])
+            finally:
+                steam.kill()
+                steam.wait()
+            self.assertEqual(registered(), ['4242', '4243', '5000'])
     def test_fex_mounts_the_stock_guest_rootfs_below_the_aurora_mesa_layer(self):
         d = ROOT / 'packages/fex-emu'
         unit = (d / 'fex-guest-rootfs.mount').read_text()
@@ -143,6 +241,40 @@ class FexSteamTests(unittest.TestCase):
         text = (d / 'PKGBUILD').read_text()
         self.assertIn('"$pkgdir/usr/lib/systemd/system/aurora-fex-mesa.service.d/50-aurora-fex-rootfs.conf"', text)
         subprocess.run(['sh', '-n', str(d / 'aurora-fex-provider-up')], check=True)
+
+    def test_fex_uses_the_aurora_mesa_provider_while_it_is_mounted(self):
+        d = ROOT / 'packages/fex-emu'
+        # pacman has no weak dependencies, and the guest pins mesa-aurora's
+        # build: Aurora's images carry it, fex-emu only suggests it.
+        self.assertNotIn('mesa-aurora-fex-guest', field('fex-emu', 'package_fex-emu', 'depends'))
+        self.assertIn('util-linux', field('fex-emu', 'package_fex-emu', 'depends'))
+        self.assertTrue([o for o in field('fex-emu', 'package_fex-emu', 'optdepends')
+                         if o.startswith('mesa-aurora-fex-guest: ')])
+        self.assertIn('mesa-aurora-fex-guest', (ROOT / 'scripts/build-image').read_text())
+        # FEX reads the runtime config over the global one, in the global layer only.
+        patch = '0003-Config-read-a-runtime-system-config-over-the-global-one.patch'
+        self.assertIn(patch, field('fex-emu', None, 'source'))
+        text = (d / 'PKGBUILD').read_text()
+        self.assertIn(f'patch -Np1 -i "$srcdir/{patch}"', text.split('\nprepare() {', 1)[1].split('\n}', 1)[0])
+        body = (d / patch).read_text()
+        self.assertIn('+  if (GetLayerType() == FEXCore::Config::LayerType::LAYER_GLOBAL_MAIN) {', body)
+        self.assertIn('+    const fextl::string RuntimeConfig {"/run/fex-emu/Config.json"};', body)
+        self.assertIn('grep -qaF /run/fex-emu/Config.json build/Bin/FEX', text.split('\ncheck() {', 1)[1].split('\n}', 1)[0])
+        package = text.split('\npackage_fex-emu() {', 1)[1].split('\n}', 1)[0]
+        self.assertIn('install -Dm755 aurora-fex-rootfs "$pkgdir/usr/lib/fex-emu/aurora-fex-rootfs"', package)
+        self.assertIn('install -Dm644 71-aurora-fex-rootfs.hook "$pkgdir/usr/share/libalpm/hooks/71-aurora-fex-rootfs.hook"',
+                      package)
+        dropin = (d / '50-aurora-fex-rootfs.conf').read_text()
+        for key in ('ExecStartPost', 'ExecStopPost'):
+            self.assertIn(f'\n{key}=-/usr/lib/fex-emu/aurora-fex-rootfs\n', dropin)
+        self.assertIn('\nBefore=systemd-user-sessions.service\n', dropin)
+        script = (d / 'aurora-fex-rootfs').read_text()
+        self.assertIn('provider=/usr/share/guestos/aurora-fex-mesa\n', script)
+        subprocess.run(['sh', '-n', str(d / 'aurora-fex-rootfs')], check=True)
+        self.assertIn('/usr/lib/fex-emu/aurora-fex-rootfs || :\n', (d / 'aurora-fex-provider-up').read_text())
+        # The installed global config still names the stock image.
+        self.assertEqual(json.loads((d / 'Config.json').read_text()),
+                         {'Config': {'RootFS': '/usr/share/fex-emu/RootFS/default.erofs'}})
 
     def test_gtk2_is_built_here_for_the_native_client(self):
         # Arch Linux ARM dropped GTK 2; steamui.so needs libgtk-x11-2.0.so.0.

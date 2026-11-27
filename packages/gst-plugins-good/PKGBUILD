@@ -1,0 +1,116 @@
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Jan de Groot <jgc@archlinux.org>
+#
+# The gst-plugins-good package of Arch Linux ARM's GStreamer recipe
+# (archlinuxarm/PKGBUILDs extra/gstreamer at
+# efe7311f905231e587cfc7c54cd64524bed20374, 1.28.9-3), built on its own from
+# the gst-plugins-good release with the Aurora V4L2 mem2mem ProRes decoder
+# (v4l2proresdec) and encoder (v4l2proresenc), for the ProRes engine of Apple
+# silicon Macs; fedora-aurora's gstreamer1-plugins-good carries the same patch.
+# It ships the files, dependencies and options of ALARM's package. The gtk,
+# qmlgl and qml6 plugins of gst-plugins-good stay in ALARM's gst-plugin-gtk,
+# gst-plugin-qmlgl and gst-plugin-qml6, so they are not built here.
+#
+# Only this package of the gstreamer pkgbase is replaced: rebuilding all of
+# it would carry every GStreamer package (and gst-plugins-bad's many
+# libraries) here for one plugin. ALARM's split packages require each other
+# at the exact pkgver-pkgrel; nothing requires gst-plugins-good that way, and
+# this package requires gstreamer and gst-plugins-base-libs at >= pkgver, so
+# ALARM's rebuilds of the rest install alongside it. pkgrel 3.1 sorts above
+# ALARM's 3 and [aurora] precedes [extra] in pacman.conf, so pacman keeps this
+# build; move it with ALARM's GStreamer (a new release or a library soname).
+
+pkgname=gst-plugins-good
+pkgver=1.28.9
+pkgrel=3.1
+pkgdesc="Multimedia graph framework - good plugins"
+url="https://gstreamer.freedesktop.org/"
+arch=(aarch64)
+license=(LGPL-2.1-or-later)
+depends=(
+  "gst-plugins-base-libs>=$pkgver"
+  "gstreamer>=$pkgver"
+  aalib
+  bzip2
+  cairo
+  flac
+  gdk-pixbuf2
+  glib2
+  glibc
+  lame
+  libavc1394
+  libcaca
+  libdv
+  libgcc
+  libgudev
+  libiec61883
+  libjpeg-turbo
+  libpng
+  libpulse
+  libraw1394
+  libshout
+  libsoup3
+  libstdc++
+  libvpx
+  libx11
+  libxdamage
+  libxext
+  libxfixes
+  libxml2
+  libxtst
+  mpg123
+  nettle
+  opencore-amr
+  orc
+  speex
+  taglib
+  twolame
+  v4l-utils
+  wavpack
+  zlib
+)
+makedepends=(
+  glib2-devel
+  jack
+  meson
+  python
+)
+optdepends=("jack: JACK backend")
+source=(
+  "https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-$pkgver.tar.xz"
+  # Aurora: V4L2 mem2mem ProRes decoder and encoder
+  0001-v4l2-add-ProRes-decoder-and-encoder.patch
+  # Aurora: v4l2videodec switches to a supported capture format first
+  0002-v4l2videodec-switch-to-a-supported-capture-format-be.patch
+)
+b2sums=('19c506f8e20624c90969e6fc85acc599ddc752842dc549f55bee4fd8047dc04c10b98296b72ecf4774727643729b9e49d2fd5ac66aff790e697abe93478b651d'
+        'a07c02bd52f9e0d1933338ff67eef447da39e86e3bfdfc4bab496b43a2ed4025177282e8773a9cc2c72a11a893427168da7fd9438ef302b7136bbf990709af25'
+        'a8d6523d75256e4139c9a0dacd6bd09a93fe1374dd0e821a8005a7146ea97465740d970dc52dfa9fa21a2a1d2a0faccc0606bdaa4467e3cd415d46c9f21b41ba')
+
+prepare() {
+  cd gst-plugins-good-$pkgver
+  patch -Np1 -i ../0001-v4l2-add-ProRes-decoder-and-encoder.patch
+  patch -Np1 -i ../0002-v4l2videodec-switch-to-a-supported-capture-format-be.patch
+}
+
+build() {
+  local meson_options=(
+    -D doc=disabled
+    -D examples=disabled
+    -D glib_debug=disabled
+    -D gtk3=disabled
+    -D orc=enabled
+    -D qt5=disabled
+    -D qt6=disabled
+    -D rpicamsrc=disabled
+    -D package-name="Arch Linux GStreamer ${epoch:+$epoch:}$pkgver-$pkgrel"
+    -D package-origin="https://www.archlinux.org/"
+  )
+
+  arch-meson gst-plugins-good-$pkgver build "${meson_options[@]}"
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}

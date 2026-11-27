@@ -1,0 +1,178 @@
+From 220d1246b40933651825ec59169d054691caf918 Mon Sep 17 00:00:00 2001
+From: Nick <nekreshen@yandex.ru>
+Date: Fri, 20 Nov 2026 16:56:58 +0700
+Subject: [PATCH] surface: decode 10-bit into P010 surfaces when the decoder
+ writes P010
+
+With a format converter present, 10-bit configs handed out only NV12
+surfaces, on the assumption that decoders produce packed NV15 which the
+converter turns into NV12. Apple AVD writes P010 itself, so no converter
+is chained and the decode CAPTURE format is P010. FFmpeg's VA-API
+hwcontext derives an image from a pool surface before the first decode,
+which gave that surface an NV12 backing; capture_buffer_bind() then
+refused it ("cannot decode into the already-exported surface layout")
+and every HEVC Main10, AV1 10-bit and VP9 profile 2 decode failed once
+the Apple scaler (a converter) was exposed.
+
+Probe once whether a decoder takes P010 as its CAPTURE format (coded
+OUTPUT format, 10-bit SPS, S_FMT(P010), as backing_alloc() sizes P010
+storage). Route 10-bit through the converter only when none does;
+otherwise offer P010 surfaces and back bare 10-bit surfaces with P010.
+
+Assisted-by: Claude Opus 5.5
+---
+ src/surface.c      | 97 ++++++++++++++++++++++++++++++++++++++++++++--
+ src/v4l2_request.h |  5 +++
+ 2 files changed, 98 insertions(+), 4 deletions(-)
+
+diff --git a/src/surface.c b/src/surface.c
+index 3dff5de..d1bcbce 100644
+--- a/src/surface.c
++++ b/src/surface.c
+@@ -263,7 +263,7 @@ VAStatus v4l2r_QuerySurfaceAttributes(VADriverContextP va_ctx, VAConfigID config
+ 	 * path, so it is only offered when no converter exists.
+ 	 */
+ 	if ((cfg->rt_format & VA_RT_FORMAT_YUV420_10) &&
+-	    !v4l2r_converter_available(drv)) {
++	    !v4l2r_tenbit_via_converter(drv)) {
+ 		attrib_list[i].type = VASurfaceAttribPixelFormat;
+ 		attrib_list[i].flags = VA_SURFACE_ATTRIB_GETTABLE | VA_SURFACE_ATTRIB_SETTABLE;
+ 		attrib_list[i].value.type = VAGenericValueTypeInteger;
+@@ -437,6 +437,95 @@ static void probe_set_bit_depth(int fd, uint32_t coded, uint32_t pixelformat,
+ #endif
+ }
+ 
++/*
++ * Does a decoder take P010 as its CAPTURE format for a 10-bit stream? Asked
++ * once, on a throwaway instance of each decoder, the way backing_alloc()
++ * sizes P010 storage: a coded OUTPUT format, a 10-bit SPS, then S_FMT(P010).
++ */
++static bool decoder_writes_p010(struct v4l2r_driver *drv)
++{
++#if HAVE_V4L2_PIX_FMT_P010
++	for (unsigned int n = 0; n < drv->nb_decoders; n++) {
++		struct v4l2_capability capability = {0};
++		struct v4l2_format out = {0}, format = {0};
++		uint32_t coded = drv->decoders[n].nb_pixelformats ?
++				 drv->decoders[n].pixelformats[0] : 0;
++		unsigned int capabilities;
++		bool mplane, native = false;
++		int fd;
++
++		fd = open(drv->decoders[n].video_path, O_RDWR | O_CLOEXEC);
++		if (fd < 0)
++			continue;
++		if (ioctl(fd, VIDIOC_QUERYCAP, &capability) < 0)
++			goto next;
++		capabilities = (capability.capabilities & V4L2_CAP_DEVICE_CAPS) ?
++			       capability.device_caps : capability.capabilities;
++		mplane = capabilities & V4L2_CAP_VIDEO_M2M_MPLANE;
++
++		/* Every coded format the decoder has: 10-bit may exist for some. */
++		for (unsigned int c = 0; c < drv->decoders[n].nb_pixelformats && !native; c++) {
++			coded = drv->decoders[n].pixelformats[c];
++			out.type = mplane ? V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE :
++					    V4L2_BUF_TYPE_VIDEO_OUTPUT;
++			format.type = mplane ? V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE :
++					       V4L2_BUF_TYPE_VIDEO_CAPTURE;
++			if (mplane) {
++				out.fmt.pix_mp.width = format.fmt.pix_mp.width = 1920;
++				out.fmt.pix_mp.height = format.fmt.pix_mp.height = 1080;
++				out.fmt.pix_mp.pixelformat = coded;
++				out.fmt.pix_mp.num_planes = format.fmt.pix_mp.num_planes = 1;
++				format.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_P010;
++			} else {
++				out.fmt.pix.width = format.fmt.pix.width = 1920;
++				out.fmt.pix.height = format.fmt.pix.height = 1080;
++				out.fmt.pix.pixelformat = coded;
++				format.fmt.pix.pixelformat = V4L2_PIX_FMT_P010;
++			}
++			if (ioctl(fd, VIDIOC_S_FMT, &out) < 0)
++				continue;
++			probe_set_bit_depth(fd, coded, V4L2_PIX_FMT_P010, 1920, 1080);
++			if (ioctl(fd, VIDIOC_S_FMT, &format) < 0)
++				continue;
++			native = v4l2r_format_pixelformat(&format) == V4L2_PIX_FMT_P010;
++		}
++next:
++		close(fd);
++		if (native)
++			return true;
++	}
++#else
++	(void)drv;
++#endif
++	return false;
++}
++
++/*
++ * 10-bit content goes through the format converter (NV12 surfaces) only for
++ * decoders that cannot write a format clients consume, such as packed NV15.
++ * A decoder that writes P010 itself (Apple AVD) decodes into P010 surfaces;
++ * handing out NV12 surfaces there broke every 10-bit decode once a
++ * converter existed: ffmpeg's image-derivation probe gave the surface an
++ * NV12 backing before its first decode, and the P010 CAPTURE format could
++ * never match it ("cannot decode into the already-exported surface layout").
++ */
++bool v4l2r_tenbit_via_converter(struct v4l2r_driver *drv)
++{
++	bool probe;
++
++	if (!v4l2r_converter_available(drv))
++		return false;
++
++	pthread_mutex_lock(&drv->mutex);
++	probe = !drv->p010_probed;
++	drv->p010_probed = true;
++	pthread_mutex_unlock(&drv->mutex);
++	if (probe)
++		drv->p010_native = decoder_writes_p010(drv);
++
++	return !drv->p010_native;
++}
++
+ /*
+  * Allocate dma-buf backing for a surface that is not bound to a decode
+  * context, using the CAPTURE queue of one of the enumerated decoders on
+@@ -665,12 +754,12 @@ VAStatus v4l2r_surface_alloc_backing(struct v4l2r_driver *drv,
+ {
+ 	uint32_t pixelformat = V4L2_PIX_FMT_NV12;
+ 
+-	/* With a converter around, 10-bit configs hand out NV12 surfaces;
+-	 * bare P010 only works on decoders that produce it natively. */
++	/* When 10-bit goes through a converter, 10-bit configs hand out NV12
++	 * surfaces; P010 otherwise (decoders that produce it natively). */
+ 	if (surface->fourcc == VA_FOURCC_P010 ||
+ 	    (!surface->fourcc &&
+ 	     (surface->rt_format & VA_RT_FORMAT_YUV420_10) &&
+-	     !v4l2r_converter_available(drv))) {
++	     !v4l2r_tenbit_via_converter(drv))) {
+ #if HAVE_V4L2_PIX_FMT_P010
+ 		pixelformat = V4L2_PIX_FMT_P010;
+ #else
+diff --git a/src/v4l2_request.h b/src/v4l2_request.h
+index 9a3cfbc..f7d6491 100644
+--- a/src/v4l2_request.h
++++ b/src/v4l2_request.h
+@@ -616,6 +616,10 @@ struct v4l2r_driver {
+ 	struct v4l2r_converter converter;
+ 	bool converter_probed;
+ 	bool has_converter;
++
++	/* Whether a decoder writes P010 itself (see v4l2r_tenbit_via_converter). */
++	bool p010_probed;
++	bool p010_native;
+ };
+ 
+ void v4l2r_lock_surface_api(struct VADriverVTable *vtable);
+@@ -789,6 +793,7 @@ void v4l2r_context_release_capture(struct v4l2r_context *ctx, int index);
+  * (10-bit configs, undisplayable CAPTURE formats), so plain 8-bit clients
+  * never pay for the scan. */
+ bool v4l2r_converter_available(struct v4l2r_driver *drv);
++bool v4l2r_tenbit_via_converter(struct v4l2r_driver *drv);
+ 
+ /* Whether the detected converter can read this pixelformat. */
+ bool v4l2r_converter_supports(struct v4l2r_driver *drv, uint32_t pixelformat);
+-- 
+2.56.1
+

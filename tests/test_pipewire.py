@@ -59,11 +59,11 @@ class PipeWireTests(unittest.TestCase):
 
     def test_release_replaces_alarm_and_runs_the_test_suite(self):
         text = (RECIPE / 'PKGBUILD').read_text()
-        self.assertEqual(recipe('echo "$epoch:$pkgver"').strip(), '1:1.6.10')
-        # ALARM's 1:1.6.10-1; a dotted pkgrel sorts above it.
-        self.assertRegex(recipe('echo "$pkgrel"').strip(), r'^1\.[1-9][0-9]*$')
+        self.assertEqual(recipe('echo "$epoch:$pkgver"').strip(), '1:1.6.11')
+        # ALARM's 1:1.6.11-2; a dotted pkgrel sorts above it.
+        self.assertRegex(recipe('echo "$pkgrel"').strip(), r'^2\.[1-9][0-9]*$')
         self.assertEqual(recipe('echo "${arch[*]}"').strip(), 'aarch64')
-        self.assertIn('1b902bd4b08f37ae3798a70ec597646a0c370b84', text)
+        self.assertIn('6fa5f72fa1cc7cf3b37a61a2bd44d92a9e230db8', text)
         self.assertRegex(text, re.compile(r'^check\(\) \{\n  meson test -C build', re.M))
         # Every split package requires the exact matching build.
         self.assertIn('"libpipewire=$epoch:$pkgver-$pkgrel"', text)

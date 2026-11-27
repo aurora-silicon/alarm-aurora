@@ -1,6 +1,6 @@
 pkgname=aurora-touchid-rearm
 pkgver=1
-pkgrel=5
+pkgrel=6
 pkgdesc='Re-arm Touch ID with the password after a lockout'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')

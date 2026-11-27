@@ -1,16 +1,17 @@
 pkgbase=aurora-firstboot
-pkgname=(aurora-firstboot aurora-power-budget aurora-secboot)
+pkgname=(aurora-firstboot aurora-power-budget aurora-gamemode aurora-secboot)
 pkgver=0.1.13
-pkgrel=5
+pkgrel=8
 pkgdesc='Aurora per-install root encryption and Linux owner setup'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/aurora-platform'
-_commit=ad0411c90f50b743bca3f1c8083279f86a34f2f8
+_commit=20c328448a51f680ef545b3fb5d1d3a9c6abc9a3
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/$_commit")
-sha256sums=('17b7a084909462f0b6a32a355aee78f8ecfc2f26828b25b9509a36add8faab24')
+sha256sums=('3d7f9e273ac3f626c75f6518afe21b736ce20dfb84779843b62d9a6f9ddcfd31')
 package_aurora-firstboot() {
   depends=('bash' 'cryptsetup>=2.8' 'btrfs-progs' 'util-linux' 'coreutils' 'systemd' 'python' 'shadow' 'sudo' 'kbd' 'procps-ng' 'mkinitcpio')
+  install=aurora-firstboot.install
   make -C "aurora-platform-$_commit" install-common install-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr
   install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-firstboot.preset" <<'EOF'
@@ -19,19 +20,32 @@ enable aurora-initrd-keymap.path
 EOF
 }
 package_aurora-power-budget() {
-  pkgdesc='CPU power budget for the power-saver profile on Apple silicon'
+  pkgdesc='CPU power budget for Power Saver and the other legs of each power profile on Apple silicon'
   depends=('python' 'systemd' 'power-profiles-daemon')
-  make -C "aurora-platform-$_commit" install-power DESTDIR="$pkgdir" PREFIX=/usr
+  backup=('etc/aurora/power-modes.conf')
+  install=aurora-power-budget.install
+  make -C "aurora-platform-$_commit" install-power DESTDIR="$pkgdir" PREFIX=/usr SYSCONFDIR=/etc
+  # The install script keeps its once-only preset marker here.
+  install -dm755 "$pkgdir/var/lib/aurora"
   install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-power-budget.preset" <<'EOF'
 enable aurora-power-budget.service
+enable aurora-power-modes.service
 EOF
+}
+package_aurora-gamemode() {
+  pkgdesc='GameMode defaults for Apple silicon: games on the P cores, schedutil kept'
+  depends=('gamemode')
+  backup=('etc/gamemode.ini')
+  make -C "aurora-platform-$_commit" install-gamemode DESTDIR="$pkgdir" PREFIX=/usr SYSCONFDIR=/etc
+  install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 package_aurora-secboot() {
   pkgdesc='Signed unified kernel images for the Aurora secure boot path'
   depends=('python' 'systemd' 'systemd-ukify' 'sbsigntools' 'openssl')
   optdepends=('mkinitcpio: build the image after every initramfs')
   backup=('etc/aurora/secboot.conf')
+  install=aurora-secboot.install
   make -C "aurora-platform-$_commit" install-secboot install-secboot-mkinitcpio DESTDIR="$pkgdir" PREFIX=/usr
   install -Dm644 "aurora-platform-$_commit/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system-preset/90-aurora-secboot.preset" <<'EOF'

@@ -1,6 +1,9 @@
 [Trigger]
 Operation = Install
 Operation = Upgrade
+# Also after a removal: a removed kernel, or aurora-userpages' user4k=on fragment,
+# must leave grub.cfg too. This package stays installed, so its hook still runs.
+Operation = Remove
 Type = Path
 Target = etc/default/grub.d/40-aurora-console.cfg
 Target = etc/default/grub.d/45-aurora-mte.cfg

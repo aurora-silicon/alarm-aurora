@@ -39,6 +39,14 @@ post_upgrade() {
   fi
 }
 
+pre_upgrade() {
+  # 20261023-10 stops shipping the macsmc-battery units: stop the path unit
+  # udev started while its files are still there.
+  if [ "$(vercmp "$2" 20261023-10)" -lt 0 ]; then
+    systemctl stop macsmc-battery-charge-control-end-threshold.path >/dev/null 2>&1 || :
+  fi
+}
+
 pre_remove() {
   systemctl --no-reload disable aurora-stage2-commit.service aurora-stage2-guard.timer >/dev/null 2>&1 || :
 }

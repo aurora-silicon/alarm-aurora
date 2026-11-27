@@ -1,0 +1,95 @@
+#!/bin/sh
+# Hand a battery charge limit saved by the old macsmc-battery helper to UPower.
+#
+# The helper (Fedora's asahi-battery, the macsmc-battery units of Arch's
+# asahi-scripts) saved charge_control_end_threshold to
+# /etc/udev/macsmc-battery.conf and wrote it back from a udev rule. UPower is
+# the only owner now: it keeps the on/off choice in
+# /var/lib/upower/charging-threshold-status and applies the limit when it
+# finds the battery. A saved limit below 100 turns UPower's limit on, unless
+# the owner switched it off in UPower after the helper last saved. A limit
+# other than UPower's default end threshold is kept as the battery's
+# CHARGE_LIMIT. The old file is removed last, so this runs once; it runs
+# before upower.service and does nothing without the old file.
+set -eu
+
+root=${UPOWER_MIGRATE_ROOT:-}
+udevadm=${UPOWER_MIGRATE_UDEVADM:-udevadm}
+legacy=$root/etc/udev/macsmc-battery.conf
+state_dir=$root/var/lib/upower
+status=$state_dir/charging-threshold-status
+rule=$root/etc/udev/rules.d/61-upower-charge-limit.rules
+# CHARGE_LIMIT in UPower's 60-upower-battery.hwdb is 75,80.
+default_end=80
+
+log() { printf 'upower-charge-limit-migrate: %s\n' "$*" >&2; }
+
+# put <file> <mode> <content>: replace a file in one rename.
+put() {
+  tmp=$(mktemp "$1.XXXXXX")
+  printf '%s' "$3" > "$tmp"
+  chmod "$2" "$tmp"
+  mv -f "$tmp" "$1"
+}
+
+[ -e "$legacy" ] || exit 0
+
+# While the old restore rule is installed it keeps writing the limit behind
+# UPower's back; leave everything as it is until it is gone.
+for dir in /etc/udev/rules.d /run/udev/rules.d /usr/lib/udev/rules.d; do
+  if [ -e "$root$dir/93-macsmc-battery-charge-control.rules" ]; then
+    log "$dir/93-macsmc-battery-charge-control.rules is still installed; not migrating"
+    exit 0
+  fi
+done
+
+value=$(sed -n 's/^CHARGE_CONTROL_END_THRESHOLD=//p' "$legacy" | tail -n 1)
+case $value in
+  [1-9] | [1-9][0-9]) limit=$value ;;
+  # 100, empty or not a plain number: there is no limit to keep.
+  *) limit= ;;
+esac
+
+reload=
+if [ -n "$limit" ]; then
+  current=$(cat "$status" 2>/dev/null || :)
+  if [ "$current" = 0 ] && [ -n "$(find "$status" -newer "$legacy")" ]; then
+    log "UPower's charge limit was switched off after the old helper saved $limit; keeping it off"
+  else
+    if [ "$current" != 1 ]; then
+      mkdir -p "$state_dir"
+      # upowerd compares the whole file with "1": no newline.
+      put "$status" 0640 1
+      log "turned on UPower's charge limit (old helper held $limit%)"
+    fi
+    if [ "$limit" != "$default_end" ]; then
+      # macsmc-power reports the start threshold as end - 5.
+      start=$((limit > 5 ? limit - 5 : 0))
+      text="# Kept from /etc/udev/macsmc-battery.conf by upower-charge-limit-migrate.
+# UPower reads CHARGE_LIMIT=start,end; delete this file for UPower's default.
+SUBSYSTEM==\"power_supply\", KERNEL==\"macsmc-battery\", ENV{CHARGE_LIMIT}=\"$start,$limit\"
+"
+      if [ "$(cat "$rule" 2>/dev/null || :)
+" != "$text" ]; then
+        mkdir -p "${rule%/*}"
+        put "$rule" 0644 "$text"
+        log "kept the $limit% limit in ${rule#"$root"}"
+      fi
+      # A previous attempt may have installed the rule without notifying udev.
+      # Reload even when it matches; the legacy file still marks migration.
+      reload=1
+    fi
+  fi
+fi
+
+rm -f "$legacy"
+log "removed /etc/udev/macsmc-battery.conf"
+
+if [ -n "$reload" ]; then
+  # UPower reads CHARGE_LIMIT from the udev database when it starts.
+  if ! { "$udevadm" control --reload &&
+         "$udevadm" trigger --settle --action=change --subsystem-match=power_supply \
+           --sysname-match=macsmc-battery; }; then
+    log "udev did not reload; the limit applies from the next boot"
+  fi
+fi

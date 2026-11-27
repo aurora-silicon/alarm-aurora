@@ -1,13 +1,13 @@
 pkgbase=aurora-bless
-pkgname=('aurora-bless' 'aurora-nvram' 'aurora-btsync' 'aurora-panel-nits')
-pkgver=0.4.4.aurora5
+pkgname=('aurora-bless' 'aurora-nvram' 'aurora-btsync' 'aurora-panel-nits' 'aurora-wifisync')
+pkgver=0.4.4.aurora7
 pkgrel=1
 pkgdesc='Aurora Apple Silicon startup-volume selector with Neo NVRAM support'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-bless'
 license=('MIT')
-_commit=9b47a17827854588d458b1dcc8018c66f5c3237f
+_commit=8cbf35282c2170d7cdf7a805d803189d2b8e5954
 makedepends=('git' 'rust' 'cargo' 'make' 'dbus' 'pkgconf')
 source=("aurora-bless::git+$url.git#commit=$_commit")
 sha256sums=('SKIP')
@@ -16,16 +16,16 @@ _bin() {
 }
 build() {
   cd aurora-bless
-  cargo build --locked --release -p asahi-bless -p aurora-nvram -p aurora-btsync -p aurora-panel-nits ${CARGO_TARGET:+--target "$CARGO_TARGET"}
+  cargo build --locked --release -p aurora-bless -p aurora-nvram -p aurora-btsync -p aurora-panel-nits -p aurora-wifisync ${CARGO_TARGET:+--target "$CARGO_TARGET"}
 }
 check() {
   cd aurora-bless
-  cargo test --locked -p asahi-bless -p apple-nvram -p aurora-nvram -p aurora-btsync -p aurora-panel-nits
+  cargo test --locked -p aurora-bless -p apple-nvram -p aurora-nvram -p aurora-btsync -p aurora-panel-nits -p aurora-wifisync
 }
 package_aurora-bless() {
   provides=("asahi-bless=$pkgver")
   conflicts=('asahi-bless')
-  install -Dm755 "$(_bin asahi-bless)" "$pkgdir/usr/bin/aurora-bless"
+  install -Dm755 "$(_bin aurora-bless)" "$pkgdir/usr/bin/aurora-bless"
   ln -s aurora-bless "$pkgdir/usr/bin/asahi-bless"
   install -Dm644 aurora-bless/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
@@ -50,10 +50,24 @@ package_aurora-btsync() {
   install -Dm755 "$(_bin aurora-btsync)" "$pkgdir/usr/bin/aurora-btsync"
   ln -s aurora-btsync "$pkgdir/usr/bin/asahi-btsync"
   install -Dm644 aurora-bless/aurora-btsync/etc/systemd/system/aurora-btsync.service "$pkgdir/usr/lib/systemd/system/aurora-btsync.service"
+  install -Dm644 aurora-bless/aurora-btsync/etc/systemd/system/aurora-btsync-resolve.service "$pkgdir/usr/lib/systemd/system/aurora-btsync-resolve.service"
+  install -Dm644 aurora-bless/aurora-btsync/etc/systemd/system/aurora-btsync-connect.service "$pkgdir/usr/lib/systemd/system/aurora-btsync-connect.service"
+  install -d "$pkgdir/usr/lib/systemd/system/suspend.target.wants"
+  ln -s ../aurora-btsync-connect.service "$pkgdir/usr/lib/systemd/system/suspend.target.wants/aurora-btsync-connect.service"
   ln -s aurora-btsync.service "$pkgdir/usr/lib/systemd/system/asahi-btsync.service"
   install -Dm644 aurora-bless/aurora-btsync/etc/udev/rules.d/96-aurora-btsync.rules "$pkgdir/usr/lib/udev/rules.d/96-aurora-btsync.rules"
   install -Dm644 aurora-bless/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 aurora-bless/aurora-btsync/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}
+package_aurora-wifisync() {
+  pkgdesc='Join the Wi-Fi networks saved in macOS on Linux (NetworkManager)'
+  depends=('dbus' 'systemd' 'gcc-libs' 'glibc')
+  optdepends=('networkmanager: the profiles are NetworkManager keyfiles')
+  install -Dm755 "$(_bin aurora-wifisync)" "$pkgdir/usr/bin/aurora-wifisync"
+  install -Dm644 aurora-bless/aurora-wifisync/etc/systemd/system/aurora-wifisync.service "$pkgdir/usr/lib/systemd/system/aurora-wifisync.service"
+  install -Dm644 aurora-bless/aurora-wifisync/etc/udev/rules.d/96-aurora-wifisync.rules "$pkgdir/usr/lib/udev/rules.d/96-aurora-wifisync.rules"
+  install -Dm644 aurora-bless/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 aurora-bless/aurora-wifisync/README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }
 package_aurora-panel-nits() {
   pkgdesc='Built-in panel brightness shared with the boot loader through NVRAM backlight-nits'

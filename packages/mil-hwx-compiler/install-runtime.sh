@@ -12,6 +12,17 @@ patchelf --set-rpath '$ORIGIN/../lib/mil-hwx-compiler' "$prefix/bin/mil-hwxc"
 for library in "$private"/*.so*; do
   if [ ! -L "$library" ]; then patchelf --set-rpath '$ORIGIN' "$library"; fi
 done
+# The private libraries may need only what the package depends on. binutils
+# is in every build root, so a library of its own would load here and then be
+# missing on a Mac without it.
+needed=$(readelf -d "$prefix/bin/mil-hwxc" "$private"/*.so*) || {
+  echo 'mil-hwx-compiler: readelf failed on the runtime' >&2
+  exit 1
+}
+if printf '%s\n' "$needed" | grep -E 'NEEDED.*lib(bfd|sframe|iberty|ctf|opcodes)'; then
+  echo 'mil-hwx-compiler: a binutils library is linked in' >&2
+  exit 1
+fi
 licenses="$prefix/share/licenses/mil-hwx-compiler"
 install -Dm644 LICENSE "$licenses/LICENSE"
 install -Dm644 "$sources/libobjc2-a1faad66cee79f29c4ca268b004111edc33a2ae2/COPYING" "$licenses/libobjc2-COPYING"

@@ -1,0 +1,204 @@
+From 6ff20e2a3c2c65c8e20986c4f88824368e650232 Mon Sep 17 00:00:00 2001
+From: "Claude Opus 5.5" <noreply@anthropic.com>
+Date: Fri, 20 Nov 2026 01:37:38 -0500
+Subject: [PATCH] iwd: wait for the first scan instead of failing an activation
+
+An activation requested before iwd has listed the network, for example
+`nmcli connection up` right after iwd or NetworkManager started, failed
+at once in stage 1 with "No reason given": the iwd backend only accepts
+a network that is already in its AP list. The wpa_supplicant backend
+accepts the same activation with a fake AP until the scan finds the
+real one.
+
+iwd's Network.Connect() needs the real network object, so postpone
+stage 1 instead: request a scan (activation prohibits the periodic
+one) and run stage 1 again as soon as iwd lists a compatible network,
+or fail with SSID_NOT_FOUND after 15 seconds.
+---
+ src/core/devices/wifi/nm-device-iwd.c | 108 +++++++++++++++++++++++++-
+ 1 file changed, 106 insertions(+), 2 deletions(-)
+
+diff --git a/src/core/devices/wifi/nm-device-iwd.c b/src/core/devices/wifi/nm-device-iwd.c
+index 94b9a7d..627a2d3 100644
+--- a/src/core/devices/wifi/nm-device-iwd.c
++++ b/src/core/devices/wifi/nm-device-iwd.c
+@@ -62,6 +62,8 @@ typedef struct {
+     NMActRequestGetSecretsCallId *wifi_secrets_id;
+     guint                         periodic_scan_id;
+     guint                         periodic_update_id;
++    guint                         ap_wait_id;
++    gint64                        ap_wait_deadline_msec;
+     bool                          enabled : 1;
+     bool                          can_scan : 1;
+     bool                          nm_autoconnect : 1;
+@@ -111,6 +113,14 @@ G_DEFINE_TYPE(NMDeviceIwd, nm_device_iwd, NM_TYPE_DEVICE)
+ /*****************************************************************************/
+ 
+ static void schedule_periodic_scan(NMDeviceIwd *self, gboolean initial_scan);
++static void ap_wait_check(NMDeviceIwd *self);
++static void scan_cb(GObject *source, GAsyncResult *res, gpointer user_data);
++
++/* How long an activation waits for iwd to list a network it has not seen yet,
++ * for example when it is requested right after iwd started and before the
++ * first scan has finished.
++ */
++#define AP_WAIT_TIMEOUT_MSEC 15000
+ 
+ static gboolean check_scanning_prohibited(NMDeviceIwd *self, gboolean periodic);
+ 
+@@ -405,6 +415,8 @@ get_ordered_networks_cb(GObject *source, GAsyncResult *res, gpointer user_data)
+ 
+         nm_device_recheck_available_connections(NM_DEVICE(self));
+     }
++
++    ap_wait_check(self);
+ }
+ 
+ static void
+@@ -536,6 +548,8 @@ cleanup_association_attempt(NMDeviceIwd *self, gboolean disconnect)
+     set_current_ap(self, NULL, TRUE);
+     nm_clear_g_source(&priv->periodic_update_id);
+     nm_clear_g_source(&priv->assumed_ac_timeout);
++    nm_clear_g_source(&priv->ap_wait_id);
++    priv->ap_wait_deadline_msec = 0;
+ 
+     if (disconnect && priv->dbus_station_proxy)
+         send_disconnect(self);
+@@ -2197,6 +2211,89 @@ initial_check_assume(NMDeviceIwd *self)
+     assume_connection(self, ap);
+ }
+ 
++static gboolean
++ap_wait_timeout_cb(gpointer user_data)
++{
++    NMDeviceIwd        *self = user_data;
++    NMDeviceIwdPrivate *priv = NM_DEVICE_IWD_GET_PRIVATE(self);
++
++    priv->ap_wait_id = 0;
++    /* Stage 1 runs again and, past the deadline, fails. */
++    nm_device_activate_schedule_stage1_device_prepare(NM_DEVICE(self), FALSE);
++    return G_SOURCE_REMOVE;
++}
++
++/* A postponed stage 1 is waiting for its network: once iwd lists a
++ * compatible one, run stage 1 again.
++ */
++static void
++ap_wait_check(NMDeviceIwd *self)
++{
++    NMDeviceIwdPrivate *priv = NM_DEVICE_IWD_GET_PRIVATE(self);
++    NMConnection       *connection;
++
++    if (!priv->ap_wait_id || nm_device_get_state(NM_DEVICE(self)) != NM_DEVICE_STATE_PREPARE)
++        return;
++
++    connection = nm_device_get_applied_connection(NM_DEVICE(self));
++    if (!connection || !nm_wifi_aps_find_first_compatible(&priv->aps_lst_head, connection))
++        return;
++
++    nm_clear_g_source(&priv->ap_wait_id);
++    nm_device_activate_schedule_stage1_device_prepare(NM_DEVICE(self), FALSE);
++}
++
++/* The connection's network is not in iwd's list yet.  Ask iwd to scan and
++ * postpone stage 1 until it appears or AP_WAIT_TIMEOUT_MSEC passes.  The
++ * wpa_supplicant backend accepts such an activation too, with a fake AP
++ * until the scan finds the real one; iwd's Network.Connect() needs the real
++ * network object, so wait for it instead.
++ */
++static NMActStageReturn
++ap_wait_postpone(NMDeviceIwd *self, NMDeviceStateReason *out_failure_reason)
++{
++    NMDeviceIwdPrivate *priv = NM_DEVICE_IWD_GET_PRIVATE(self);
++    gint64              now  = nm_utils_get_monotonic_timestamp_msec();
++
++    if (priv->ap_wait_deadline_msec == 0) {
++        priv->ap_wait_deadline_msec = now + AP_WAIT_TIMEOUT_MSEC;
++        _LOGI(LOGD_DEVICE | LOGD_WIFI,
++              "Activation: (wifi) network not in iwd's scan results yet, waiting up to %d s",
++              AP_WAIT_TIMEOUT_MSEC / 1000);
++    } else if (now >= priv->ap_wait_deadline_msec) {
++        _LOGW(LOGD_DEVICE | LOGD_WIFI,
++              "Activation: (wifi) network not found by iwd within %d s",
++              AP_WAIT_TIMEOUT_MSEC / 1000);
++        priv->ap_wait_deadline_msec = 0;
++        NM_SET_OUT(out_failure_reason, NM_DEVICE_STATE_REASON_SSID_NOT_FOUND);
++        return NM_ACT_STAGE_RETURN_FAILURE;
++    }
++
++    /* Scans are prohibited while activating, so request this one directly.
++     * If iwd is busy (scanning or autoconnecting), its own scan results
++     * trigger the recheck.
++     */
++    if (priv->dbus_station_proxy && priv->can_scan && !priv->scanning && !priv->scan_requested) {
++        if (!priv->cancellable)
++            priv->cancellable = g_cancellable_new();
++        g_dbus_proxy_call(priv->dbus_station_proxy,
++                          "Scan",
++                          NULL,
++                          G_DBUS_CALL_FLAGS_NONE,
++                          -1,
++                          priv->cancellable,
++                          scan_cb,
++                          self);
++        priv->scan_requested = TRUE;
++    }
++
++    nm_clear_g_source(&priv->ap_wait_id);
++    priv->ap_wait_id = g_timeout_add((guint) NM_MAX(priv->ap_wait_deadline_msec - now, (gint64) 1),
++                                     ap_wait_timeout_cb,
++                                     self);
++    return NM_ACT_STAGE_RETURN_POSTPONE;
++}
++
+ static NMActStageReturn
+ act_stage1_prepare(NMDevice *device, NMDeviceStateReason *out_failure_reason)
+ {
+@@ -2227,12 +2324,16 @@ act_stage1_prepare(NMDevice *device, NMDeviceStateReason *out_failure_reason)
+     ap_path = nm_active_connection_get_specific_object(NM_ACTIVE_CONNECTION(req));
+     ap      = ap_path ? nm_wifi_ap_lookup_for_device(NM_DEVICE(self), ap_path) : NULL;
+     if (ap) {
++        nm_clear_g_source(&priv->ap_wait_id);
++        priv->ap_wait_deadline_msec = 0;
+         set_current_ap(self, ap, TRUE);
+         return NM_ACT_STAGE_RETURN_SUCCESS;
+     }
+ 
+     ap = nm_wifi_aps_find_first_compatible(&priv->aps_lst_head, connection);
+     if (ap) {
++        nm_clear_g_source(&priv->ap_wait_id);
++        priv->ap_wait_deadline_msec = 0;
+         nm_active_connection_set_specific_object(NM_ACTIVE_CONNECTION(req),
+                                                  nm_dbus_object_get_path(NM_DBUS_OBJECT(ap)));
+         set_current_ap(self, ap, TRUE);
+@@ -2241,11 +2342,12 @@ act_stage1_prepare(NMDevice *device, NMDeviceStateReason *out_failure_reason)
+ 
+     /* In infrastructure mode the specific object should be set by now except
+      * for a first-time connection to a hidden network.  If a hidden network is
+-     * a Known Network it should still have been in the AP list.
++     * a Known Network it should still have been in the AP list.  Either may
++     * simply not have been scanned yet: wait for iwd to list it.
+      */
+     if (!nm_setting_wireless_get_hidden(s_wireless)
+         || is_connection_known_network(priv->manager, connection))
+-        return NM_ACT_STAGE_RETURN_FAILURE;
++        return ap_wait_postpone(self, out_failure_reason);
+ 
+ add_new:
+     /* If the user is trying to connect to an AP that NM doesn't yet know about
+@@ -3479,6 +3581,7 @@ nm_device_iwd_network_add_remove(NMDeviceIwd *self, GDBusProxy *network, bool ad
+         ap_add_remove(self, TRUE, ap, recheck);
+         g_object_unref(ap);
+         priv->networks_changed |= !recheck;
++        ap_wait_check(self);
+         return;
+     }
+ }
+@@ -3886,6 +3989,7 @@ dispose(GObject *object)
+     NMDeviceIwdPrivate *priv = NM_DEVICE_IWD_GET_PRIVATE(self);
+ 
+     nm_clear_g_cancellable(&priv->cancellable);
++    nm_clear_g_source(&priv->ap_wait_id);
+ 
+     g_signal_handlers_disconnect_by_func(self, autoconnect_changed, self);
+     nm_device_iwd_set_dbus_object(self, NULL);

@@ -1,0 +1,10 @@
+# Apply the shipped preset, as Fedora's systemd_post does. A unit already
+# enabled or disabled stays as it is. The unit runs at boot, and only where
+# the installer left a Stage 2 key on the EFI system partition.
+post_install() {
+  systemctl --preset-mode=enable-only preset aurora-secboot-adopt.service >/dev/null 2>&1 || :
+}
+
+pre_remove() {
+  systemctl disable aurora-secboot-adopt.service >/dev/null 2>&1 || :
+}

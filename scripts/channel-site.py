@@ -22,10 +22,20 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT / 'scripts'))
 import updatelib as lib  # noqa: E402
+import edgelib  # noqa: E402
 
 TAG = re.compile(r'testing-[A-Za-z0-9._-]+')
 SITE_BUDGET = 900_000_000
-CHANNELS = ('testing', 'stable')
+CHANNELS = ('testing', 'stable', 'edge')
+
+
+def database(channel):
+    """Edge serves the small [aurora-edge] overlay; the other channels serve [aurora]."""
+    return edgelib.DATABASE if channel == 'edge' else 'aurora'
+
+
+def publisher(channel):
+    return '.github/workflows/' + ('publish-edge.yml' if channel == 'edge' else 'publish.yml')
 
 
 def keyring(home):
@@ -41,7 +51,7 @@ def keyring(home):
     return home, fingerprint
 
 
-def verify_attestations(directory, repository):
+def verify_attestations(directory, repository, channel='testing'):
     """A snapshot published with provenance must carry a valid attestation
     whose subjects are exactly its assets. Older snapshots predate it."""
     sums = directory / 'SHA256SUMS'
@@ -55,7 +65,7 @@ def verify_attestations(directory, repository):
     if listed != actual:
         raise ValueError(f'{directory}: SHA256SUMS does not list exactly the downloaded assets')
     result = subprocess.run(['gh', 'attestation', 'verify', str(directory / 'manifest.json'), '--repo', repository,
-                             '--signer-workflow', f'{repository}/.github/workflows/publish.yml',
+                             '--signer-workflow', f'{repository}/{publisher(channel)}',
                              '--deny-self-hosted-runners', '--format', 'json'],
                             check=True, capture_output=True, text=True)
     subjects = set()
@@ -67,15 +77,17 @@ def verify_attestations(directory, repository):
     return 'verified'
 
 
-def fetch_snapshot(repository, tag, destination, home, fingerprint):
-    if not TAG.fullmatch(tag):
+def fetch_snapshot(repository, tag, destination, home, fingerprint, channel='testing'):
+    if channel == 'edge':
+        edgelib.snapshot(tag)
+    elif not TAG.fullmatch(tag):
         raise ValueError(f'not a testing snapshot tag: {tag}')
     destination.mkdir(parents=True)
     lib.gh('release', 'download', tag, '--repo', repository, '--dir', str(destination))
     for signature in sorted(destination.glob('*.sig')):
         subprocess.run(['gpg', '--homedir', str(home), '--batch', '--verify', str(signature),
                         str(signature.with_suffix(''))], check=True, capture_output=True)
-    if not (destination / 'aurora.db.sig').exists():
+    if not (destination / f'{database(channel)}.db.sig').exists():
         raise ValueError(f'{tag}: the pacman database is unsigned')
     manifest = json.loads((destination / 'manifest.json').read_text())
     if manifest.get('dry_run') or manifest.get('signing_key') not in (None, fingerprint):
@@ -86,23 +98,42 @@ def fetch_snapshot(repository, tag, destination, home, fingerprint):
                 or lib.sha256_file(path) != record['sha256']
                 or not (destination / (record['filename'] + '.sig')).is_file()):
             raise ValueError(f'{tag}: {record["filename"]} does not match its manifest')
-    return verify_attestations(destination, repository)
+    if (manifest.get('channel', 'testing') == 'edge') != (channel == 'edge'):
+        raise ValueError(f'{tag}: an Edge overlay serves only the edge channel, and only it')
+    provenance = verify_attestations(destination, repository, channel)
+    if channel == 'edge' and provenance != 'verified':
+        raise ValueError(f'{tag}: the Edge overlay requires hosted provenance')
+    return provenance
+
+
+def check_closure(site):
+    """Every deploy (edge, or testing while an overlay is served) keeps the overlay closed
+    over the Testing feed and the Arch Linux ARM repositories it is installed with. A
+    missing or unreadable database fails the deploy."""
+    closure = subprocess.run([sys.executable, str(ROOT / 'scripts/check-edge-closure.py'),
+                              '--overlay', str(Path(site) / 'edge/aarch64/aurora-edge.db.tar.gz'),
+                              '--testing', str(Path(site) / 'testing/aarch64/aurora.db.tar.gz')],
+                             capture_output=True, text=True)
+    if closure.returncode:
+        print(closure.stdout + closure.stderr, file=sys.stderr)
+        raise SystemExit('The Edge overlay does not close over the feeds this deploy would serve.')
 
 
 def live_database(site_url, channel, work, home):
     """The signed database the channel serves now, or None if it serves none."""
     base = f'{site_url.rstrip("/")}/{channel}/aarch64'
-    database, signature = work / 'aurora.db', work / 'aurora.db.sig'
+    name = database(channel)
+    database_path, signature = work / f'{name}.db', work / f'{name}.db.sig'
     try:
-        lib.download([base + '/aurora.db'], database, attempts=3)
-        lib.download([base + '/aurora.db.sig'], signature, attempts=3)
+        lib.download([base + f'/{name}.db'], database_path, attempts=3)
+        lib.download([base + f'/{name}.db.sig'], signature, attempts=3)
     except RuntimeError as error:
         if 'HTTP 404' in str(error):
             return None
         raise
-    subprocess.run(['gpg', '--homedir', str(home), '--batch', '--verify', str(signature), str(database)],
+    subprocess.run(['gpg', '--homedir', str(home), '--batch', '--verify', str(signature), str(database_path)],
                    check=True, capture_output=True)
-    return database
+    return database_path
 
 
 def release_commit(repository, tag):
@@ -128,7 +159,17 @@ def assemble(args):
         if soaked < args.min_soak_hours:
             raise SystemExit(f'{tag} has been on testing for {soaked:.1f} h; the minimum is {args.min_soak_hours} h.')
     if not tag:
-        raise SystemExit('A release tag is required for the testing channel.')
+        raise SystemExit(f'A release tag is required for the {args.channel} channel.')
+    if args.channel == 'edge':
+        # Every distribution's Edge feed moves with the adopted aurora-distributions train.
+        if not args.edge_train:
+            raise SystemExit('An Edge deploy needs the adopted Edge train record (--edge-train).')
+        gate = Path(args.work) / 'edge-gate'
+        gate.mkdir(parents=True)
+        lib.gh('release', 'download', edgelib.snapshot(tag), '--repo', repository, '--dir', str(gate),
+               '--pattern', 'edge-sources.json')
+        edgelib.edge_gate(json.loads(Path(args.edge_train).read_text()), tag,
+                          json.loads((gate / 'edge-sources.json').read_text()))
     target = dict(current, **{args.channel: tag})
     site = Path(args.site)
     if site.exists():
@@ -138,20 +179,22 @@ def assemble(args):
     for channel in CHANNELS:
         if target[channel]:
             provenance[channel] = fetch_snapshot(repository, target[channel], site / channel / 'aarch64',
-                                                 home, fingerprint)
+                                                 home, fingerprint, channel)
+    if target.get('edge') and target.get('testing'):
+        check_closure(site)
     previous = current[args.channel]
     report = ''
     live = live_database(args.site_url, args.channel, Path(args.work) / 'live', home)
     if live is None and previous and previous != tag:
         old = Path(args.work) / 'previous'
         old.mkdir(parents=True)
-        lib.gh('release', 'download', previous, '--repo', repository, '--pattern', 'aurora.db.tar.gz',
+        lib.gh('release', 'download', previous, '--repo', repository, '--pattern', f'{database(args.channel)}.db.tar.gz',
                '--dir', str(old))
-        live = old / 'aurora.db.tar.gz'
+        live = old / f'{database(args.channel)}.db.tar.gz'
     if live is not None:
         # Compare with what installed systems on this channel can already have.
         command = [sys.executable, str(ROOT / 'scripts/check-feed-versions.py'), '--old',
-                   str(live), '--new', str(site / args.channel / 'aarch64/aurora.db.tar.gz')]
+                   str(live), '--new', str(site / args.channel / f'aarch64/{database(args.channel)}.db.tar.gz')]
         if args.allow_downgrade:
             command.append('--allow-downgrade')
         checked = subprocess.run(command, capture_output=True, text=True)
@@ -174,7 +217,7 @@ def assemble(args):
     lines = ['<!doctype html><title>Aurora Alarm</title><h1>Aurora Alarm package feeds</h1><ul>']
     for channel in CHANNELS:
         if target[channel]:
-            lines.append(f'<li>{channel}: <code>Server = https://aurorasilicon.org/alarm-aurora/{channel}/$arch</code>'
+            lines.append(f'<li>{channel}: <code>[{database(channel)}] Server = https://aurorasilicon.org/alarm-aurora/{channel}/$arch</code>'
                          f' ({target[channel]})</li>')
     (site / 'index.html').write_text('\n'.join(lines) + '</ul>\n')
     Path(args.state_out).write_text(json.dumps(new_state, indent=2) + '\n')
@@ -207,6 +250,7 @@ def main():
     build.add_argument('--work', required=True)
     build.add_argument('--site-url', default='https://aurorasilicon.org/alarm-aurora')
     build.add_argument('--state-out', required=True)
+    build.add_argument('--edge-train', help="aurora-distributions' adopted site/installer/edge-train.json")
     store = commands.add_parser('record')
     store.add_argument('--channel', choices=CHANNELS, required=True)
     store.add_argument('--state', required=True)

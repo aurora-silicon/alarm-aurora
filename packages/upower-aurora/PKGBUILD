@@ -1,6 +1,6 @@
 pkgname=upower-aurora
 pkgver=1.91.5.aurora1
-pkgrel=3
+pkgrel=5
 _commit=d8a24ffc5b9a49f71a28517f7c8b92b16701597a
 pkgdesc='UPower with Aurora macsmc battery time reporting'
 arch=('aarch64')
@@ -13,8 +13,15 @@ backup=('etc/UPower/UPower.conf')
 depends=('dbus' 'glib2' 'glibc' 'libgcc' 'libgudev' 'libimobiledevice' 'libplist' 'polkit')
 makedepends=('meson' 'ninja' 'glib2-devel' 'gobject-introspection' 'systemd')
 checkdepends=('python-dbusmock' 'python-gobject' 'python-packaging' 'umockdev')
-source=("upower-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/upower/tar.gz/$_commit")
-sha256sums=('ad2fa2023b551f851b50957800679d2b5399cc4707fdcb3c4870d3a9c2f9e292')
+# upower-charge-limit-migrate is fedora-aurora's byte for byte: it hands a
+# charge limit saved by the old macsmc-battery units to UPower once, before
+# upowerd starts, so UPower is the only writer of the limit.
+source=("upower-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/upower/tar.gz/$_commit"
+        upower-charge-limit-migrate
+        upower-charge-limit-migrate.service)
+sha256sums=('ad2fa2023b551f851b50957800679d2b5399cc4707fdcb3c4870d3a9c2f9e292'
+            'a01273aab1e644f8ff2c65acf7fd9fbab7f16ad4b83180a16db80ce6276ffb1e'
+            'cd2967af1b5ae0b80caf5c9b26f13fb1190c8459c0276135a9d4ffa4e47072b5')
 
 build() {
   arch-meson "upower-$_commit" build \
@@ -36,4 +43,8 @@ package() {
   # A swap from or back to stock upower keeps an edited UPower.conf in place.
   depends+=('aurora-keep-config')
   meson install -C build --destdir "$pkgdir"
+  install -Dm755 upower-charge-limit-migrate "$pkgdir/usr/libexec/aurora/upower-charge-limit-migrate"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/system" upower-charge-limit-migrate.service
+  install -d "$pkgdir/usr/lib/systemd/system/upower.service.wants"
+  ln -s ../upower-charge-limit-migrate.service "$pkgdir/usr/lib/systemd/system/upower.service.wants/"
 }

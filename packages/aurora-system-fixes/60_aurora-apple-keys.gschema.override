@@ -1,0 +1,7 @@
+# The Mission Control key (F3 on every Apple silicon laptop keyboard and the
+# Magic Keyboards: KEY_SCALE, keysym XF86LaunchA) shows every open window on
+# macOS. GNOME binds nothing to it; give it the Activities overview, which
+# shows every open window. Super still opens the overview. A user value set
+# in Settings or with gsettings wins over this default.
+[org.gnome.shell.keybindings]
+toggle-overview=['XF86LaunchA']

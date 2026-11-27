@@ -61,8 +61,42 @@ only with ACPI, and stock PPD reads only that file. `packages/power-profiles-dae
 is Arch's 0.30-1 recipe with one patch: without the ACPI file, PPD drives the
 first class device instead (driver `platform_profile`; power-saver writes
 `low-power`). Its pkgrel 1.1 sorts above ALARM's 1. With the kernel handler
-present, `aurora-power-budget` stands aside instead of capping a second time
-([aurora-platform#16](https://github.com/aurora-silicon/aurora-platform/pull/16)).
+present, `aurora-power-budget` does not cap a second time: it hands the
+handler each profile by the names its `choices` file lists, finds the value
+PPD already wrote there and writes nothing, and caps the CPU itself only while
+the handler does not hold `low-power`
+([aurora-platform#38](https://github.com/aurora-silicon/aurora-platform/pull/38)).
+`journalctl -u aurora-power-budget` logs each hand-over, and
+`/run/aurora-power-budget/status.json` shows `kernel_profiles`.
+
+## The other legs: `aurora-power-modes`
+
+The `aurora-power-budget` package also ships `aurora-power-modes` (enabled by
+preset), as Fedora's does since aurora-firstboot 0.1.13-7. It follows the
+same D-Bus profile and has three legs. In Power Saver the realtime threads
+lose their top-clock floor (`kernel.sched_util_clamp_min_rt_default` 0) and
+the PCIe links use L1.1/L1.2 (ASPM `powersupersave`); outside Power Saver, and
+when the service stops, each goes back to the value found at start. Here
+`aurora-power-defaults` (`aurora-system-fixes`) sets both at boot, before
+`aurora-power-modes` starts, so these two legs find their Power Saver values
+already in place and every profile keeps them. The third leg makes every
+platform-profile handler other than `apple-clpc` follow the profile; it
+writes nothing while PPD lists its `platform_profile` driver, because PPD
+then writes the class itself.
+
+`/etc/aurora/power-modes.conf` (a pacman backup file, installed with every
+line commented out, so the defaults apply) has macOS's optional "Low Power
+Mode on battery" setting (`low_power_mode = never | always | battery |
+adapter`, default `never`) and switches for each leg.
+
+pacman applies no presets, so the package's install script does what
+Fedora's scriptlets do: a first install presets both units; the upgrade that
+brings `aurora-power-modes` presets it once, and only where
+`aurora-power-budget` is enabled, then leaves a marker
+(`/var/lib/aurora/power-modes-preset-done`) so a later `systemctl disable`
+sticks. That upgrade enables the unit without starting it: its legs apply from
+the next boot, or after `systemctl start aurora-power-modes`. Images get both
+units from `systemctl preset-all` at build time, as before.
 
 ## PWR acceptance plan
 

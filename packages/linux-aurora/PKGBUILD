@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=41
+pkgrel=43
 
-# Immutable pin on aurora-silicon/linux integration/aurora. Every bump is a
+# Immutable pin on aurora-silicon/linux main. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=6f618bccf94f777eb91c2174591065a0c724fe5c
-_sha256=8d88c5196951c33b66c2abc30a4292a86de88c6753b8d771cf42dbfd4b4318c1
+_commit=dc7c873addc830fe3730573afd34291db26eac9c
+_sha256=a085df2ff5191252ef656149da3b75ef7ab4e004986188704f1a30eabe4a1704
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -31,8 +31,9 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # video encoder for aura to enable from the ADT (aura/pull/167), and its
 # DisplayPort audio needs the T8140 SIO tables (aura/pull/122). 1.0.0b12:
 # with the T8140 fabric power states (linux#1298) only aura/pull/190 enables
-# the encoder's whole power-domain chain.
-_aura_version=1.0.0b12
+# the encoder's whole power-domain chain. 1.0.0b17: the device trees of the
+# main dc7c873a pin are qualified with the b17 Stage 2 this repository ships.
+_aura_version=1.0.0b17
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
 # /usr/lib/modules/<release>/dtb-abi). update-m1n1 refuses to put newer-
@@ -59,10 +60,10 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '8d88c5196951c33b66c2abc30a4292a86de88c6753b8d771cf42dbfd4b4318c1'
+            'a085df2ff5191252ef656149da3b75ef7ab4e004986188704f1a30eabe4a1704'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '7492fd56caffc6362df45a9e4ae78bd40739ba795aee51a3cdf69b72e311134f'
+            '91a9605d040ef1159e0c17c5fce2655d0f3e2aa914ce122f89a0ea971911eadb'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
@@ -179,7 +180,12 @@ _package_kernel() {
   # aurora-stage2-trial: the update-m1n1 that trials these trees before
   # committing them and checks the DT ABI generation.
   # The restored legacy interface needs the matching Asahi speaker graphs.
-  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" 'aurora-audio>=4.1.aurora2-12' aurora-stage2-trial aurora-userpages)
+  # avd-fw: apple-avd loads apple/avd-fw-v*.bin and its queued transport needs
+  # queue ABI 2 with per-image codec VP pools (avd-fw 6756ca99). The T8122 (M3)
+  # device tree maps the CM3 SRAM at +0x90000 (linux#2586), which only the
+  # 64 KiB v4 image of avd-fw ea8ae7c8 (0.1.aurora4) fits: the older
+  # 0x12000-byte image fails the probe with -EINVAL.
+  depends=(coreutils kmod initramfs $2 "aura>=$_aura_version" 'aurora-audio>=4.1.aurora2-12' 'avd-fw>=0.1.aurora4' aurora-stage2-trial aurora-userpages)
   optdepends=('crda: to set the correct wireless channels of your country'
               'linux-firmware: firmware images needed for some devices')
   # No generic linux provide: on a shared aarch64 repository it would compete

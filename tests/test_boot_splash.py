@@ -101,6 +101,8 @@ class BootSplashTests(unittest.TestCase):
         self.assertIn('\nTarget = etc/default/grub.d/40-aurora-console.cfg\n', hook)
         self.assertIn('\nTarget = etc/default/grub.d/50-aurora-user4k.cfg\n', hook)
         self.assertIn('\nTarget = usr/lib/modules/*/vmlinuz\n', hook)
+        # A removed kernel or user4k=on fragment leaves grub.cfg too (alarm-aurora#286).
+        self.assertIn('\nOperation = Remove\n', hook)
         self.assertIn("[ -f /boot/grub/grub.cfg ] && [ -x /usr/bin/grub-mkconfig ] || exit 0; "
                       "exec /usr/bin/grub-mkconfig -o /boot/grub/grub.cfg'", hook)
 

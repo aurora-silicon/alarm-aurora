@@ -2,8 +2,8 @@
 # Built from the pinned Aurora source, without extracting proprietary firmware.
 
 pkgname=avd-fw
-pkgver=0.1.aurora3
-_commit=6062e8516c0a751bc8e50f5d604a17395923189f
+pkgver=0.1.aurora4
+_commit=ea8ae7c8b19057865b99f16522e122566dabdaf4
 pkgrel=1
 pkgdesc='Open replacement firmware for the Apple Video Decoder (AVD) on Apple Silicon'
 # This recipe uses the native ARM linker and serves Apple Silicon systems.
@@ -22,7 +22,7 @@ makedepends=('meson' 'clang22' 'llvm22' 'lld22' 'python')
 # from running the host strip over raw firmware images.
 options=('!strip' '!debug' '!buildflags' '!lto')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/avd-fw/tar.gz/$_commit")
-sha256sums=('49a631c8ba0c87bac187376bc642acaad1f62791dde6ed285fbc2bad21d60cf0')
+sha256sums=('ebf4fae6872c4e6dc5747fb98a613b790cc9e0c9aa4c9bf3e0f96e3afcc369da')
 
 build() {
   export PATH="/usr/lib/llvm22/bin:$PATH"
@@ -50,7 +50,7 @@ expected = [
     ('v3-t0', 0x10000, 'fc5219b2166e114fcd88898a8b2fb93fadfa8406dfb2c63c4d48c1b75adb49a9'),
     ('v3-t1', 0x10000, '6d7f74406e93b9e0b6b6cf7bd630b5669a2e8b43a143d6abaaa85c1f93b02e34'),
     ('v3-t2', 0x10000, '7bc2f5a30543331be6050ed2bb68198139e905b42c4622724b50cf8bf59e531a'),
-    ('v4-t0', 0x12000, 'adedf50ff0cb7ad8db539126585afab1d2fd83a82cd3ed2d3f7e0ec6d06723e2'),
+    ('v4-t0', 0x10000, '92d30e532e9c9d0f3dcd0c8d689aec474696106b28338d5b5b4e127caec88c6f'),
     ('v5-t0', 0x10000, 'aaa50276a9cc2320cb0ee6633319e82a54cf339018c03e22f33961a336bc61d1'),
     ('v5-t1', 0x12000, '6490420bc7c0156686aface9057815849a4e4a823a0bef7a82f9274144c03343'),
     ('v5-t2', 0x12000, '585f0a54c47078cb1c8c5928d7937dbcb99391aab53cec8f712af30c15071d5f'),

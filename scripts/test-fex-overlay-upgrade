@@ -7,6 +7,13 @@ proof=/proof
 mkdir -p "$proof" /usr/share/guestos/fex-mesa/usr
 exec > >(tee "$proof/fex-overlay.log") 2>&1
 work=$(mktemp -d)
+# The newest mount at $1 is read-only, nosuid and nodev, as the stock guest
+# image is mounted.
+ro_nosuid_nodev() {
+  local options
+  options=,$(findmnt -n -o OPTIONS -M "$1" | tail -n1),
+  [[ $options == *,ro,* && $options == *,nosuid,* && $options == *,nodev,* ]]
+}
 make_fixture() {
   local version=$1 root=$work/root-$1
   mkdir -p "$root/usr/share/libalpm/hooks" "$root/usr/share/guestos/aurora-fex-mesa-layer/usr" "$root/usr/share/guestos/aurora-fex-mesa" "$root/usr/lib/systemd/system"
@@ -30,6 +37,7 @@ systemctl start aurora-fex-mesa.service
 systemctl is-active aurora-fex-mesa.service
 refute touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
 findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-before.txt"
+ro_nosuid_nodev /usr/share/guestos/aurora-fex-mesa
 pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-2.pkg.tar.gz"
 systemctl is-active aurora-fex-mesa.service
 grep -x 1-2 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
@@ -59,3 +67,126 @@ pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-1.pkg.tar.gz
 systemctl start aurora-fex-mesa.service
 grep -x 1-1 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
 echo FEX-OVERLAY-UPGRADE-ROLLBACK-PASS
+
+# FEX's global RootFS follows the provider: fex-emu's real drop-in, scripts,
+# hooks and .install over guest fixtures laid out for the Arch guest root and,
+# as today's guest is (#335), for Fedora's.
+systemctl stop aurora-fex-mesa.service
+pacman --config "$work/pacman.conf" -R --noconfirm mesa-aurora-fex-guest
+# This test restarts the provider more often than systemd's default start
+# limit allows (a real upgrade starts it once or twice).
+mkdir -p /run/systemd/system/aurora-fex-mesa.service.d
+printf '[Unit]\nStartLimitIntervalSec=0\n' > /run/systemd/system/aurora-fex-mesa.service.d/90-test-start-limit.conf
+systemctl daemon-reload
+stock=/usr/share/guestos/fex-mesa
+mkdir -p "$stock/usr/lib"
+ln -s lib "$stock/usr/lib64"
+printf '\177ELF\002\001\001\000\000\000\000\000\000\000\000\000\003\000\076\000\nstock\n' > "$stock/usr/lib/ld-linux-x86-64.so.2"
+package() { # NAME VERSION ROOT [INSTALL]
+  printf 'pkgname = %s\npkgver = %s\npkgdesc = disposable FEX RootFS fixture\narch = any\nsize = 1024\n' "$1" "$2" > "$3/.PKGINFO"
+  local members=(.PKGINFO usr)
+  if [[ ${4:-} ]]; then cp "$4" "$3/.INSTALL"; members+=(.INSTALL); fi
+  (cd "$3" && bsdtar -czf "$work/$1-$2.pkg.tar.gz" "${members[@]}")
+}
+fex=$work/fex-emu
+d=/src/packages/fex-emu
+install -Dm644 "$d/50-aurora-fex-rootfs.conf" "$fex/usr/lib/systemd/system/aurora-fex-mesa.service.d/50-aurora-fex-rootfs.conf"
+install -Dm644 "$d/fex-guest-rootfs.mount" "$fex/usr/lib/systemd/system/usr-share-guestos-fex\x2dmesa.mount"
+install -Dm755 "$d/aurora-fex-provider-up" "$fex/usr/lib/fex-emu/aurora-fex-provider-up"
+install -Dm755 "$d/aurora-fex-rootfs" "$fex/usr/lib/fex-emu/aurora-fex-rootfs"
+install -Dm644 -t "$fex/usr/share/libalpm/hooks" "$d/70-aurora-fex-provider.hook" "$d/71-aurora-fex-rootfs.hook"
+install -Dm644 "$d/Config.json" "$fex/usr/share/fex-emu/Config.json"
+package fex-emu 1-1 "$fex" "$d/fex-emu.install"
+guest() { # VERSION LAYOUT
+  local root=$work/guest-$1 layer
+  layer=$root/usr/share/guestos/aurora-fex-mesa-layer
+  mkdir -p "$root/usr/share/guestos/aurora-fex-mesa" "$root/usr/share/libalpm/hooks"
+  case $2 in
+  arch) mkdir -p "$layer/usr/lib" "$layer/usr/lib32"
+    printf '\177ELF\002\001\001\000\000\000\000\000\000\000\000\000\003\000\076\000\naurora %s\n' "$1" > "$layer/usr/lib/libvulkan_asahi.so"
+    printf '\177ELF\001\001\001\000\000\000\000\000\000\000\000\000\003\000\003\000\naurora %s\n' "$1" > "$layer/usr/lib32/libvulkan_asahi.so" ;;
+  fedora) mkdir -p "$layer/usr/lib" "$layer/usr/lib64"
+    printf '\177ELF\002\001\001\000\000\000\000\000\000\000\000\000\003\000\076\000\naurora %s\n' "$1" > "$layer/usr/lib64/libvulkan_asahi.so"
+    printf '\177ELF\001\001\001\000\000\000\000\000\000\000\000\000\003\000\003\000\naurora %s\n' "$1" > "$layer/usr/lib/libvulkan_asahi.so" ;;
+  esac
+  echo "$1" > "$layer/.aurora-mesa-commit"
+  install -Dm644 /src/packages/mesa-aurora-fex-guest/aurora-fex-mesa.service "$root/usr/lib/systemd/system/aurora-fex-mesa.service"
+  cp /src/packages/mesa-aurora-fex-guest/60-aurora-fex-mesa-upgrade.hook "$root/usr/share/libalpm/hooks/"
+  package mesa-aurora-fex-guest "$1" "$root" /src/packages/mesa-aurora-fex-guest/mesa-aurora-fex-guest.install
+}
+guest 2-0 fedora
+guest 2-1 arch
+guest 2-2 arch
+pacmanu() { pacman --config "$work/pacman.conf" -U --noconfirm "$work/$1.pkg.tar.gz"; }
+provider=/usr/share/guestos/aurora-fex-mesa
+rootfs=/run/fex-emu/rootfs
+config=/run/fex-emu/Config.json
+selected() {
+  [[ $(tr -d ' \n' < "$config") == "{\"Config\":{\"RootFS\":\"$rootfs\"}}" ]]
+  mountpoint -q "$rootfs"
+  [[ $(stat -c %d "$rootfs") == $(stat -c %d "$provider") ]]
+  refute touch "$rootfs/read-only-probe"
+  ro_nosuid_nodev "$provider"
+  ro_nosuid_nodev "$rootfs"
+  grep -aqx "aurora $1" "$rootfs/usr/lib/libvulkan_asahi.so"
+  grep -aqx stock "$rootfs/usr/lib64/ld-linux-x86-64.so.2"
+}
+stock_rootfs() {
+  [[ ! -e $config ]]
+  grep -qF '"RootFS": "/usr/share/fex-emu/RootFS/default.erofs"' /usr/share/fex-emu/Config.json
+}
+binds() { findmnt -n -o TARGET --list | grep -cx "$rootfs" || :; }
+
+pacmanu fex-emu-1-1
+stock_rootfs
+# Today's guest, Fedora's layout over the Arch guest root: not used.
+pacmanu mesa-aurora-fex-guest-2-0
+systemctl daemon-reload
+systemctl enable --now aurora-fex-mesa.service
+mountpoint -q "$provider"
+stock_rootfs
+# The Arch layout (#344): the upgrade remounts it and FEX uses it.
+pacmanu mesa-aurora-fex-guest-2-1
+systemctl is-active aurora-fex-mesa.service
+selected 2-1
+cp "$config" "$proof/Config.json"
+# An x86 program holds the RootFS while the guest upgrades.
+systemd-run --unit=fex-busy -p WorkingDirectory="$rootfs" sleep 600
+pacmanu mesa-aurora-fex-guest-2-2
+[[ ! -e /run/aurora-fex-mesa.upgrade ]]
+systemctl is-active aurora-fex-mesa.service fex-busy.service
+selected 2-2
+[[ $(binds) == 2 ]]
+systemctl stop fex-busy.service
+systemctl restart aurora-fex-mesa.service
+selected 2-2
+[[ $(binds) == 1 ]]
+systemctl stop aurora-fex-mesa.service
+stock_rootfs
+refute mountpoint -q "$rootfs"
+# A full /run: no runtime config at all (FEX refuses an empty or partial
+# one), and a journal line saying why.
+mount -t tmpfs -o size=4k fex-full /run/fex-emu
+dd if=/dev/zero of=/run/fex-emu/fill bs=1k count=64 2>/dev/null || :
+systemctl start aurora-fex-mesa.service
+systemctl is-active aurora-fex-mesa.service
+stock_rootfs
+[[ -z $(find /run/fex-emu -name '.Config.json.*') ]]
+journalctl -b -u aurora-fex-mesa.service | grep -F "can't write"
+systemctl stop aurora-fex-mesa.service
+umount /run/fex-emu
+systemctl start aurora-fex-mesa.service
+selected 2-2
+# Removing the guest, then fex-emu, falls back cleanly.
+pacman --config "$work/pacman.conf" -R --noconfirm mesa-aurora-fex-guest
+stock_rootfs
+refute mountpoint -q "$rootfs"
+refute mountpoint -q "$provider"
+pacmanu mesa-aurora-fex-guest-2-2
+systemctl daemon-reload
+systemctl enable --now aurora-fex-mesa.service
+selected 2-2
+pacman --config "$work/pacman.conf" -R --noconfirm fex-emu
+[[ ! -e $config ]]
+refute mountpoint -q "$rootfs"
+echo FEX-DEFAULT-ROOTFS-PASS

@@ -34,8 +34,12 @@ class DesktopFirstBootTests(unittest.TestCase):
         for profile in ('arch-kde', 'arch-gnome'):
             self.assertIn('plymouth', profile_packages(profile))
             self.assertIn('plymouth-theme-aurora', profile_packages(profile))
+            # GameMode with Aurora's settings: desktops only, not minimal.
+            self.assertIn('gamemode', profile_packages(profile))
+            self.assertIn('aurora-gamemode', profile_packages(profile))
         self.assertEqual(profile_packages('arch-minimal'), [])
         self.assertNotIn('plymouth', re.search(r'(?s)^packages=\((.*?)\)\n', BUILD_IMAGE, re.M).group(1).split())
+        self.assertFalse({'gamemode', 'aurora-gamemode'} & set(re.search(r'(?s)^packages=\((.*?)\)\n', BUILD_IMAGE, re.M).group(1).split()))
         self.assertRegex(BUILD_IMAGE, r'(?m)^  arch-kde\) chroot "\$mountroot" systemctl enable plasmalogin\.service plasma-setup\.service;')
         self.assertNotRegex(BUILD_IMAGE, r'(?m)^  arch-gnome\).*plasma-setup')
 

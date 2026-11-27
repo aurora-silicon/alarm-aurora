@@ -1,0 +1,15 @@
+# After systemd's sysusers (20-) and udev reload (35-) hooks: give an existing
+# /dev/accel node the group and mode of 70-aurora-accel.rules now, not at the
+# next boot. An add event, since the reload hook's change event does not
+# reapply GROUP and MODE. Skipped in a chroot (image builds) and without a
+# running udevd.
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/udev/rules.d/70-aurora-accel.rules
+
+[Action]
+Description = Applying the /dev/accel permissions to existing nodes...
+When = PostTransaction
+Exec = /bin/sh -c 'systemd-detect-virt -q --chroot && exit 0; [ -S /run/udev/control ] || exit 0; udevadm trigger --action=add --subsystem-match=accel --settle || :'

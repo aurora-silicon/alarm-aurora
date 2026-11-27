@@ -1,7 +1,96 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
+# Keep pacman's trust database usable. It needs this Mac's own master key
+# (pacman-key --init) and, valid through that key, every key the installed
+# keyring packages mark as trusted (pacman-key --populate). Runs on every boot
+# and changes nothing when both hold. A first boot reset right after the
+# keyring was written can lose the new key files and keep only the trust
+# database (alarm-aurora#245), so the check looks at the keys themselves, not
+# at a marker file.
 set -euo pipefail
-pacman-key --init
-pacman-key --populate archlinuxarm asahi-alarm aurora
+
+gnupg=/etc/pacman.d/gnupg
+keyringdir=/usr/share/pacman/keyrings
+keyrings=()
+for name in archlinuxarm asahi-alarm aurora; do
+  [ -f "$keyringdir/$name.gpg" ] && keyrings+=("$name")
+done
+
+gpgc() {
+  gpg --homedir "$gnupg" --no-permission-warning --batch --with-colons "$@" 2>/dev/null
+}
+
+cleanup() {
+  [ -d "$gnupg" ] && gpgconf --homedir "$gnupg" --kill gpg-agent >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+# The master key: a secret key in the keyring.
+master_fprs() {
+  [ -d "$gnupg" ] || return 0
+  gpgc --list-secret-keys --fingerprint | awk -F: '
+    $1 == "sec" { want = 1; next }
+    $1 == "fpr" && want { print $10; want = 0 }'
+}
+
+# Keys gpg considers valid: fully (signed by an ultimately trusted key) or
+# ultimately trusted.
+valid_fprs() {
+  gpgc --list-keys --fingerprint | awk -F: '
+    $1 == "pub" { v = $2; next }
+    $1 == "fpr" && v != "" { if (v == "f" || v == "u") print $10; v = "" }'
+}
+
+# Every trusted key of the installed keyrings: present and fully valid
+# (locally signed by the master key) or ultimately trusted.
+missing_trusted() {
+  local valid name fpr
+  valid=$(valid_fprs)
+  for name in "${keyrings[@]}"; do
+    [ -f "$keyringdir/$name-trusted" ] || continue
+    while IFS=: read -r fpr _; do
+      [ -n "$fpr" ] || continue
+      grep -qx "$fpr" <<<"$valid" || echo "$name $fpr"
+    done < "$keyringdir/$name-trusted"
+  done
+}
+
+changed=0
+if [ -z "$(master_fprs)" ]; then
+  echo "initialize-keyring: no master key in $gnupg, creating one"
+  pacman-key --init
+  changed=1
+fi
+# The master key must be ultimately trusted, or nothing it signed is valid
+# (a lost trust database keeps the key but drops that trust).
+for fpr in $(master_fprs); do
+  if ! grep -qx "$fpr" <<<"$(valid_fprs)"; then
+    echo "initialize-keyring: master key $fpr lost its trust, restoring it"
+    gpg --homedir "$gnupg" --no-permission-warning --batch --import-ownertrust <<<"$fpr:6:"
+    pacman-key --updatedb
+    changed=1
+  fi
+done
+missing=$(missing_trusted)
+if [ "$changed" = 1 ] || [ -n "$missing" ]; then
+  [ -z "$missing" ] || echo "initialize-keyring: not trusted yet: $(tr '\n' ' ' <<<"$missing")"
+  pacman-key --populate "${keyrings[@]}"
+  changed=1
+fi
+
+if [ "$changed" = 1 ]; then
+  # Write the keys to disk before anything relies on them.
+  sync -f "$gnupg"
+  missing=$(missing_trusted)
+  if [ -z "$(master_fprs)" ] || [ -n "$missing" ]; then
+    echo "initialize-keyring: keyring still incomplete: $(tr '\n' ' ' <<<"${missing:-no master key}")" >&2
+    exit 1
+  fi
+fi
+
+# Kept for tools that look for it; this unit no longer reads it.
 install -d -m 0755 /var/lib/aurora
-touch /var/lib/aurora/pacman-keyring-ready
+if [ ! -e /var/lib/aurora/pacman-keyring-ready ]; then
+  touch /var/lib/aurora/pacman-keyring-ready
+  sync -f /var/lib/aurora
+fi

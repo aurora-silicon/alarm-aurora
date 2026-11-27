@@ -1,16 +1,18 @@
 # speakerguardd 1.0 (the v2 branch), a new program that installs beside the
-# 0.1 speakerguardd and speakersafetyd. OPT-IN: nothing in the default install
-# pulls it, and its fleet gate keeps the older daemons in charge until
-# aurora-speaker-upgrade switches the Mac. See README.md.
+# 0.1 speakerguardd and speakersafetyd. aurora-audio pulls it with
+# aurora-speaker-upgrade; its fleet gate keeps the older daemons in charge until
+# aurora-speaker-upgrade switches the Mac on a passing self-check. See README.md.
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
-pkgver=1.0.0alpha.1
-pkgrel=41
-# RC8 pin: the one place to move (with the first sha256sums entry and
-# sources.json speakerguardd-v2).
-_commit=04169c4470650f8e2554db70d4072fb92e484138
+pkgver=1.0.0alpha.2
+pkgrel=12
+# Pin (speakerguardd main after v1.0.0-alpha.2: speakerguardd#200, #212, #213,
+# #215, #225, #226, #228, #229, #231, #232, #234, #236, #238, #239, #240,
+# #241, #242, #243, #244, #246, #248, #249, #250, #251, #252, #218, #262, #265, #266, #268, #270): the one place to move (with the first sha256sums
+# entry and sources.json speakerguardd-v2).
+_commit=89b6e40e6dab5bee69790d783a11628f85591338
 _src=speakerguardd-$_commit
-pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0, preview: not yet a full macOS match; the legacy protection stays the default)'
+pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/speakerguardd'
 # aurora-speaker-tuning is based on aurora-audio-dsp by saku, also MIT.
@@ -18,8 +20,8 @@ license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
-sha256sums=('c6d8b07251eb34f42d97fee293ff87a1da3fc765d1e42c7af8786ee22ae27e88'
-            '4f8114220e567ff577cdd55d8086180b9376544acacad7087e1becedb2fb7d2c')
+sha256sums=('f7ee11b038971e518aae284c951799eb3291326e775e7ed0318657b0a51b0698'
+            'acbcde75b69a51864e18a6f918934b4062b0dbec578c58f10276c957541180c3')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 
@@ -92,6 +94,7 @@ check() {
   python -I packaging/session/test_provision.py
   python -I packaging/session/test_wiring.py
   python -I packaging/session/test_verify.py
+  python -I packaging/session/test_session.py
 }
 
 package_speakerguardd-v2() {

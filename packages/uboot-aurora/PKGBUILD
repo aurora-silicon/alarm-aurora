@@ -16,8 +16,14 @@ source=("u-boot::git+$url.git#commit=$_commit")
 sha256sums=('SKIP')
 build() {
   cd u-boot
-  make O=build-aurora CROSS_COMPILE="${CROSS_COMPILE:-}" PYTHON3=/usr/bin/python3 apple_m1_defconfig
-  make O=build-aurora CROSS_COMPILE="${CROSS_COMPILE:-}" PYTHON3=/usr/bin/python3 -j"${OMARCHY_BUILD_JOBS:-10}"
+  # OpenSSL 4 removed the ENGINE API that the host image tools (mkimage,
+  # dumpimage, fit_info) still call. Its headers keep stubs for that code
+  # behind OPENSSL_ENGINE_STUBS: an engine is never found, PEM keys work.
+  # Patching the checkout instead would mark the version -dirty.
+  local _make=(make O=build-aurora CROSS_COMPILE="${CROSS_COMPILE:-}" PYTHON3=/usr/bin/python3
+               HOSTCFLAGS=-DOPENSSL_ENGINE_STUBS)
+  "${_make[@]}" apple_m1_defconfig
+  "${_make[@]}" -j"${OMARCHY_BUILD_JOBS:-10}"
 }
 package() {
   # A new U-Boot reaches Stage 2 through the updater's aura-try trial.

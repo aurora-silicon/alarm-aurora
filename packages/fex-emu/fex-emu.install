@@ -1,3 +1,15 @@
 post_install() {
   /usr/lib/fex-emu/aurora-fex-provider-up
 }
+
+# The provider's drop-in may be new: bring it up again and point FEX's RootFS
+# at it.
+post_upgrade() {
+  /usr/lib/fex-emu/aurora-fex-provider-up
+}
+
+# Nothing reads the runtime config or the provider's bind without FEX.
+post_remove() {
+  rm -f /run/fex-emu/Config.json
+  umount /run/fex-emu/rootfs 2>/dev/null || :
+}

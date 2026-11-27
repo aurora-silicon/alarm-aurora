@@ -1,0 +1,39 @@
+From ddec77201a88e5f46feb2c859582309aa04edea6 Mon Sep 17 00:00:00 2001
+From: Ryan Murray <ryan@aurorasilicon.org>
+Date: Sat, 21 Nov 2026 14:08:47 +1100
+Subject: [PATCH] plugins/overview: also toggle the overview with the Mission
+ Control key
+
+Apple keyboards have a Mission Control key (F3) that shows every open
+window on macOS. Linux reports it as KEY_SCALE, which xkb maps to
+XF86LaunchA and KWin to Qt::Key_LaunchA, but nothing binds it, so the
+key does nothing in Plasma.
+
+Make it a second default shortcut of Toggle Overview, next to Meta+W.
+
+Signed-off-by: Ryan Murray <ryan@aurorasilicon.org>
+---
+ src/plugins/overview/overvieweffect.cpp | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/src/plugins/overview/overvieweffect.cpp b/src/plugins/overview/overvieweffect.cpp
+index d50cbae..23d7ad5 100644
+--- a/src/plugins/overview/overvieweffect.cpp
++++ b/src/plugins/overview/overvieweffect.cpp
+@@ -151,7 +151,12 @@ OverviewEffect::OverviewEffect()
+     overviewAction->setObjectName(QStringLiteral("Overview"));
+     overviewAction->setText(i18nc("@action Overview is the name of a Kwin effect", "Toggle Overview"));
+     overviewAction->setAutoRepeat(false);
+-    KGlobalAccel::setGlobalShortcut(overviewAction, QKeySequence(Qt::META | Qt::Key_W));
++    // Launch (A) is the Mission Control key (F3) of Apple keyboards, which
++    // shows every window on macOS.
++    KGlobalAccel::setGlobalShortcut(overviewAction, QList<QKeySequence>{
++        QKeySequence(Qt::META | Qt::Key_W),
++        QKeySequence(Qt::Key_LaunchA),
++    });
+ 
+     auto gridAction = m_gridState->toggleAction();
+     gridAction->setObjectName(QStringLiteral("Grid View"));
+-- 
+2.54.0
+

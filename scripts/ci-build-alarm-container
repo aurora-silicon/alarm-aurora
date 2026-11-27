@@ -11,6 +11,10 @@ package=${1:?package name required}
 pacman-key --init
 pacman-key --populate archlinuxarm
 pacman -Syu --noconfirm --needed base-devel git sudo python
+# Match Arch build chroots, which generate en_US.UTF-8 (see ci-build-package).
+sed -i 's/^#\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+grep -q '^en_US\.UTF-8 UTF-8' /etc/locale.gen
+locale-gen
 id builder >/dev/null 2>&1 || useradd -m builder
 printf 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman\n' > /etc/sudoers.d/aurora-builder
 mkdir -p /tmp/package-build

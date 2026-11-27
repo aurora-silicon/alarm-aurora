@@ -1,0 +1,93 @@
+From f0efc176d8815587823132e0e9dd1f5c0b44afe1 Mon Sep 17 00:00:00 2001
+From: Nick <nekreshen@yandex.ru>
+Date: Thu, 19 Nov 2026 11:11:01 +0700
+Subject: [PATCH] driver: offer H.264 High 10 to libavcodec clients by default
+
+FFmpeg's VA-API H.264 hwaccel sends pic_init_qp_minus26 with its internal
+bit-depth bias (init_qp - 26, init_qp including 6 * bit_depth_luma_minus8),
+so High 10 has needed LIBVA_V4L2_H264_HIGH10=ffmpeg, and without it every
+High 10 stream fell back to software. With the variable unset (or "auto"),
+use FFmpeg's mode when libavcodec is mapped into the process (found with
+dl_iterate_phdr, so also when it was dlopen()ed with RTLD_LOCAL); other
+clients keep High 10 off, as before. Explicit values are unchanged.
+
+Assisted-by: Claude Opus 5.5
+---
+ src/driver.c | 41 ++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 38 insertions(+), 3 deletions(-)
+
+diff --git a/src/driver.c b/src/driver.c
+index 71d3924..ccea953 100644
+--- a/src/driver.c
++++ b/src/driver.c
+@@ -6,7 +6,11 @@
+  * SPDX-License-Identifier: GPL-3.0-or-later
+  */
+ 
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE
++#endif
+ #include <fcntl.h>
++#include <link.h>
+ #include <stdarg.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -1014,6 +1018,31 @@ VAStatus v4l2r_Terminate(VADriverContextP va_ctx)
+ 	return VA_STATUS_SUCCESS;
+ }
+ 
++/* Whether libavcodec is mapped into this process, however it was loaded
++ * (also dlopen()ed with RTLD_LOCAL, as browsers do). */
++static int find_libavcodec(struct dl_phdr_info *info, size_t size, void *data)
++{
++	const char *name = info->dlpi_name;
++	const char *slash = name ? strrchr(name, '/') : NULL;
++
++	(void)size;
++	if (slash)
++		name = slash + 1;
++	if (name && !strncmp(name, "libavcodec.so", strlen("libavcodec.so"))) {
++		*(bool *)data = true;
++		return 1;
++	}
++	return 0;
++}
++
++static bool client_has_libavcodec(void)
++{
++	bool found = false;
++
++	dl_iterate_phdr(find_libavcodec, &found);
++	return found;
++}
++
+ /* libva looks up __vaDriverInit_<major>_<minor> when loading the module. */
+ #define V4L2R_INIT_NAME2(major, minor) __vaDriverInit_##major##_##minor
+ #define V4L2R_INIT_NAME1(major, minor) V4L2R_INIT_NAME2(major, minor)
+@@ -1098,14 +1127,20 @@ VAStatus V4L2R_DRIVER_INIT(VADriverContextP va_ctx)
+ 	drv = calloc(1, sizeof(*drv));
+ 	if (!drv)
+ 		return VA_STATUS_ERROR_ALLOCATION_FAILED;
+-	/* FFmpeg 9.0.1 sends its internal QP bit-depth bias in VA parameters.
+-	 * Keep High 10 opt-in until clients pass the unmodified PPS values. */
++	/* FFmpeg sends its internal QP bit-depth bias in VA parameters
++	 * (pic_init_qp_minus26 = init_qp - 26, with init_qp including
++	 * 6 * bit_depth_luma_minus8), other clients the PPS syntax values.
++	 * Without LIBVA_V4L2_H264_HIGH10 (or with "auto"), High 10 is offered
++	 * in FFmpeg's mode to a process that has libavcodec loaded, and not
++	 * at all to other clients, whose convention is not known. */
+ 	const char *high10 = getenv("LIBVA_V4L2_H264_HIGH10");
+ 	if (high10 && !strcmp(high10, "native"))
+ 		drv->h264_high10 = V4L2R_H264_HIGH10_NATIVE;
+ 	else if (high10 && !strcmp(high10, "ffmpeg"))
+ 		drv->h264_high10 = V4L2R_H264_HIGH10_FFMPEG;
+-	else if (high10 && strcmp(high10, "off"))
++	else if ((!high10 || !strcmp(high10, "auto")) && client_has_libavcodec())
++		drv->h264_high10 = V4L2R_H264_HIGH10_FFMPEG;
++	else if (high10 && strcmp(high10, "off") && strcmp(high10, "auto"))
+ 		v4l2r_diag(NULL, V4L2R_DIAG_LEVEL_WARNING, V4L2R_DIAG_CLIENT,
+ 			   "driver-init", 0,
+ 			   "unknown LIBVA_V4L2_H264_HIGH10 value; High 10 disabled");
+-- 
+2.56.1
+

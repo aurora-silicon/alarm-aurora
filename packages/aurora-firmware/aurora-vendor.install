@@ -3,6 +3,10 @@ build() {
   local binary
   add_module aop
   add_module mt7932-fullmac
+  # mt7932-fullmac pulls in cfg80211 inside the initrd before / is mounted;
+  # without the regulatory database, cfg80211 caches -ENODATA for the whole boot.
+  add_file /usr/lib/firmware/regulatory.db
+  add_file /usr/lib/firmware/regulatory.db.p7s
   add_module mt7932_bt_pcie
   add_module dockchannel-hid
   add_module vfat

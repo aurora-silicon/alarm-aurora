@@ -1,0 +1,28 @@
+# Apple MTP trackpads whose kernel driver decides palms by size itself.
+#
+# hid-magicmouse reports a palm as MT_TOOL_PALM from the controller's contact
+# class on the T6041, J616s and K116s (Trackpad26) trackpads. On the T6041 it
+# also marks a contact as a palm once its tool area alone passes palm size,
+# which replaces libinput's Apple MTP palm size threshold (touch size 1600):
+# a resting palm there has a touch size of about 1060, so that threshold never
+# caught it. Turn it off where the kernel applies that size rule.
+#
+# Kept on elsewhere, for a hardware reason:
+# - J616s and K116s: the kernel trusts the contact class only (J616s fingers
+#   reach the tool area of the T6041 rule). J616s palms have a touch size of
+#   1861-2358 and fingers stay under 230, so the threshold catches palms the
+#   class misses and never a finger; the K116s has no recorded sizes yet.
+# - Every other MTP trackpad: the kernel reports no palms, so the threshold
+#   is its only palm detection. The J700 sends no touch size at all and has
+#   its own quirk in aurora-neo-platform-config.
+#
+# libinput's quirks cannot match a udev property (MatchUdevType only takes
+# the ID_INPUT_* types), and MatchDeviceTree sees only the first compatible,
+# the board, so the T6041 boards with a trackpad are matched by name: the
+# MacBook Pro 14-inch (J614c) and 16-inch (J616c).
+[Apple MTP Touchpad, palms decided by size in the kernel]
+MatchUdevType=touchpad
+MatchName=Apple*MTP*
+MatchVendor=0x05AC
+MatchDeviceTree=apple,j61[46]c
+AttrPalmSizeThreshold=0

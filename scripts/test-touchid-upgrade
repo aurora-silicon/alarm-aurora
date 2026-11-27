@@ -9,7 +9,7 @@ packages=${1:?directory containing freshly built packages}
 proof=/src/out/touchid-upgrade
 mkdir -p "$proof"
 stock=(libfprint fprintd sudo polkit pambase)
-stack=(libfprint-aurora fprintd-aurora aurora-xart aurora-touchid-rearm aurora-sep)
+stack=(libfprint-aurora fprintd-aurora aurora-xart aurora-touchid-rearm aurora-sep-host-state aurora-sep)
 pacman -S --noconfirm --needed "${stock[@]}"
 pacman -Q "${stock[@]}" | tee "$proof/before.txt"
 [[ $(pacman -Q libfprint | cut -d' ' -f2) == 1.94.100-* ]]
@@ -53,7 +53,7 @@ cat "$proof/aurora-sep-status.txt"
 [[ $status == 2 ]]
 # Back to the distribution's packages: removing aurora-sep undoes its PAM
 # lines, and stock libfprint and fprintd replace the Aurora builds.
-pacman -R --noconfirm aurora-sep aurora-xart aurora-touchid-rearm
+pacman -R --noconfirm aurora-sep aurora-xart aurora-touchid-rearm aurora-sep-host-state
 printf 'y\ny\ny\ny\ny\ny\ny\ny\n' | pacman -S libfprint fprintd
 pacman -Q "${stock[@]}" | diff -u "$proof/before.txt" -
 refute installed libfprint-aurora

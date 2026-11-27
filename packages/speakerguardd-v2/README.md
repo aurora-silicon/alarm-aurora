@@ -5,12 +5,12 @@ speakerguardd 1.0 (`1.0.0-alpha`), the in-graph speaker protection from the
 upgrade of the 0.1 daemon, so it is packaged under its own name and installs
 beside the older daemons, speakerguardd 0.1 and speakersafetyd.
 
-## Opt-in (release candidate 8)
+## Switched at boot
 
-Nothing in the default install pulls this package: aurora-audio requires only
-speakersafetyd and speakerguardd 0.1, and replaces/conflicts only with the
-retired preview builds (up to 1.0.0alpha.1-25). Installing it changes nothing
-by itself. At every boot the fleet gate (`speakerguardd-gate`, the
+aurora-audio pulls this package and aurora-speaker-upgrade beside
+speakersafetyd and speakerguardd 0.1, which stay installed, and
+replaces/conflicts only with the retired preview builds (up to
+1.0.0alpha.1-25). Installing it changes nothing by itself. At every boot the fleet gate (`speakerguardd-gate`, the
 `ExecCondition=` of every unit of both stacks) starts exactly one stack:
 
 - on a kernel with only the legacy interface ("Speaker Volume Unlock"), the
@@ -25,8 +25,10 @@ by itself. At every boot the fleet gate (`speakerguardd-gate`, the
 
 There is no board list: qualification is derived from the Mac's own tuning,
 device tree and self-check. `speakerguardd-gate explain` prints the decision.
-aurora-speaker-upgrade ships disabled; `aurora-speaker-upgrade --check` is a
-dry run that writes nothing.
+aurora-speaker-upgrade is enabled by preset: at the next boot it switches the
+Mac only when its own tuning passes the silent self-check, and a refused Mac
+keeps the older daemons. `aurora-speaker-upgrade --check` is a dry run that
+writes nothing.
 
 ## No manual steps
 

@@ -4,20 +4,20 @@
 pkgbase=aurora-steam-native
 pkgname=(aurora-steam-native steam)
 epoch=1
-pkgver=0.r202610301134.c06f610e360
+pkgver=0.r202611241857.9054e3a1984
 pkgrel=1
 pkgdesc="Valve's native ARM64 Steam client in a 4 KiB page process tree"
 arch=('any')
 url='https://github.com/aurora-silicon/aurora-steam-native'
 license=('MIT')
-_commit=c06f610e3604c3f2b1b8466dff60d6878d0cd0da
-_sha256=c81a8425164322d77155e8c24eb9a73a379637873948cd85cfc5531ba58f25c0
+_commit=9054e3a1984869e0e62c42aa55719f73dbb2270c
+_sha256=970f8077478cbf0b4ae19694fe82ac21111056fb22332f480bb5cfb252b97143
 _lib=/usr/lib/aurora-steam-native
 checkdepends=('python' 'desktop-file-utils')
 source=("aurora-steam-native-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-steam-native/tar.gz/$_commit"
         steam steam.desktop)
 sha256sums=("$_sha256"
-            '5f9e6cfcf026f3a81a6a968dc6857232578a23098276c4d6b8a0c6edffeb23f6'
+            'c3ee91e8191b234cfcc71cff3d5e151eef9f387686bf3978c9c50f3d72b5b6bb'
             '1e2f858be0c8d365131cd1fc7072df68f3a1a8b990a2ba479aa82b1f8e692b6b')
 
 prepare() {
@@ -41,7 +41,10 @@ check() {
 }
 
 package_aurora-steam-native() {
-  depends=('aurora-userpages' 'python' 'gtk2' 'fex-emu')
+  # Valve's runtime bundles libibus and lsof for x86 only; the ARM64 client
+  # takes them from the host (steamwebhelper links libibus-1.0.so.5, the
+  # client runs lsof for its web UI transport).
+  depends=('aurora-userpages' 'python' 'gtk2' 'fex-emu' 'libibus' 'lsof')
   optdepends=('mesa-aurora-fex-guest: Aurora Mesa for x86 titles run by FEX'
               'vulkan-aurora: Vulkan for Steam and native titles'
               'python-gobject: Aurora Play' 'gtk4: Aurora Play' 'libadwaita: Aurora Play'
@@ -64,7 +67,11 @@ package_aurora-steam-native() {
 
 package_steam() {
   pkgdesc='Steam for Aurora (native ARM64 client)'
-  depends=("aurora-steam-native=$epoch:$pkgver-$pkgrel")
+  # `steam` registers each process Steam tracks for a game with GameMode
+  # (an inotify watcher on the client's gameprocess_log.txt, busctl from
+  # systemd); aurora-gamemode brings gamemoded and Aurora's settings.
+  # AURORA_STEAM_GAMEMODE=0 turns it off.
+  depends=("aurora-steam-native=$epoch:$pkgver-$pkgrel" 'aurora-gamemode' 'python' 'systemd')
   install -Dm755 "$srcdir/steam.aurora" "$pkgdir/usr/bin/steam"
   install -Dm644 "$srcdir/steam.desktop" "$pkgdir/usr/share/applications/steam.desktop"
 }

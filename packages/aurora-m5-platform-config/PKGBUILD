@@ -1,0 +1,32 @@
+pkgname=aurora-m5-platform-config
+pkgver=1
+pkgrel=1
+pkgdesc='MacBook Pro (M5 Pro) deep sleep configuration'
+arch=('any')
+license=('MIT')
+url='https://github.com/aurora-silicon/alarm-aurora'
+depends=('systemd' 'coreutils' 'grep' 'sed' 'util-linux')
+backup=('etc/aurora-m5-sleep.conf')
+install=aurora-m5-platform-config.install
+source=('50-aurora-m5-rtc-safety' 'aurora-m5-sleep-policy.service' '90-aurora-m5-deep.conf' '90-aurora-m5-lid.conf' 'aurora-m5-sleep.conf' 'README.md' 'LICENSE')
+sha256sums=('f9015811cbc452cbbf5fec77177a6fdab5eec2e860a95ce9b587fad96b509cd2' 'c46bfb79583278f97a5ea9738d5e29e39ba3ab246fe0d1c4bfe751b644a69750' '32d81a40e1f8c28418b86a13b5c8e83eae6ae838d5ac1c83e247ee9383d7c18e' '6408366a20edaa1ab92bc503493a2800d8dd2963d9fe02f9822ae98b94608617' '6a8308ab6d686894895c169d87e0c3bf472b807da6f1f12720ebdb1a762fd238' '76ef1216f7e445693a41d94fc35f3d75ac2e328413371d2e191ccd3e3adbce8e' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+check() {
+  sh -n 50-aurora-m5-rtc-safety
+  grep -q "grep -qx 'apple,j714s' || exit 0" 50-aurora-m5-rtc-safety
+  grep -qx 'ConditionFirmware=device-tree-compatible(apple,j714s)' aurora-m5-sleep-policy.service
+  grep -qx 'MemorySleepMode=deep' 90-aurora-m5-deep.conf
+  grep -qx 'HandleLidSwitchDocked=suspend' 90-aurora-m5-lid.conf
+}
+package() {
+  install -Dm755 50-aurora-m5-rtc-safety "$pkgdir/usr/lib/systemd/system-sleep/50-aurora-m5-rtc-safety"
+  install -Dm644 aurora-m5-sleep-policy.service "$pkgdir/usr/lib/systemd/system/aurora-m5-sleep-policy.service"
+  # Wanted by sysinit.target itself: a preset would not reach Macs that already
+  # have the package. ConditionFirmware skips every Mac but the J714s.
+  install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
+  ln -s ../aurora-m5-sleep-policy.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/aurora-m5-sleep-policy.service"
+  install -Dm644 90-aurora-m5-deep.conf "$pkgdir/usr/share/$pkgname/90-aurora-m5-deep.conf"
+  install -Dm644 90-aurora-m5-lid.conf "$pkgdir/usr/share/$pkgname/90-aurora-m5-lid.conf"
+  install -Dm644 aurora-m5-sleep.conf "$pkgdir/etc/aurora-m5-sleep.conf"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

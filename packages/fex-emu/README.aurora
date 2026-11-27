@@ -42,7 +42,7 @@ global config, /usr/share/fex-emu/Config.json, sets RootFS to
 (a dependency of fex-emu). FEXServer mounts the image with erofsfuse when FEX
 starts, and runs erofsfuse with native pages (a 4 KiB page process can't
 serve a FUSE mount on Aurora's kernels), so `userpages 4k FEXBash` works
-without setup. To see the mounted RootFS:
+without setup. To see the RootFS in use:
 
     userpages 4k FEXGetConfig --current-rootfs
 
@@ -52,15 +52,64 @@ If the image is missing, FEX's error names the package to install:
 
 Your own config, ~/.config/fex-emu/Config.json (~/.fex-emu/Config.json if
 that directory exists), and the FEX_ROOTFS environment variable override the
-global RootFS. A RootFS given as a name rather than a path is looked up in
+global RootFS and Aurora's x86 Mesa (below). A RootFS of your own carries its
+own x86 Mesa; remove its RootFS entry from your config to go back to Aurora's.
+A RootFS given as a name rather than a path is looked up in
 ~/.local/share/fex-emu/RootFS and /usr/share/fex-emu/RootFS.
 `FEXRootFSFetcher` downloads other root filesystems and `FEXConfig` edits
 your config. Both come with fex-emu here (Fedora puts them in fex-emu-utils);
 FEXConfig also needs qt6-declarative and sdl2-compat.
 
-fex-emu also mounts the image at /usr/share/guestos/fex-mesa, the lower layer
-of mesa-aurora-fex-guest's graphics provider, which gives Steam's FEX titles
-the G17P Mesa. Their root filesystem is the Steam runtime.
+## Aurora's x86 Mesa
+
+The stock image carries Arch's x86 Mesa, which doesn't match Aurora's kernel
+and host Mesa. mesa-aurora-fex-guest, built from the same Mesa commit as
+mesa-aurora and in Aurora's images by default, lays Aurora's x86_64 and i686
+Mesa over that image: aurora-fex-mesa.service mounts the result, the graphics
+provider, read-only at /usr/share/guestos/aurora-fex-mesa. fex-emu mounts the
+image at /usr/share/guestos/fex-mesa as its lower layer; if the image arrives
+after the provider came up without it, fex-emu mounts the provider again over
+the image. Steam's FEX titles get the provider from Steam; their root
+filesystem is the Steam runtime.
+
+mesa-aurora-fex-guest is optional for fex-emu, so pacman doesn't bring it
+back once removed. To keep it installed but run x86 programs on the stock
+image, disable the provider (Steam's FEX titles then lose it too):
+
+    sudo systemctl disable --now aurora-fex-mesa.service
+
+or, for one user only, name the stock image in your own config:
+
+    { "Config": { "RootFS": "/usr/share/fex-emu/RootFS/default.erofs" } }
+
+While the provider is mounted, the other x86 programs FEX runs use it too
+(FEXBash and programs that binfmt_misc hands to FEX). After the service mounts
+it, /usr/lib/fex-emu/aurora-fex-rootfs bind-mounts it read-only at
+/run/fex-emu/rootfs and writes /run/fex-emu/Config.json, a runtime config that
+FEX reads over the global one:
+
+    {
+      "Config": {
+        "RootFS": "/run/fex-emu/rootfs"
+      }
+    }
+
+It writes the file only if the provider has Aurora's Mesa layer, the image's
+x86-64 dynamic loader below it, and the layer's x86-64 Vulkan driver in the
+same directory, which needs a layer laid out for Arch's directories
+(x86_64 in usr/lib, i686 in usr/lib32). When the service stops, the provider
+can't be used, or the file can't be written in full (a full /run), the file
+goes and FEX uses the stock image through erofsfuse as above; the service's
+journal says why. The provider is a kernel mount, so FEXServer starts no
+FUSE helper for it, and it works from a 4 KiB page tree as the image does.
+
+FEX runs from the bind, not from the provider's mount point, so the provider
+can be unmounted for an upgrade of mesa-aurora-fex-guest while x86 programs
+run. Those programs keep the mount they started on until they exit, but, as
+with any library upgrade, files they open afterwards can come from the new
+build. Programs started afterwards use the new provider. A bind still in use
+stays mounted below the new one, and goes at the next change once it is idle.
+A FEXServer keeps the RootFS it started with until its last x86 program exits.
 
 ## Thunks
 

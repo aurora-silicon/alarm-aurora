@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ryan Murray <81541646+RyanTheTide@users.noreply.github.com>
+Date: Mon, 16 Nov 2026 05:46:08 +1100
+Subject: [PATCH] clutter/frame-clock: Update now when even the minimum
+ estimate is too late
+
+When the update for the next presentation can't make it with the
+maximum update time estimate, the fixed refresh rate scheduler tries the
+minimum estimate. When even that is too late, the update is moved to a
+later refresh cycle, timed by the minimum estimate, so it runs as late in
+that cycle as it possibly can.
+
+That also sends the frame callbacks for the update late. A client
+drawing every frame, such as a fullscreen game or video player, then
+commits its next frame too late for the following presentation as well,
+and is put off by a whole cycle again. GTK 4 paces its frames on a grid
+whose phase it takes from the first frame callbacks of an animation, so
+once it lands in that phase it stays there. On a 120 Hz built-in panel in
+a fixed refresh rate mode such a client gets 60-85 fps (intervals of
+16.7 ms, mixed with 8.3, 12.5 and 20.8 ms), while the same client in the
+variable refresh rate mode runs at 120 fps.
+
+When the minimum estimate is too late too, update right away and aim at
+the first presentation still in reach. A fixed refresh rate display
+presents the frame at the same time as before, but the client gets its
+frame callback early enough to commit its next frame in time.
+
+Assisted-by: LLM
+Signed-off-by: Ryan Murray <81541646+RyanTheTide@users.noreply.github.com>
+---
+ clutter/clutter/clutter-frame-clock.c | 26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/clutter/clutter/clutter-frame-clock.c b/clutter/clutter/clutter-frame-clock.c
+index 12f4c90..56f375c 100644
+--- a/clutter/clutter/clutter-frame-clock.c
++++ b/clutter/clutter/clutter-frame-clock.c
+@@ -1239,12 +1239,28 @@ calculate_next_update_time_us (ClutterFrameClock *frame_clock,
+ 
+               if (next_update_time_us < now_us)
+                 {
+-                  next_update_time_us =
+-                    mtk_extrapolate_next_interval_boundary (next_update_time_us,
+-                                                            now_us,
+-                                                            refresh_interval_us);
++                  /* Too late even for the minimum estimate. Update now,
++                   * aiming at the first presentation that is still in reach,
++                   * instead of waiting for the latest possible time in a
++                   * later cycle: the frame is presented at the same time on
++                   * a fixed refresh rate display, but the frame callbacks go
++                   * out early enough for a client drawing every frame to
++                   * commit its next frame in time for the cycle after.
++                   * Otherwise such a client keeps committing too late, and
++                   * stays locked to every other refresh cycle.
++                   */
+                   next_presentation_time_us =
+-                    next_update_time_us + min_update_time_estimate_us;
++                    mtk_extrapolate_next_interval_boundary (next_presentation_time_us,
++                                                            now_us +
++                                                            min_update_time_estimate_us,
++                                                            refresh_interval_us);
++                  next_update_time_us = now_us;
++
++                  CLUTTER_NOTE (FRAME_CLOCK,
++                                "%s update too late for the next presentation, "
++                                "updating now for the one %ld µs later",
++                                frame_clock->output_name,
++                                next_presentation_time_us - now_us);
+                 }
+ 
+               if (next_presentation_time_us - max_update_time_estimate_us < now_us)

@@ -23,9 +23,12 @@ def main():
     parser.add_argument('--packages', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--credentials-stdin', action='store_true')
+    parser.add_argument('--repository-name', choices=('aurora', 'aurora-edge'), default='aurora',
+                        help='aurora-edge: the Edge overlay of one aurora-edge kernel and Mesa pair')
     parser.add_argument('--dry-run-public-key', type=Path,
                         help='sign with a throwaway key whose public half is given here (dry runs only)')
     args = parser.parse_args()
+    database = args.repository_name
     if args.output.exists():
         parser.error('output exists; use a new snapshot directory')
     packages = sorted(args.packages.glob('*.pkg.tar.*'))
@@ -72,9 +75,9 @@ def main():
             with target.open('rb') as stream:
                 digest = hashlib.file_digest(stream, 'sha256').hexdigest()
             manifest.append({'name': name, 'filename': target.name, 'bytes': target.stat().st_size, 'sha256': digest})
-        run('repo-add', '--include-sigs', str(args.output / 'aurora.db.tar.gz'),
+        run('repo-add', '--include-sigs', str(args.output / f'{database}.db.tar.gz'),
             *map(str, sorted([p for p in args.output.glob('*.pkg.tar.*') if not p.name.endswith('.sig')])))
-        for filename in ('aurora.db.tar.gz', 'aurora.files.tar.gz'):
+        for filename in (f'{database}.db.tar.gz', f'{database}.files.tar.gz'):
             target = args.output / filename
             run(*gpg, '--local-user', fingerprint, '--detach-sign', '--output', str(target) + '.sig', str(target))
             run(*gpg, '--verify', str(target) + '.sig', str(target))
@@ -86,7 +89,7 @@ def main():
         run('gpgconf', '--homedir', str(home), '--kill', 'gpg-agent')
     shutil.copyfile(public_key, args.output / 'aurora-alarm.asc')
     (args.output / 'manifest.json').write_text(json.dumps({
-        'schema': 1, 'architecture': 'aarch64', 'channel': 'testing',
+        'schema': 1, 'architecture': 'aarch64', 'channel': 'edge' if database == 'aurora-edge' else 'testing',
         'signing_key': fingerprint, 'dry_run': bool(args.dry_run_public_key), 'packages': manifest,
     }, indent=2) + '\n')
     print(f'Prepared and verified {len(manifest)} signed ALARM packages and pacman databases')

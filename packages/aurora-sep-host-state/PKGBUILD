@@ -1,0 +1,31 @@
+pkgname=aurora-sep-host-state
+pkgver=1
+pkgrel=1
+pkgdesc='Recover a SEP host-state store that a power cut left short'
+arch=('any')
+groups=('aurora-platform-apple-silicon')
+url='https://github.com/aurora-silicon/aurora-sep-userspace'
+license=('MIT')
+_commit=b7013b95052db8265b28feec22793254fe0f3d2b
+depends=('python' 'systemd')
+makedepends=('make')
+install=aurora-sep-host-state.install
+source=("aurora-sep-userspace-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-sep-userspace/tar.gz/$_commit")
+sha256sums=('0391b7820d664dabebd0e7abe2f57c8765df23d41d5e8d6c7153f4760ca36ece')
+
+build() {
+  make -C "aurora-sep-userspace-$_commit/host-state" LIBEXECDIR=/usr/libexec
+}
+
+check() {
+  make -C "aurora-sep-userspace-$_commit/host-state" check PYTHON=python
+}
+
+package() {
+  # The unit runs before aurora-sep.service whenever the store exists and
+  # exits at once when it is whole; its preset enables it.
+  make -C "aurora-sep-userspace-$_commit/host-state" install DESTDIR="$pkgdir" PREFIX=/usr \
+    LIBEXECDIR=/usr/libexec UNITDIR=/usr/lib/systemd/system \
+    PRESETDIR=/usr/lib/systemd/system-preset DOCDIR=/usr/share/doc/aurora-sep-host-state
+  install -Dm644 "aurora-sep-userspace-$_commit/LICENSES/MIT.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -2,14 +2,16 @@
 # Steffens, Jan de Groot and contributors). Aurora keeps a Wake-on-LAN/WLAN
 # device that is still activated after wake instead of reconnecting it
 # (fedora-aurora networkmanager-aurora, nixos-aurora system-fixes: same patch).
+# With the iwd backend, an activation requested before iwd's first scan has
+# listed the network waits for the scan instead of failing at once.
 # Only the daemon package is replaced; libnm, nm-cloud-setup and the docs stay
 # Arch's (the files _pick moves aside are not packaged).
 
 pkgname=networkmanager-aurora
 _pkgname=NetworkManager
 pkgver=1.58.1
-pkgrel=4
-pkgdesc='Network connection manager, keeping Wake-on-LAN devices that stay activated across sleep'
+pkgrel=5
+pkgdesc='Network connection manager, keeping Wake-on-LAN devices that stay activated across sleep and waiting for iwd scans'
 url='https://networkmanager.dev/'
 arch=('aarch64')
 license=('LGPL-2.1-or-later' 'GPL-2.0-or-later')
@@ -107,10 +109,12 @@ checkdepends=(
 # sources file); this repository's build root carries no upstream PGP keys.
 source=("https://gitlab.freedesktop.org/NetworkManager/NetworkManager/-/releases/$pkgver/downloads/$_pkgname-$pkgver.tar.xz"
         0001-libnm-glib-aux-rename-_s1-variable-to-avoid-shadowing.patch
-        0101-manager-keep-wake-on-lan-devices-that-are-still-activated-after-wake.patch)
+        0101-manager-keep-wake-on-lan-devices-that-are-still-activated-after-wake.patch
+        0102-iwd-wait-for-the-first-scan-instead-of-failing-an-activation.patch)
 sha256sums=('262864cfd198123d3e5dbe91937441b97ee9059d6d712e1a5bfbb1c54668d14d'
             '0292ac92c2a965e26e2399bb74f75f577858c91afb1e801b78184c09f20e0893'
-            '255d35498c067543cfd02030fb435beecf35d0637c7df38fc5d7d0148aff7a89')
+            '255d35498c067543cfd02030fb435beecf35d0637c7df38fc5d7d0148aff7a89'
+            'a8109cc9cb65a7da53a2c3964b6103e4d5d94b31afd4e4d0f557e610b157622e')
 
 prepare() {
   cd $_pkgname-$pkgver
@@ -118,6 +122,8 @@ prepare() {
   patch -Np1 -i ../0001-libnm-glib-aux-rename-_s1-variable-to-avoid-shadowing.patch
   # Aurora: keep Wake-on-LAN devices that are still activated after wake
   patch -Np1 -i ../0101-manager-keep-wake-on-lan-devices-that-are-still-activated-after-wake.patch
+  # Aurora: with iwd, wait for the first scan instead of failing an activation
+  patch -Np1 -i ../0102-iwd-wait-for-the-first-scan-instead-of-failing-an-activation.patch
 }
 
 build() {

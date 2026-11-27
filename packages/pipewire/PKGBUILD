@@ -6,9 +6,9 @@
 #  - remove pipewire-onnx package, onnxruntime makedepend, set -D onnxruntime=disabled
 #
 # Arch Linux ARM's PipeWire recipe (archlinuxarm/PKGBUILDs extra/pipewire at
-# 1b902bd4b08f37ae3798a70ec597646a0c370b84, 1:1.6.10-1) for aarch64 with the
-# Aurora patches that fedora-aurora carries on 1.6.9; they apply to 1.6.10
-# unchanged. pkgrel 1.2 sorts above ALARM's 1 and [aurora] precedes [core] and
+# 6fa5f72fa1cc7cf3b37a61a2bd44d92a9e230db8, 1:1.6.11-2) for aarch64 with the
+# Aurora patches that fedora-aurora carries on 1.6.11; they apply to 1.6.11
+# unchanged. pkgrel 2.1 sorts above ALARM's 2 and [aurora] precedes [core] and
 # [extra] in pacman.conf, so pacman keeps these packages even after ALARM moves
 # to a newer PipeWire. Rebase the patches when this recipe moves to a new
 # upstream release; drop each one when upstream carries it.
@@ -40,8 +40,8 @@ pkgname=(
   pipewire-session-manager
   pulse-native-provider
 )
-pkgver=1.6.10
-pkgrel=1.6
+pkgver=1.6.11
+pkgrel=2.1
 epoch=1
 pkgdesc="Low-latency audio/video router and processor"
 url="https://pipewire.org"
@@ -134,7 +134,7 @@ source=(
   # and failed with -EPIPE until PipeWire restarted: prepare it again.
   1010-alsa-prepare-a-stream-again-after-its-start-failed.patch
 )
-b2sums=('3c4645252b9affb46852be4d3103fc94664f76df1a1b64b7a8aee011f26b38f10d5bd189fdef65b239c9e13e016dbd25070b791c7ec4e2870777231aac3a8bbd'
+b2sums=('2359991befdbc6cf5a2e5ad31cde4a3f1904675fe455b9ab719754549e994ba0538b0f070b9954a4d64619067101eff9ed9e03ea3d5dd4674b3d21e9991da5b2'
         'ea19c2cd60b7b9773b48b2a044c764fbec260ec356d4a0f66a31737015dad5f1509145bf97094988fc2ea55282e98d52df4448a80e46b9e3c2fef57345b87846'
         'f80f9827c0a611686e1497b24724b61e193b2811d6319cb8b40312eee1941f7168df85949c78e793405345e0cdceedfcfc75b0ec0ee79a23490e7250ee3eb4c1'
         'eb764e09168407cd66b53fe86a1e7a0c5c25c9ff9b573f353f54efed9bd8f2413dae2cc09187103cb9ed540225a222cf4a1a7aa7b317b77f5d45f66002faac6b'

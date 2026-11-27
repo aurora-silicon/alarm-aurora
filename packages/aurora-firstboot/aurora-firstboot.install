@@ -1,0 +1,14 @@
+# Apply the shipped preset, as Fedora's systemd_post does. A unit already
+# enabled or disabled stays as it is. Both units have conditions: first-boot
+# setup runs only while an install still waits for its owner, and the keymap
+# watch only on an Aurora image layout.
+post_install() {
+  systemctl --preset-mode=enable-only preset aurora-firstboot.service aurora-initrd-keymap.path >/dev/null 2>&1 || :
+}
+
+# No post_upgrade: an upgrade never restarts the account wizard (and its
+# greeter).
+
+pre_remove() {
+  systemctl disable --now aurora-firstboot.service aurora-initrd-keymap.path >/dev/null 2>&1 || :
+}

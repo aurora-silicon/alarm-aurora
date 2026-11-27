@@ -20,6 +20,12 @@ chroot "$container" /bin/bash -euo pipefail -c '
   pacman-key --init
   pacman-key --populate archlinuxarm
   pacman -Syu --noconfirm --needed base-devel git sudo python
+  # Arch build chroots (devtools mkarchroot) generate en_US.UTF-8; the bare
+  # ALARM root does not. Upstream test suites that call gtk_test_init() force
+  # that locale and abort without it.
+  sed -i "s/^#\(en_US\.UTF-8 UTF-8\)/\1/" /etc/locale.gen
+  grep -q "^en_US\.UTF-8 UTF-8" /etc/locale.gen
+  locale-gen
   id builder >/dev/null 2>&1 || useradd -m builder
   printf "builder ALL=(ALL) NOPASSWD: /usr/bin/pacman\n" > /etc/sudoers.d/aurora-builder
   mkdir -p /tmp/package-build

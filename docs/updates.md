@@ -128,11 +128,11 @@ backup files and a conflict without being listed.
 |---|---|---|
 | `track-sources.yml` | every 30 min (`TRACK_SOURCES`), manual | Moves `aura`, `kernel-aurora`, `mesa-aurora` (see `tracking.json`) to their branch tips in one PR on `auto/track-sources`, dispatches `packages.yml` on it, merges when green (`AUTO_MERGE_SOURCES`), mirrors pinned archives to the `source-cache` release |
 | `packages.yml` | push, PR, manual | Native builds; attests every package |
-| `publish.yml` | after a main build and every 6 h (`AUTO_PUBLISH_TESTING`), manual | Resolves the newest qualifying build of every recipe (no run list), carries unchanged recipes from the newest snapshot, refuses version regressions, signs in `testing-signing`, releases `testing-YYYYMMDD.N` with an attestation; deploys to testing if `AUTO_DEPLOY_TESTING` or `deploy=yes` |
+| `publish.yml` | after a main build (passed or failed) and every 6 h (`AUTO_PUBLISH_TESTING`), manual | Resolves the newest qualifying build of every recipe (no run list), carries unchanged recipes from the newest snapshot, refuses version regressions and any depend that neither the set nor asahi-alarm/core/extra/alarm/aur meets (`check-feed-depends.py`), signs in `testing-signing`, releases `testing-YYYYMMDD.N` with an attestation; deploys to testing if `AUTO_DEPLOY_TESTING` or `deploy=yes` |
 | `deploy-snapshot.yml` | manual or called | Serves a snapshot on `testing` or `stable`; assembles the whole site (both channels), verifies every signature and attestation, compares with the live database, records `channels.json` on the `channels` branch |
 | `promote.yml` | manual | One click: `stable` gets what `testing` serves, after a `stable-promotion` reviewer approves |
-| `images.yml` | manual or after a testing deploy (`AUTO_IMAGES`) | Builds an image from a snapshot; `channel` sets the feed it follows |
-| `payload-after-images.yml` | after an image build (`AUTO_PAYLOADS`) | Signed payload release; catalog adoption stays manual |
+| `images.yml` | manual | Builds an image from a snapshot; `channel` sets the feed it follows |
+| `publish-payload.yml` | manual | Signed payload release from an image build; catalog adoption stays manual |
 
 ## Common tasks
 
@@ -160,6 +160,37 @@ The old manual inputs still work: `publish.yml -f build-run='<ids>' -f release-t
 - Changing `packages.yml`, `scripts/ci-build-package`, `scripts/fetch-base.py`, `images/base.json` or the
   build-system key makes every earlier build ineligible. The next publication then requests a full main
   build before it can complete.
+- A publication that is missing builds requests only the recipes no active build makes from today's
+  recipe (`scripts/request-builds.py`), and requests nothing while a build has not planned yet. A run that
+  failed only in builds of today's recipes has just its failed jobs re-run (up to three attempts), so its
+  other builds count. Otherwise a recipe whose last build failed is requested in a run of its own; after
+  two failures in a row it is named in the
+  run summary with its failed jobs, the publication run fails, and it is not requested again until its
+  recipe changes or those jobs are re-run.
 - A tracker PR is left alone once anyone but the bot pushes to it.
 - `channels.json` on the `channels` branch is the record of what each channel serves; the deployed site
   carries a copy.
+
+## Edge
+
+Edge is offered to the Macs whose chip family the adopted Edge train's rows qualify, one named machine per family; every other Mac stays on Nightly. The [Edge train document](https://github.com/aurora-silicon/aurora-distributions/blob/main/docs/edge-train.md) lists the families and machines. ALARM is rolling, so Edge is an overlay, not a frozen snapshot: `[aurora-edge]` (`https://aurorasilicon.org/alarm-aurora/edge/aarch64`) carries only the kernel and Mesa of the train's aurora-edge pair, and sits before `[aurora]` (Testing), so pacman takes those packages from it and everything else from Testing, which follows the Arch base. A third full copy would also not fit the Pages budget.
+
+| Step | How |
+|---|---|
+| Edge packages | `edge-staging/<pair>` branch changing only `sources.json` and the `linux-aurora`, `mesa-aurora`, `mesa-aurora-fex-guest` and `aurora-flatpak-gl` recipes (never merged), `packages.yml` dispatched on it |
+| Edge overlay | `publish-edge.yml -f build-run=<that run>`: checks the staging diff, the packaged aurora-edge pair and every package attestation; signs the packages and `aurora-edge.db` in `testing-signing` (`sign-repository.py --repository-name aurora-edge`); release `edge-YYYYMMDD.N` with `edge-sources.json` |
+| Images | `images.yml -f channel=edge -f release-tag=testing-… -f edge-snapshot=edge-…`: `[aurora-edge]` ahead of `[aurora]` while building and after sealing; `edge-image-proof.json` (schema 2) is attested and shipped |
+| Payloads | `publish-edge-payload.yml` per profile, after the train record is on aurora-distributions main |
+| Feed | `deploy-snapshot.yml -f channel=edge -f release-tag=edge-…`: serves only the overlay the adopted aurora-distributions Edge train names |
+
+**What ALARM Edge qualifies.** ALARM Edge qualifies only the kernel and Mesa: `[aurora-edge]` carries `linux-aurora`, `linux-aurora-headers`, `aurora-userpages`, the four `mesa-aurora` split packages, `mesa-aurora-fex-guest` and `aurora-flatpak-gl` (every split package their recipes declare; `publish-edge.yml` refuses an overlay missing one). The boot chain (`aura`, `uboot-aurora`, `aurora-boot`, `aurora-firmware`, `avd-fw`) and the rest of Aurora's userspace follow Testing, as Arch's own repositories do; they are not frozen at the train's Stage 2 the way the Fedora Edge snapshot freezes them.
+
+**Closure.** Every deploy that serves both channels (`channel=edge`, and `channel=testing` while an overlay is served) runs `scripts/check-edge-closure.py` against the two databases it would publish. It fails the deploy when:
+
+- an overlay package needs an Aurora name (any `pkgname` or provide of `packages/*`, or anything either feed serves) that Testing does not serve at that version, including an Aurora package Testing has dropped;
+- an overlay package needs any other name that Arch Linux ARM's core, extra, alarm and aur and asahi-alarm do not serve (the same libalpm rules as `check-feed-depends.py`);
+- a Testing package needs a version of an overlay package the overlay does not have (libalpm would install the Testing copy);
+- the two conflict;
+- a database is missing or unreadable.
+
+**Rollback.** pacman does not downgrade on `-Syu`, so an overlay with older versions never reaches installed Macs. A rollback train bumps the affected recipes' `epoch` or `pkgrel` above the overlay it replaces, and is adopted like any other train.

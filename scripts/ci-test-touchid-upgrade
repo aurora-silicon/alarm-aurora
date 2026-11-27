@@ -3,7 +3,7 @@
 # root, then run test-touchid-upgrade against those packages.
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-stack=(libfprint-aurora fprintd-aurora aurora-xart aurora-touchid-rearm aurora-sep)
+stack=(libfprint-aurora fprintd-aurora aurora-xart aurora-touchid-rearm aurora-sep-host-state aurora-sep)
 bash "$root/scripts/ci-build-package" "${stack[0]}"
 for package in "${stack[@]:1}"; do
   chroot "$root/out/container" /bin/bash -euo pipefail -c '

@@ -13,6 +13,14 @@ build() {
   add_module phy-apple-atc?
   add_module phy-ti-cd2e22?
   add_module tps6598x?
+  # T6041's Type-C PHY (the external DCPs' dp-phy suppliers) and the HDMI
+  # LPDPTX PHY. The image builder's autodetect runs on another machine, so
+  # without them a fresh install starts appledrm only from the real root;
+  # when the initramfs takes longer than the deferred probe timeout (the
+  # first boot's in-place encryption, a passphrase typed late), every DCP
+  # gives up and the boot has no display at all.
+  add_module phy-apple-t6040-usb2?
+  add_module phy-apple-dptx?
   add_binary bash
   add_binary udevadm
   add_file /usr/libexec/aurora/aurora-early-kms

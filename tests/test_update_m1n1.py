@@ -347,7 +347,8 @@ def board_image(board, chip):
 
 
 class PrepareCtxrStage2(unittest.TestCase):
-    BOARDS = {'j274': 't8103', 'j700': 't8140', 'j616s': 't6040', 'j614s': 't6040', 'j713': 't8132', 'j873g': 't8152'}
+    BOARDS = {'j274': 't8103', 'j700': 't8140', 'j616s': 't6040', 'j614s': 't6040', 'j616c': 't6041',
+              'j614c': 't6041', 'j713': 't8132', 'j873g': 't8152'}
 
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -361,8 +362,9 @@ class PrepareCtxrStage2(unittest.TestCase):
     def test_image_esp_carries_both_files_and_each_macho_boards_own(self):
         before = {path.name: path.read_bytes() for path in self.m1n1.iterdir()}
         written = prepare_ctxr.prepare(self.m1n1, self.m1n1)
-        self.assertEqual(sorted(written), ['boot-ctxr-j614s.bin', 'boot-ctxr-j616s.bin', 'boot-ctxr-j700.bin',
-                                           'boot-ctxr-j713.bin', 'boot-ctxr-j873g.bin', 'boot-ctxr.bin'])
+        self.assertEqual(sorted(written), ['boot-ctxr-j614c.bin', 'boot-ctxr-j614s.bin', 'boot-ctxr-j616c.bin',
+                                           'boot-ctxr-j616s.bin', 'boot-ctxr-j700.bin', 'boot-ctxr-j713.bin',
+                                           'boot-ctxr-j873g.bin', 'boot-ctxr.bin'])
         self.assertEqual((self.m1n1 / 'boot-ctxr.bin').read_bytes(), b'combined')
         self.assertEqual((self.m1n1 / 'boot-ctxr-j700.bin').read_bytes(), before['boot-j700.bin'])
         self.assertFalse((self.m1n1 / 'boot-ctxr-j274.bin').exists())
@@ -384,6 +386,7 @@ class PrepareCtxrStage2(unittest.TestCase):
     def test_an_image_build_refuses_any_problem(self):
         cases = {
             'missing required board': lambda: (self.m1n1 / 'boot-j614s.bin').unlink(),
+            'missing M4 Max board': lambda: (self.m1n1 / 'boot-j614c.bin').unlink(),
             'board file without its tree': lambda: (self.m1n1 / 'boot-j700.bin').write_bytes(b'no tree'),
             'oversized board file': lambda: (self.m1n1 / 'boot-j700.bin').write_bytes(
                 board_image('j700', 't8140') + b'\0' * prepare_ctxr.MAX_STAGE2_BYTES),
@@ -405,7 +408,8 @@ class PrepareCtxrStage2(unittest.TestCase):
         (self.m1n1 / 'boot-j614s.bin').unlink()
         (self.m1n1 / 'boot-j700.bin').write_bytes(board_image('j700', 't8140') + b'\0' * prepare_ctxr.MAX_STAGE2_BYTES)
         written = prepare_ctxr.prepare(self.m1n1, self.m1n1, keep_going=True)
-        self.assertEqual(sorted(written), ['boot-ctxr-j616s.bin', 'boot-ctxr-j713.bin', 'boot-ctxr-j873g.bin', 'boot-ctxr.bin'])
+        self.assertEqual(sorted(written), ['boot-ctxr-j614c.bin', 'boot-ctxr-j616c.bin', 'boot-ctxr-j616s.bin',
+                                           'boot-ctxr-j713.bin', 'boot-ctxr-j873g.bin', 'boot-ctxr.bin'])
 
     def test_chip_list_matches_the_update_tool(self):
         for chip in MACHO_CHIPS:
@@ -472,7 +476,7 @@ class Recipes(unittest.TestCase):
         # 20261023-4 brought the units; later releases must not preset them again.
         self.assertIn('vercmp "$2" 20261023-4', install)
         self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgver=20261023$')
-        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgrel=9$')
+        self.assertRegex(PKGBUILD.read_text(), r'(?m)^pkgrel=10$')
 
     def test_the_hook_runs_after_kernel_removal_too(self):
         hook = (PKGBUILD.parent / '95-m1n1-install.hook').read_text()

@@ -9,7 +9,8 @@ RemainAfterExit=yes
 # The Aurora x86_64/i686 Mesa layer over the stock guest rootfs. The stock guest
 # Mesa has no Apple G17P support; this layer is built from the same Mesa commit
 # as the host driver (mesa-aurora) and moves with it.
-ExecStart=/usr/bin/mount -t overlay overlay -o ro,lowerdir=/usr/share/guestos/aurora-fex-mesa-layer:/usr/share/guestos/fex-mesa /usr/share/guestos/aurora-fex-mesa
+# Read-only, nosuid and nodev, as the stock guest image is mounted below it.
+ExecStart=/usr/bin/mount -t overlay overlay -o ro,nosuid,nodev,lowerdir=/usr/share/guestos/aurora-fex-mesa-layer:/usr/share/guestos/fex-mesa /usr/share/guestos/aurora-fex-mesa
 ExecStop=/usr/bin/umount /usr/share/guestos/aurora-fex-mesa
 
 [Install]

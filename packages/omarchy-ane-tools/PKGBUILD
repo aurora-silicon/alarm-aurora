@@ -1,17 +1,17 @@
 pkgname=omarchy-ane-tools
-pkgver=0.5.7
-pkgrel=2
+pkgver=0.5.14
+pkgrel=1
 pkgdesc='Apple Neural Engine userspace tools for the in-kernel ANE driver'
 arch=('aarch64')
 url='https://github.com/joshuaswarren/omarchy-ane'
 license=('GPL-2.0-only OR MIT')
-_commit=68e92712bbffa08f5002dcc542434fe1393f0578
+_commit=7a8963096b49409a6a38c7df3358bccd457ab368
 # libdrm: drm.h for libane, which omarchy-ane-run links statically.
 makedepends=('gcc' 'make' 'binutils' 'libdrm' 'python')
 depends=('glibc' 'python')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/joshuaswarren/omarchy-ane/tar.gz/$_commit")
-source+=(70-omarchy-ane.rules omarchy-ane-tools.sysusers fix-smoke.py)
-sha256sums=('09fee8d386728939d4752acb21a3ff99192809bf608f8d1bca6cd426b460aea6' '7f24ff7c5574f941f0509d19a033e58c052114654872a3a26f8f539a80a3ef17' '8e7935bbe73faf3195d0f72004a445968c5c98702df19cd4a3ecb7cf318530b8' 'e803c67186b95a49fc6fe51d5aba7f58be85f22e2627d2a5f7b93fac097ef2b8')
+source+=(fix-smoke.py)
+sha256sums=('242771c054210df70a940842a66304f4643b09a84cbf56c43723888437a7001b' 'e803c67186b95a49fc6fe51d5aba7f58be85f22e2627d2a5f7b93fac097ef2b8')
 prepare() {
   cd "omarchy-ane-$_commit"
   python "$srcdir/fix-smoke.py"
@@ -28,8 +28,10 @@ check() {
   python tools/test_ane_firmware_fetch.py
 }
 package() {
-  install -Dm644 "$srcdir/70-omarchy-ane.rules" "$pkgdir/usr/lib/udev/rules.d/70-omarchy-ane.rules"
-  install -Dm644 "$srcdir/omarchy-ane-tools.sysusers" "$pkgdir/usr/lib/sysusers.d/omarchy-ane-tools.conf"
+  # The device policy (/dev/accel/accel*: group accel, mode 0660, the session
+  # user's ACL) and the accel group come from aurora-system-fixes, on every
+  # install. It is built in this repository, so not a build-time dependency.
+  depends+=('aurora-system-fixes>=1-16')
   cd "omarchy-ane-$_commit"
   install -Dm755 tools/ane-run "$pkgdir/usr/bin/omarchy-ane-run"
   install -Dm755 -t "$pkgdir/usr/bin" packaging/omarchy-ane-smoke packaging/omarchy-ane-firmware-fetch

@@ -1,10 +1,13 @@
 # Maintainer: Jos Dehaes <jos.dehaes@gmail.com>
 # Maintainer: Matthias Kurz <m.kurz@irregular.at>
 
-# asahi-alarm's recipe (asahi-alarm/PKGBUILDs 8648855) with the unit mode fix
-# from AsahiLinux/asahi-scripts#75 and Aurora's update-m1n1, which replaces the
-# tag's copy: on Mach-O Macs it writes boot-ctxr.bin and never touches boot.bin.
+# asahi-alarm's recipe (asahi-alarm/PKGBUILDs 8648855) with Aurora's
+# update-m1n1, which replaces the tag's copy: on Mach-O Macs it writes
+# boot-ctxr.bin and never touches boot.bin.
 # The aurora repository is listed first, so this shadows asahi-alarm's updates.
+#
+# The tag's macsmc-battery units and udev rule are not installed: UPower owns
+# the battery charge limit (upower-aurora hands a limit they saved to UPower).
 #
 # update-m1n1 is Fedora's trial-then-commit Stage 2 updater
 # (aurora-silicon/fedora-aurora#193, #207, #232, #251): bootchain.py and test_bootchain.py are
@@ -18,7 +21,7 @@
 # Stage 1; the stage2-sign-hook marker tells aurora-secboot stage1 build so.
 pkgname=asahi-scripts
 pkgver=20261023
-pkgrel=9
+pkgrel=10
 pkgdesc='Asahi Linux maintenance scripts'
 arch=('any')
 url='http://asahilinux.org'
@@ -30,7 +33,6 @@ checkdepends=('dtc' 'python')
 # aura and U-Boot require aurora-stage2-trial, this trial-aware updater.
 provides=('aurora-stage2-ctxr-slot=1' 'aurora-stage2-trial=1')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/asahi-alarm/${pkgname}/archive/refs/tags/${pkgver}.tar.gz"
-        0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch
         update-m1n1
         95-m1n1-install.hook
         bootchain.py
@@ -44,7 +46,6 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/asahi-alarm/${pkgname}/
         90-aurora-stage2.preset)
 install=asahi-scripts.install
 sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
-            '729c2641d29ca74f6b42a5c292d7ac2322d12ec6e2dca2e13257eeebf6918ee9'
             'f5fab46d6c0abd20875f1f4f375eca9235d2e465944968755e366a049b097dc5'
             'dca1868d158651ed329ad463962d51bf07ab6ac5935ced8a468f522381dec0e4'
             'f5eaff3c4da43244d1a0dc2f0d1fcab72fd236e81f8a601a1b487c9ac0b64cf9'
@@ -57,7 +58,6 @@ sha256sums=('64c7e8d50f7ad37d58a64d1f1bc7c8848d7507093f40172e6dbce75c72b26ce4'
             '8bff7e48405ab6ea7472946dbbcf4d037182d386e8aef86851480a75510a5aa8'
             '5a75c10decc6f75a8c3b917461052611f9c629644dc6345191c3ab0a63bcd4b2')
 b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641bdf60357411b2c14caf96eb19a4a23bd258d3a00127e70679a7ca8770'
-        '01418c683b44c51758926559c8aebbe9398394b741508a7c6f2966449df24e28cad0de60c46c2ceae0fefbfb42ca568be22d99f07801800ceae88f04a6379e93'
         '4547e46fbdfae65d94f3b05c8ba338e437211100cfcd781a1152e77e521897e5825e2e3928be9ba10749f2f878bf3159492745b84480e8751069a0b4b3cf3ee7'
         '3c4b539322edb95e0398af78d726501a6c5907f5568b47ef8c9f4fde837af3441d61b0d00a131966f353b3e2c59dbfdb650f9e7ce143ea3f182e3169a968a832'
         '37c398ade8f27c271871a088b6710dc961704bc4a453667596c1010a08728ff4c96e32cecbc90f8a7ede3c78f48a454c6fa63a39354c05a761ed5947ef352d68'
@@ -73,8 +73,6 @@ b2sums=('d39055c0fea22fd52821197bdb78610ab943e5e1418d344795dab82b381b94eddd89641
 prepare() {
   cd "${srcdir}/${pkgname}-${pkgver}"
 
-  # systemd warns on every boot about unit files marked executable.
-  patch -p1 < "${srcdir}/0001-Makefile-Install-macsmc-battery-systemd-units-with-mode-0644.patch"
   install -m755 "${srcdir}/update-m1n1" update-m1n1
   install -m644 "${srcdir}/95-m1n1-install.hook" libalpm/hooks/95-m1n1-install.hook
 }
@@ -96,6 +94,8 @@ package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
 
   make PREFIX=/usr DESTDIR=${pkgdir} install-arch
+  # The tag's macsmc-battery units would write the charge limit beside UPower.
+  make PREFIX=/usr DESTDIR=${pkgdir} uninstall-macsmc-battery
   install -Dm644 "$srcdir/${pkgname}-${pkgver}/LICENSE" \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 

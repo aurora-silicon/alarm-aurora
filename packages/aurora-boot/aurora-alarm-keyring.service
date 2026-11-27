@@ -1,7 +1,7 @@
 [Unit]
-Description=Create this Mac's pacman trust database
-# Retried on every boot until it has succeeded once.
-ConditionPathExists=!/var/lib/aurora/pacman-keyring-ready
+Description=Check this Mac's pacman trust database and repair it if needed
+# Runs on every boot. It changes nothing while the keyring has its master key
+# and every trusted key; otherwise it creates or populates what is missing.
 After=local-fs.target systemd-random-seed.service
 Before=aurora-firstboot.service
 [Service]

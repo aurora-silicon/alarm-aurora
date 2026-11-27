@@ -1,0 +1,9 @@
+[Unit]
+Description=Hand the saved macsmc battery charge limit to UPower
+ConditionPathExists=/etc/udev/macsmc-battery.conf
+After=systemd-udevd.service systemd-udev-trigger.service local-fs.target
+Before=upower.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/aurora/upower-charge-limit-migrate

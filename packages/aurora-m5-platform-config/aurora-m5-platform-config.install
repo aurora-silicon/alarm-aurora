@@ -1,0 +1,5 @@
+post_install() {
+  # On a running J714s the sleep policy applies from the next suspend, the lid
+  # setting from the next boot. The unit's condition skips every other Mac.
+  systemctl start aurora-m5-sleep-policy.service >/dev/null 2>&1 || :
+}

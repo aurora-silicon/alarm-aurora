@@ -1,0 +1,10 @@
+[Trigger]
+Type = Package
+Operation = Upgrade
+Target = fprintd-aurora
+Target = aurora-omarchy-polkit
+
+[Action]
+Description = Restoring the Aurora polkit password-switch option after compatible upgrades
+When = PostTransaction
+Exec = /usr/bin/aurora-polkit-pam --post-transaction

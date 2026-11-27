@@ -1,0 +1,2 @@
+# Users given /dev/accel/accel* (the Neural Engine) outside a local session.
+g accel -

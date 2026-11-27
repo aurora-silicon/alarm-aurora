@@ -1,0 +1,173 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Tobias Powalowski <tpowa@archlinux.org>
+# Contributor: Sébastien "Seblu" Luttringer <seblu@seblu.net>
+#
+# The qemu-user-static and qemu-user-static-binfmt packages of Arch Linux's
+# qemu recipe (archlinux/packaging/packages/qemu, 11.1.3-1), built on their own
+# for aarch64 with three linux-user patches that x86-64 programs need under
+# Aurora's 4K user pages:
+#   1000 keeps 64-bit guest mappings inside the guest's 47 bits (with equal page
+#        sizes the host placed them above 2^47, which x86-64 code takes for
+#        kernel addresses);
+#   1001 passes Linux AIO (io_setup and friends) through to the host;
+#   1002 is upstream qemu 586284af4c2c (in 11.2): sigcontext.trapno carries the
+#        real trap number instead of -1. Drop it on 11.2.
+# SQL Server 2022 needs all three. qemu-user-static-binfmt also runs containerd
+# under userpages 4k when the kernel allows it, so container images built for
+# 4 KiB pages map; see containerd-user4k.conf.
+#
+# epoch 1 sorts above the epoch-1 Debian repackaging Omarchy's repository ships
+# under these names (1:1.11.1.2+ds.3-1), and pkgrel 1.1 above Arch's 1.
+
+pkgbase=qemu-user-static
+pkgname=(qemu-user-static qemu-user-static-binfmt)
+pkgver=11.1.3
+pkgrel=1.1
+epoch=1
+pkgdesc="QEMU static user mode emulation"
+arch=(aarch64)
+url="https://www.qemu.org/"
+license=(
+  BSD-2-Clause
+  BSD-3-Clause
+  GPL-1.0-or-later
+  GPL-2.0-only
+  'GPL-2.0-only WITH Linux-syscall-note'
+  GPL-2.0-or-later
+  'GPL-2.0-or-later WITH Linux-syscall-note'
+  LGPL-2.0-or-later
+  LGPL-2.1-or-later
+  MIT
+)
+makedepends=(
+  glib2
+  glib2-devel
+  meson
+  ninja
+  pcre2
+  python
+  zlib-static
+)
+source=(
+  https://download.qemu.org/qemu-$pkgver.tar.xz
+  1000-linux-user-keep-64-bit-guest-mappings-inside-the-guest.patch
+  1001-linux-user-pass-Linux-AIO-through-to-the-host.patch
+  1002-linux-user-i386-report-the-real-trap-number-in-sigcontext.patch
+  containerd-user4k.conf
+)
+# The tarball's detached signature verifies with Michael Roth's key
+# CEACC9E15534EBABB82D3FA03353C9CEF108B584, as Arch's recipe pins it.
+sha256sums=('5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22'
+            'a4cc9256fd21553c8cbe0a6b11fb076ba1442320a4150bd07eac41de9f01b72d'
+            'ef397d680bc61ae4256be4427d634155f897463939a6b378679c9ddbaa693978'
+            'ea2a082d0c096dea17722701560caf8f186181a04dee5f0ba6e9903190fdd246'
+            'f64a7e604d578eeef05412ed892826d41647dfe8aa2252351977ec0baf1aeabe')
+
+prepare() {
+  cd qemu-$pkgver
+  local patch
+  for patch in "$srcdir"/10*.patch; do
+    echo "Applying ${patch##*/}"
+    patch -Np1 -i "$patch"
+  done
+}
+
+build() {
+  local configure_static_options=(
+    --prefix=/usr
+    --sysconfdir=/etc
+    --libexecdir=/usr/lib/qemu
+    --localstatedir=/var
+    --docdir=/usr/share/doc/qemu
+    --enable-attr
+    --enable-linux-user
+    --enable-tcg
+    --disable-bpf
+    --disable-bsd-user
+    --disable-capstone
+    --disable-docs
+    --disable-fdt
+    --disable-gcrypt
+    --disable-gnutls
+    --disable-gtk
+    --disable-install-blobs
+    --disable-kvm
+    --disable-libiscsi
+    --disable-libnfs
+    --disable-libssh
+    --disable-linux-io-uring
+    --disable-nettle
+    --disable-opengl
+    --disable-qom-cast-debug
+    --disable-sdl
+    --disable-system
+    --disable-tools
+    --disable-tpm
+    --disable-vde
+    --disable-vhost-crypto
+    --disable-vhost-kernel
+    --disable-vhost-net
+    --disable-vhost-user
+    --disable-vnc
+    --disable-werror
+    --disable-xen
+    --disable-zstd
+    --static
+  )
+  mkdir -p build-static
+  cd build-static
+  ../qemu-$pkgver/configure "${configure_static_options[@]}"
+  ninja
+}
+
+_install_licenses() {
+  install -vDm 644 "$srcdir/qemu-$pkgver"/{COPYING,COPYING.LIB,LICENSE} -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
+
+package_qemu-user-static() {
+  optdepends=('qemu-user-static-binfmt: for binary format rules')
+
+  meson install -C build-static --destdir "$pkgdir"
+  # Arch's names: the static emulators carry a -static suffix.
+  local exe alias
+  for exe in "$pkgdir"/usr/bin/qemu-*; do
+    mv "$exe" "$exe-static"
+  done
+  # The Debian architecture names the package this one replaces also shipped.
+  for alias in amd64:x86_64 arm64:aarch64 armel:arm armhf:arm loong64:loongarch64 \
+               powerpc:ppc ppc64el:ppc64le; do
+    ln -s "qemu-${alias#*:}-static" "$pkgdir/usr/bin/qemu-${alias%%:*}-static"
+  done
+  # Only the emulators belong here.
+  rm -rf "$pkgdir"/usr/{include,lib,share}
+  _install_licenses
+}
+
+package_qemu-user-static-binfmt() {
+  pkgdesc="Binary format rules for QEMU static user mode emulation"
+  depends=("qemu-user-static=$epoch:$pkgver-$pkgrel")
+  provides=(qemu-user-binfmt-provider)
+  conflicts=(qemu-user-binfmt-provider)
+
+  local conf
+  install -vdm 755 "$pkgdir/usr/lib/binfmt.d"
+  # F keeps the emulator usable inside containers; P preserves argv[0].
+  # Apple's cores have no AArch32, so the arm family other than aarch64 itself
+  # needs rules too (--ignore-family).
+  "$srcdir/qemu-$pkgver/scripts/qemu-binfmt-conf.sh" --systemd ALL \
+    --exportdir "$pkgdir/usr/lib/binfmt.d" --qemu-path /usr/bin \
+    --persistent yes --preserve-argv0 yes --ignore-family yes
+  local interpreter
+  for conf in "$pkgdir"/usr/lib/binfmt.d/qemu-*.conf; do
+    # Rename by the interpreter, not the rule: the i486 rule runs qemu-i386.
+    sed -E 's|:/usr/bin/(qemu-[^:/]+):|:/usr/bin/\1-static:|' "$conf" >"${conf%.conf}-static.conf"
+    rm "$conf"
+    # Every rule must name an emulator that qemu-user-static ships.
+    interpreter=$(sed -nE 's|.*:/usr/bin/(qemu-[^:/]+)-static:[A-Z]*$|\1|p' "${conf%.conf}-static.conf")
+    [[ -n $interpreter && -x $srcdir/build-static/$interpreter ]] ||
+      { echo "${conf##*/}: no static emulator for '$interpreter'" >&2; return 1; }
+  done
+  install -vDm 644 "$srcdir/containerd-user4k.conf" \
+    "$pkgdir/usr/lib/systemd/system/containerd.service.d/50-aurora-user4k.conf"
+  _install_licenses
+}

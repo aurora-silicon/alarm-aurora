@@ -1,0 +1,32 @@
+# Power defaults for every Apple silicon Mac. Neither setting depends on the
+# SoC: both were measured on a J616c (M4 Max). To keep the kernel's defaults,
+# mask the unit:
+#   systemctl mask aurora-power-defaults.service
+[Unit]
+Description=Apple silicon power defaults
+ConditionFirmware=device-tree-compatible(apple,arm-platform)
+DefaultDependencies=no
+After=systemd-sysctl.service
+# Before aurora-power-modes, which records the values it finds at start as
+# its Balanced baseline, so switching back from Power Saver keeps these.
+Before=sysinit.target aurora-power-modes.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# PCIe ASPM with the L1.1 and L1.2 substates. The kernel enables them per
+# link, only where both ends advertise the substates (on the J616c: the root
+# ports, the BCM4388 Wi-Fi and Bluetooth, and the GL9755 SD reader), and keeps
+# the states that a driver or the host bridge took away for hardware errata
+# off: the BCM4377 Bluetooth disables ASPM on its link, and pcie-apple removes
+# L1 from tunnel root ports and from T6050 adopted ports. The default policy
+# leaves the substates off everywhere. The "-" keeps the unit going when the
+# kernel refuses the policy (booted with pcie_aspm=off), so the sysctl below
+# still runs.
+ExecStart=-/usr/bin/sh -c 'echo powersupersave > /sys/module/pcie_aspm/parameters/policy'
+# Realtime threads (the trackpad, keyboard, Wi-Fi and speaker amp threaded
+# IRQs, PipeWire's data loop) get no utilization floor, so they no longer run
+# their CPU at its top clock whenever they run; schedutil still raises the
+# clock for the work they do. The kernel's default is 1024.
+ExecStart=/usr/bin/sysctl -q -w kernel.sched_util_clamp_min_rt_default=0

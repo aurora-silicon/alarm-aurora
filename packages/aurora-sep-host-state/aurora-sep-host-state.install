@@ -1,0 +1,8 @@
+post_install() {
+  # Enabled by its preset, so it runs before aurora-sep.service from the next boot.
+  systemctl preset aurora-sep-host-state-repair.service >/dev/null 2>&1 || :
+}
+
+pre_remove() {
+  systemctl disable aurora-sep-host-state-repair.service >/dev/null 2>&1 || :
+}

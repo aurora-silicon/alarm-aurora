@@ -90,9 +90,9 @@ over:
 
     sudo aurora-xart reset-touchid
 
-It refuses on a read-only install, when the driver is not running and when the
-keybag works, asks you to type RESET, and moves the Touch ID state and every
-user's prints for the Apple sensor into
+It refuses when the driver reports xART writes disabled this boot, when the
+driver is not running and when the keybag works, asks you to type RESET, and
+moves the Touch ID state and every user's prints for the Apple sensor into
 `/var/lib/aurora-sep-touchid-reset-<time>/`. It keeps the xART guard's files
 and the calibration. Reboot, then enrol every finger again; kernel trusted keys
 sealed before the reset can no longer be unsealed.
@@ -129,15 +129,24 @@ edit or delete, is left as you made it. `system-auth`, `system-login`,
 
 ## Power button
 
-The Touch ID sensor is the power button. A short press suspends and a 5 s
-press powers off, through `/usr/lib/systemd/logind.conf.d/50-aurora-sep.conf`
-at the console, on the login screens and on minimal installs. GNOME sessions
+The Touch ID sensor is the power button. The logind default from
+`/usr/lib/systemd/logind.conf.d/05-aurora-sep.conf` makes a short press suspend
+and a 5 s press power off, where logind handles the button. The early filename
+lets later distribution or administrator policy take precedence: logind sorts
+the drop-ins of `/etc` and `/usr/lib` together by filename, and the last setting
+wins. Omarchy's `10-ignore-power-button.conf` can therefore keep
+`HandlePowerKey=ignore` for its compositor's power menu. GNOME sessions
 handle the button themselves (power-button-action, suspend by default). In
 Plasma sessions PowerDevil handles it, and `/etc/xdg/powerdevilrc` makes a
 short press suspend; holding the button for a second opens the logout screen.
 To change logind's choice, add a file of the same name, or one that sorts
-after it, to `/etc/systemd/logind.conf.d/`; in Plasma, change it per user in
+after it, to `/etc/systemd/logind.conf.d/`; a same-name file replaces the vendor
+file entirely. In Plasma, change it per user in
 System Settings > Power Management.
+
+This is the ALARM packaging follow-up to
+[linux#1877](https://github.com/aurora-silicon/linux/issues/1877) and the existing
+[linux#2254](https://github.com/aurora-silicon/linux/pull/2254).
 
 ## SELinux
 

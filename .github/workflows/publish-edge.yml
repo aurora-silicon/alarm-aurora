@@ -1,0 +1,201 @@
+name: Publish a signed ALARM Edge overlay
+# The [aurora-edge] overlay: the kernel and Mesa of one aurora-edge pair, built
+# on an edge-staging branch, ahead of [aurora] (Testing). Publishing serves
+# nothing: the Edge feed moves only with the adopted aurora-distributions Edge
+# train (deploy-snapshot.yml channel=edge).
+on:
+  workflow_dispatch:
+    inputs:
+      build-run:
+        description: Successful packages.yml run on an edge-staging/* branch (linux-aurora, mesa-aurora, mesa-aurora-fex-guest, aurora-flatpak-gl)
+        required: true
+      release-tag:
+        description: Optional new tag. Empty creates edge-YYYYMMDD.N
+        default: ''
+permissions: {}
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: alarm-publication-edge
+  cancel-in-progress: false
+env:
+  SIGNER_IMAGE: registry.fedoraproject.org/fedora:44@sha256:b96f024cecbe9515eb049107d2856e7ad923f7aac09a3c90e7a0d52a46fa3454
+jobs:
+  collect:
+    if: github.repository == 'aurora-silicon/alarm-aurora' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      digest: ${{ steps.candidate.outputs.digest }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release-tag }}
+          BUILD_RUN: ${{ inputs.build-run }}
+        run: |
+          set -euo pipefail
+          [[ $BUILD_RUN =~ ^[1-9][0-9]*$ ]]
+          if [[ -z $RELEASE_TAG ]]; then
+            RELEASE_TAG=$(git tag --list 'edge-*' | python3 scripts/next-tag.py edge-)
+          fi
+          python3 -c 'import os,sys; sys.path.insert(0,"scripts"); import edgelib; edgelib.snapshot(os.environ["RELEASE_TAG"])'
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists" >&2; exit 1
+          fi
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Authenticate the edge-staging build and its packaged pair
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build-run }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" > build-run.json
+          jq -e '.conclusion=="success" and .path==".github/workflows/packages.yml"
+                 and (.head_branch | startswith("edge-staging/"))
+                 and .head_repository.full_name=="aurora-silicon/alarm-aurora"' build-run.json
+          head=$(jq -r .head_sha build-run.json)
+          # The staging branch changes only the pair pins and the kernel and Mesa recipes.
+          gh api "repos/$GITHUB_REPOSITORY/compare/main...$head" --jq '[.files[].filename]' > staging-files.json
+          python3 -c 'import json,sys; sys.path.insert(0,"scripts"); import edgelib; edgelib.check_staging_files(json.load(open("staging-files.json")))'
+          gh api "repos/$GITHUB_REPOSITORY/contents/sources.json?ref=$head" \
+            -H 'Accept: application/vnd.github.raw+json' > edge-build-sources.json
+          linux=$(jq -r '.["linux-aurora"].commit' edge-build-sources.json)
+          mesa=$(jq -r '.["mesa-aurora"].commit' edge-build-sources.json)
+          for pair in "linux $linux" "mesa $mesa"; do
+            read -r name revision <<< "$pair"
+            [[ $revision =~ ^[0-9a-f]{40}$ ]]
+            gh api "repos/aurora-silicon/$name/compare/$revision...aurora-edge" --jq .status | grep -Eqx 'ahead|identical'
+          done
+          jq -n --arg linux "$(gh api "repos/aurora-silicon/linux/git/commits/$linux" --jq .tree.sha)" \
+                --arg mesa "$(gh api "repos/aurora-silicon/mesa/git/commits/$mesa" --jq .tree.sha)" \
+                '{linux: $linux, mesa: $mesa}' > edge-trees.json
+          for package in linux-aurora mesa-aurora mesa-aurora-fex-guest aurora-flatpak-gl; do
+            gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" -n "alarm-$package" -D "downloaded/$package"
+            # The recipe's split packages, read as text, must all be in the overlay.
+            mkdir -p "recipes/$package"
+            gh api "repos/$GITHUB_REPOSITORY/contents/packages/$package/PKGBUILD?ref=$head" \
+              -H 'Accept: application/vnd.github.raw+json' > "recipes/$package/PKGBUILD"
+          done
+          find downloaded -name '*.pkg.tar.*' ! -name '*.sig' -print0 |
+            while IFS= read -r -d '' file; do
+              gh attestation verify "$file" --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/packages.yml" \
+                --source-digest "$head" --deny-self-hosted-runners
+            done
+      - id: candidate
+        name: Assemble the unsigned overlay
+        env:
+          BUILD_RUN: ${{ inputs.build-run }}
+        run: |
+          set -euo pipefail
+          docker run --rm -e BUILD_RUN -v "$PWD:/src" -w /src "$SIGNER_IMAGE" bash -euo pipefail -c '
+            dnf install -y bsdtar python3
+            python3 scripts/edge-overlay.py --packages downloaded --sources edge-build-sources.json --recipes recipes \
+              --trees edge-trees.json --build-run "$BUILD_RUN" --output candidate/input-packages \
+              --record candidate/edge-sources.json
+          '
+          sudo chown -R "$(id -u):$(id -g)" candidate
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf candidate.tar -C candidate .
+          echo "digest=$(sha256sum candidate.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unsigned-edge-candidate
+          path: candidate.tar
+          compression-level: 0
+          retention-days: 7
+
+  # The package key lives in the testing-signing environment (main only).
+  sign:
+    needs: collect
+    runs-on: ubuntu-24.04-arm
+    environment: testing-signing
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: unsigned-edge-candidate
+      - name: Check the candidate is the one collected
+        env:
+          DIGEST: ${{ needs.collect.outputs.digest }}
+        run: |
+          echo "$DIGEST  candidate.tar" | sha256sum -c -
+          mkdir candidate && tar -xf candidate.tar -C candidate
+          docker build -t aurora-signer - <<EOF
+          FROM $SIGNER_IMAGE
+          RUN dnf install -y pacman bsdtar gnupg2 python3 && dnf clean all
+          EOF
+      - name: Sign the overlay packages and its pacman database
+        env:
+          ALARM_SIGNING_KEY: ${{ secrets.ALARM_SIGNING_KEY }}
+          ALARM_SIGNING_PASSPHRASE: ${{ secrets.ALARM_SIGNING_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          jq -n '{key: env.ALARM_SIGNING_KEY, passphrase: env.ALARM_SIGNING_PASSPHRASE}' |
+            docker run --rm -i --network none -v "$PWD:/src" -w /src aurora-signer \
+              python3 scripts/sign-repository.py --credentials-stdin --repository-name aurora-edge \
+                --packages candidate/input-packages --output repository
+          sudo chown -R "$(id -u):$(id -g)" repository
+          cp candidate/edge-sources.json repository/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-edge-overlay
+          path: repository
+          compression-level: 0
+          retention-days: 7
+
+  release:
+    needs: [collect, sign]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-edge-overlay
+          path: repository
+      - name: Verify every signature against the committed key
+        run: |
+          set -euo pipefail
+          export GNUPGHOME="$RUNNER_TEMP/verify"
+          mkdir -m 0700 "$GNUPGHOME"
+          gpg --batch --import keys/aurora-alarm.asc
+          [[ $(gpg --batch --with-colons --list-keys | awk -F: '$1=="fpr" {print $10; exit}') == "$(cat keys/fingerprint.txt)" ]]
+          for signature in repository/*.sig; do gpg --batch --verify "$signature" "${signature%.sig}"; done
+          test -f repository/aurora-edge.db.sig
+          jq -e '.dry_run != true and .channel == "edge" and .signing_key == $fpr' --arg fpr "$(cat keys/fingerprint.txt)" \
+            repository/manifest.json
+          jq -e '.schema == 1 and .channel == "edge"' repository/edge-sources.json
+          (cd repository && sha256sum -- * > ../SHA256SUMS) && mv SHA256SUMS repository/
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: repository/SHA256SUMS
+      - name: Publish the immutable Edge overlay
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.collect.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" repository/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --title "Aurora Alarm $RELEASE_TAG" \
+            --notes 'Signed [aurora-edge] overlay: the kernel and Mesa of one aurora-edge pair (edge-sources.json), ahead of [aurora] on Edge installs. Every asset carries a GitHub build provenance attestation (SHA256SUMS). The Edge feed serves it only after the Edge train that names it is adopted.'
+          echo "Published [$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)." >> "$GITHUB_STEP_SUMMARY"
