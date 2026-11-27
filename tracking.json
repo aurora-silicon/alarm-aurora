@@ -47,6 +47,11 @@
       "branch": "main",
       "merge": "manual"
     },
+    "speakerguardd-v2": {
+      "repository": "aurora-silicon/speakerguardd",
+      "branch": "main",
+      "merge": "manual"
+    },
     "upower-aurora": {
       "repository": "aurora-silicon/upower",
       "branch": "main",
