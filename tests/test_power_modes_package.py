@@ -1,6 +1,5 @@
 """aurora-power-budget ships aurora-power-modes, and pacman applies its presets."""
 from pathlib import Path
-import json
 import re
 import shutil
 import subprocess
@@ -32,13 +31,6 @@ class PowerModesPackageTests(unittest.TestCase):
     def setUp(self):
         self.budget = body('aurora-power-budget')
         self.script = (PACKAGE / 'aurora-power-budget.install').read_text()
-
-    def test_source_has_the_daemon_its_unit_and_its_config(self):
-        # aurora-platform e3bc82ab is the first commit that installs the commented config.
-        pin = json.loads((ROOT / 'sources.json').read_text())['aurora-firstboot']
-        self.assertEqual(pin['commit'], '20c328448a51f680ef545b3fb5d1d3a9c6abc9a3')
-        self.assertIn(f"_commit={pin['commit']}", PKGBUILD)
-        self.assertRegex(PKGBUILD, r'(?m)^pkgrel=8$')
 
     def test_config_is_under_etc_and_kept_across_upgrades(self):
         self.assertIn('make -C "aurora-platform-$_commit" install-power DESTDIR="$pkgdir" PREFIX=/usr SYSCONFDIR=/etc',

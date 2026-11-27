@@ -17,6 +17,11 @@
       "branch": "master",
       "merge": "manual"
     },
+    "aurora-camera-denoise": {
+      "repository": "aurora-silicon/camera-denoise",
+      "branch": "main",
+      "merge": "manual"
+    },
     "aurora-diag": {
       "repository": "aurora-silicon/aurora-diag",
       "branch": "main",
