@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=42
+pkgrel=43
 
 # Immutable pin on aurora-silicon/linux main. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=a851ca0edfc9bf1cc5e0a5cca8756f068e1d2e48
-_sha256=b17c1979e78a961f52681934c58bf26f0181496a4a1e44a91f2a4e7c1c1dcdc3
+_commit=dc7c873addc830fe3730573afd34291db26eac9c
+_sha256=a085df2ff5191252ef656149da3b75ef7ab4e004986188704f1a30eabe4a1704
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -32,7 +32,7 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # DisplayPort audio needs the T8140 SIO tables (aura/pull/122). 1.0.0b12:
 # with the T8140 fabric power states (linux#1298) only aura/pull/190 enables
 # the encoder's whole power-domain chain. 1.0.0b17: the device trees of the
-# main a851ca0e pin are qualified with the b17 Stage 2 this repository ships.
+# main dc7c873a pin are qualified with the b17 Stage 2 this repository ships.
 _aura_version=1.0.0b17
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
@@ -60,10 +60,10 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            'b17c1979e78a961f52681934c58bf26f0181496a4a1e44a91f2a4e7c1c1dcdc3'
+            'a085df2ff5191252ef656149da3b75ef7ab4e004986188704f1a30eabe4a1704'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '419d760cd66c940d0ef063c07799304308d841240eadefea70023ed6358f964a'
+            '91a9605d040ef1159e0c17c5fce2655d0f3e2aa914ce122f89a0ea971911eadb'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
