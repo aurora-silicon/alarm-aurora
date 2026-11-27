@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=44
+pkgrel=45
 
 # Immutable pin on aurora-silicon/linux main. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=94ea195b6eb59ca22dbe1a9957b6207c80bfa4c8
-_sha256=22908d173589aa78e516eab18bffb4aa09d9a1cf623363d164d44d85c973cd42
+_commit=e25b4a0b3899575da49ecafd383f9346555a9455
+_sha256=3112b3504e3b94b7a36229d29a2e2ff023d6e09c547e8c930da04e9d7610dedf
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -32,7 +32,7 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # DisplayPort audio needs the T8140 SIO tables (aura/pull/122). 1.0.0b12:
 # with the T8140 fabric power states (linux#1298) only aura/pull/190 enables
 # the encoder's whole power-domain chain. 1.0.0b17: the device trees of the
-# main 94ea195b pin are qualified with the b17 Stage 2 this repository ships.
+# main e25b4a0b pin are qualified with the b17 Stage 2 this repository ships.
 _aura_version=1.0.0b17
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
@@ -60,7 +60,7 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '22908d173589aa78e516eab18bffb4aa09d9a1cf623363d164d44d85c973cd42'
+            '3112b3504e3b94b7a36229d29a2e2ff023d6e09c547e8c930da04e9d7610dedf'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
             '91a9605d040ef1159e0c17c5fce2655d0f3e2aa914ce122f89a0ea971911eadb'
