@@ -7,6 +7,9 @@ name: Publish a signed ALARM Edge overlay
 on:
   workflow_dispatch:
     inputs:
+      linux-publication:
+        description: Successful Linux Edge kernel-release run ID and attempt (RUN_ID/ATTEMPT)
+        required: true
       build-run:
         description: Successful packages.yml run on an edge-staging/* branch (linux-aurora, mesa-aurora, mesa-aurora-fex-guest, aurora-flatpak-gl)
         required: true
@@ -58,7 +61,8 @@ jobs:
             echo "Release $RELEASE_TAG already exists" >&2; exit 1
           fi
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-      - name: Authenticate the edge-staging build and its packaged pair
+      - id: packaged-sources
+        name: Authenticate the edge-staging build identity
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_RUN: ${{ inputs.build-run }}
@@ -77,19 +81,25 @@ jobs:
           linux=$(jq -er '."kernel-aurora".commit' edge-build-sources.json)
           mesa=$(jq -r '.["mesa-aurora"].commit' edge-build-sources.json)
           [[ $linux =~ ^[0-9a-f]{40}$ && $mesa =~ ^[0-9a-f]{40}$ ]]
-          kernel_repo=aurora-silicon/linux
-          gh api "repos/$kernel_repo/releases/tags/aurora-edge" > linux-edge.json
-          digest=$(jq -er 'select(.draft == false and .prerelease == true)
-                           | .assets[] | select(.name == "source.commit") | .digest' linux-edge.json)
-          [[ $digest =~ ^sha256:[a-f0-9]{64}$ ]]
-          gh release download aurora-edge --repo "$kernel_repo" --pattern source.commit --output linux-source.commit
-          printf '%s  linux-source.commit\n' "${digest#sha256:}" | sha256sum --check -
-          [[ $linux == "$(cat linux-source.commit)" ]]
-          [[ $linux == "$(gh api "repos/$kernel_repo/commits/refs%2Ftags%2Faurora-edge" --jq .sha)" ]]
-          gh attestation verify linux-source.commit --repo "$kernel_repo" \
-            --signer-workflow "$kernel_repo/.github/workflows/kernel-release.yml" \
-            --source-ref refs/heads/main --source-digest "$linux" --deny-self-hosted-runners
-          gh api "repos/$kernel_repo/compare/$linux...main" --jq .status | grep -Eqx 'ahead|identical'
+          printf 'linux=%s\nmesa=%s\nhead=%s\n' "$linux" "$mesa" "$head" >> "$GITHUB_OUTPUT"
+      - id: linux-publication
+        uses: aurora-silicon/linux/.github/actions/verify-edge-source@5d340223ef75e9fcb691e83c54bcf1c82dd3973e
+        with:
+          revision: ${{ steps.packaged-sources.outputs.linux }}
+          publication: ${{ inputs.linux-publication }}
+          token: ${{ github.token }}
+      - name: Verify Mesa ancestry and record the packaged source trees
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINUX: ${{ steps.packaged-sources.outputs.linux }}
+          MESA: ${{ steps.packaged-sources.outputs.mesa }}
+          LINUX_SOURCE_SHA256: ${{ steps.linux-publication.outputs.source-sha256 }}
+          BUILD_HEAD: ${{ steps.packaged-sources.outputs.head }}
+          BUILD_RUN: ${{ inputs.build-run }}
+        run: |
+          set -euo pipefail
+          linux=$LINUX mesa=$MESA head=$BUILD_HEAD
+          [[ $LINUX_SOURCE_SHA256 =~ ^[0-9a-f]{64}$ ]]
           mesa_repo=aurora-silicon/mesa
           [[ $(gh api "repos/$mesa_repo" --jq .default_branch) == aurora-wip ]]
           mesa_tip=$(gh api "repos/$mesa_repo/git/ref/heads/aurora-wip" --jq .object.sha)
@@ -97,7 +107,7 @@ jobs:
           gh api "repos/$mesa_repo/compare/$mesa...$mesa_tip" --jq .status | grep -Eqx 'ahead|identical'
           jq -n --arg linux "$(gh api "repos/aurora-silicon/linux/git/commits/$linux" --jq .tree.sha)" \
                 --arg mesa "$(gh api "repos/aurora-silicon/mesa/git/commits/$mesa" --jq .tree.sha)" \
-                --arg linux_release_sha256 "${digest#sha256:}" \
+                --arg linux_release_sha256 "$LINUX_SOURCE_SHA256" \
                 '{linux: $linux, mesa: $mesa, linux_release_sha256: $linux_release_sha256}' > edge-trees.json
           for package in linux-aurora mesa-aurora mesa-aurora-fex-guest aurora-flatpak-gl; do
             gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" -n "alarm-$package" -D "downloaded/$package"
