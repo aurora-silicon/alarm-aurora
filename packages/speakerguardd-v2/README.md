@@ -1,42 +1,31 @@
 # speakerguardd-v2
 
-speakerguardd 1.0 (`1.0.0-alpha`), the in-graph speaker protection from the
-`v2` branch of aurora-silicon/speakerguardd. It is a new program, not an
-upgrade of the 0.1 daemon, so it is packaged under its own name and installs
-beside the older daemons, speakerguardd 0.1 and speakersafetyd.
+speakerguardd 1.0 (`1.0.0-alpha`), the in-graph speaker protection from
+aurora-silicon/speakerguardd. It is the default speaker protection and voicing
+stack on every Aurora installation.
 
-## Switched at boot
+## Default stack and automatic migration
 
-aurora-audio pulls this package and aurora-speaker-upgrade beside
-speakersafetyd and speakerguardd 0.1, which stay installed, and
-replaces/conflicts only with the retired preview builds (up to
-1.0.0alpha.1-25). Installing it changes nothing by itself. At every boot the fleet gate (`speakerguardd-gate`, the
-`ExecCondition=` of every unit of both stacks) starts exactly one stack:
+`aurora-audio` requires `speakerguardd-v2` and `aurora-speaker-upgrade`,
+installs no Asahi speaker DSP graphs, and retires the legacy Aurora speaker
+packages (`speakersafetyd-aurora-profiles`, `speakerguardd` 0.1, and Aurora's
+legacy `speakersafetyd` build) on upgrade.
 
-- on a kernel with only the legacy interface ("Speaker Volume Unlock"), the
-  older daemons;
-- on the dual-interface kernel (linux 98cb6a86 and later: "Speaker Protection
-  Interface"), the older daemons unless `aurora-speaker-upgrade` has switched
-  this Mac (`/var/lib/aurora-speaker-upgrade/interface` says `v2`) and the
-  Mac's own tuning passed compilation, the macOS parity attestation and the
-  wiring self-check; then v2;
-- on a v2-only kernel (lab fleet kernels), v2 when qualified, else the
-  kernel's floor.
+At every boot `speakerguardd-gate` (the `ExecCondition=` of the v2 units)
+starts v2 when this Mac's tuning compiled, passed the macOS parity attestation
+and wiring self-check, and its speaker has protected playback rows on record.
+Where v2 does not run, the kernel holds the speakers at its safe floor.
 
-There is no board list: qualification is derived from the Mac's own tuning,
-device tree and self-check. `speakerguardd-gate explain` prints the decision.
-aurora-speaker-upgrade is enabled by preset: at the next boot it switches the
-Mac only when its own tuning passes the silent self-check, and a refused Mac
-keeps the older daemons. `aurora-speaker-upgrade --check` is a dry run that
-writes nothing.
+`speakerguardd-gate explain` prints the decision. `aurora-speaker-upgrade` is
+enabled by preset and fetches the Mac's tuning from the pinned macOS restore
+image on boot.
 
 ## No manual steps
 
-On a gated board, `speakerguardd-v2-provision.service` runs before the
-self-check and the supervisor, which both require it:
+`speakerguardd-v2-provision.service` runs before the self-check and the
+supervisor, which both require it:
 
-- it compiles the installer's tuning bundle (`/lib/firmware/vendor/apple/audio-tuning`,
-  or the ESP's vendorfw archive) into `/var/lib/speakerguardd/params.bin`;
+- it compiles the tuning bundle into `/var/lib/speakerguardd/params.bin`;
 - it binds the blob to the board, kernel, bundle, macOS build and compiler,
   and recompiles when one changes;
 - it resolves the seat user by name, never by a fixed uid;
@@ -45,38 +34,31 @@ self-check and the supervisor, which both require it:
 After the self-check passes, the machine's PipeWire and WirePlumber files are
 generated into `/run/speakerguardd-graph`. The user unit
 `speakerguardd-v2-graph.service` links them for the seat user only.
-`speakerguardd-v2-seat.path` provisions again when another user takes
-seat0. Any failure fails closed: the supervisor does not start, the kernel's
-floor holds, and the journal says why.
+`speakerguardd-v2-seat.path` provisions again when another user takes seat0.
+Any failure fails closed: the supervisor does not start, the kernel's floor
+holds, and the journal says why.
 
 Overrides, all optional, go in `/etc/speakerguardd/provision.conf`:
 `SGV2_SEAT_USER=<name>` and `SGV2_BUNDLE=<path>`.
 
-## What it installs
+## User opt-out (`aurora-speaker-stack`)
 
-| Path | What |
-|---|---|
-| `speakerguardd-v2/` under `/usr/libexec` (Fedora), `/usr/lib` (Arch) or `libexec` (Nix) | The supervisor, `speakerguardd-provision`, `speakerguardd-gate`, `speakerguardd-selfcheck`, `speakerguardd-session` |
-| `speakerguardd-v2{,-provision,-selfcheck,-seat}.service`, `speakerguardd-v2-seat.path` | The upstream units, renamed and enabled, each one gated |
-| `speakerguardd-v2-session.service`, `speakerguardd-v2-graph.service` (user units) | The session helper, and the seat user's graph links |
-| `60-speakerguardd-v2-gate.conf` in `speakersafetyd.service.d` and `speakerguardd.service.d` | The gate on the older daemons' units |
-| `sgv2.lv2` in the distribution's LV2 directory | The protection unit for the PipeWire filter-chain |
-| `aurora-speaker-tuning` | Reader, validator and compiler for the Mac's own tuning bundle |
-| `/usr/share/speakerguardd/` | `gate.json` and the reference graphs |
-| SELinux module `speakerguardd` (Fedora) | Upstream's policy: `speakerguardd_t`, with the program, `/run/speakerguardd` and `/var/lib/speakerguardd` labelled |
+Users who explicitly want `speakersafetyd` instead of `speakerguardd-v2` can
+switch with one command (see `man 8 aurora-speaker-stack`):
 
-## Rollback
+```sh
+sudo aurora-speaker-stack select speakersafetyd
+```
 
-| | Back to the older daemons |
-|---|---|
-| Any distribution, dual kernel | `aurora-speaker-upgrade --revert`: the setting goes, the kernel returns to "Speaker Volume Unlock" and the older daemons take the speakers |
-| Any distribution | `pacman -R speakerguardd-v2`: its gate drop-ins go with it and the older daemons run as before |
+The choice is recorded in `/etc/aurora/speaker-stack.conf` and preserved across
+later package upgrades. To return to `speakerguardd-v2`:
 
-The older daemons stay installed throughout, so the rollback needs no
-download.
+```sh
+sudo aurora-speaker-stack select sgv2
+```
 
 ## Source
 
-The pin is a commit on the `v2` branch. Bump it as the lanes merge there.
-`aurora-speaker-tuning` is based on aurora-audio-dsp by saku (MIT); its
-notice is installed with the licence.
+The pin is a commit on speakerguardd's `main` branch. `aurora-speaker-tuning`
+is based on aurora-audio-dsp by saku (MIT); its notice is installed with the
+licence.

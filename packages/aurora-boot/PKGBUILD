@@ -1,6 +1,6 @@
 pkgname=aurora-boot
 pkgver=20261018
-pkgrel=23
+pkgrel=24
 pkgdesc='Aurora Alarm boot integration'
 arch=('any')
 license=('MIT')
@@ -25,7 +25,7 @@ sha256sums=('9e0d1f9c7f1410ab2d84dce18e4fa4b5b5fc025b778bd567da6e617e7fc5c69a'
 package() {
   # T6050 boots without arm64.nomte (45-aurora-mte.cfg): aura 1.0.0b13 reserves the MTE tag
   # storage, and linux-aurora 7.3.0.aurora1-37 keeps MTE off on an Apple SoC that reserves none.
-  depends=('mkinitcpio' 'grub' 'asahi-scripts' 'aura>=1.0.0b13' 'linux-aurora>=7.3.0.aurora1-37' 'uboot-aurora' 'aurora-firmware' 'aurora-firstboot' 'aurora-power-budget' 'aurora-neo-platform-config' 'aurora-m5-platform-config' 'speakersafetyd-aurora-profiles' 'aurora-keyring' 'asahi-alarm-keyring')
+  depends=('mkinitcpio' 'grub' 'asahi-scripts' 'aura>=1.0.0b13' 'linux-aurora>=7.3.0.aurora1-37' 'uboot-aurora' 'aurora-firmware' 'aurora-firstboot' 'aurora-power-budget' 'aurora-neo-platform-config' 'aurora-m5-platform-config' 'aurora-keyring' 'asahi-alarm-keyring')
   install -Dm644 90-aurora.conf "$pkgdir/etc/mkinitcpio.conf.d/90-aurora.conf"
   install -Dm644 aurora-usb4.install "$pkgdir/usr/lib/initcpio/install/aurora-usb4"
   install -Dm644 aurora-display.install "$pkgdir/usr/lib/initcpio/install/aurora-display"

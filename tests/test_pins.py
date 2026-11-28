@@ -10,7 +10,7 @@ import updatelib  # noqa: E402
 class PinTests(unittest.TestCase):
     def test_hardware_recipes_match_the_recorded_source_pins(self):
         pins = json.loads((ROOT / 'sources.json').read_text())
-        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'speakerguardd-v2', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-touchid-rearm', 'aurora-sep-host-state', 'aurora-fido', 'aurora-sep-sk', 'aurora-sep-luks', 'aurora-wifi-firmware']:
+        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd-v2', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-touchid-rearm', 'aurora-sep-host-state', 'aurora-fido', 'aurora-sep-sk', 'aurora-sep-luks', 'aurora-wifi-firmware']:
             self.assertIn(pins[name]['commit'], (ROOT / 'packages' / name / 'PKGBUILD').read_text())
         self.assertIn(pins['kernel-aurora']['commit'], (ROOT / 'packages/linux-aurora/PKGBUILD').read_text())
         firstboot = (ROOT / 'packages/aurora-firstboot/PKGBUILD').read_text()
@@ -31,7 +31,9 @@ class PinTests(unittest.TestCase):
         self.assertIn("('v4-t0', 0x10000, '", firmware)
         version = re.search(r'(?m)^pkgver=(\S+)$', firmware).group(1)
         self.assertGreaterEqual(updatelib.alpm_vercmp(version, '0.1.aurora4'), 0)
-    def test_speakerguardd_v2_switches_by_preset_beside_the_legacy_stack(self):
+    def test_speakerguardd_v2_is_default_speaker_stack_without_legacy_recipes(self):
+        for retired in ('speakersafetyd', 'speakersafetyd-aurora-profiles', 'speakerguardd'):
+            self.assertFalse((ROOT / 'packages' / retired).exists(), retired)
         pins = json.loads((ROOT / 'sources.json').read_text())['speakerguardd-v2']
         text = (ROOT / 'packages/speakerguardd-v2/PKGBUILD').read_text()
         self.assertIn(pins['sha256'], text)
@@ -42,10 +44,11 @@ class PinTests(unittest.TestCase):
         self.assertEqual(pins['version'], '1.0.0-alpha.2')
         self.assertNotRegex(text, r'(?m)^\s*(conflicts|replaces|provides)=')
         main = text.split('package_speakerguardd-v2() {', 1)[1].split('\n}', 1)[0]
-        # The gate in every unit decides; the older daemons carry it the other way round.
+        # The gate in every unit decides; no legacy daemon drop-ins are shipped.
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate v2'", text)
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate prepare'", text)
-        self.assertIn('for u in speakersafetyd speakerguardd; do', main)
+        self.assertNotIn('legacy-gate.conf', text)
+        self.assertNotIn('speakersafetyd.service.d', main)
         self.assertIn('packaging/session/gate.json', main)
         # verify needs the macOS parity attestation (speakerguardd#114).
         self.assertIn('packaging/session/parity.json', main)
@@ -55,16 +58,20 @@ class PinTests(unittest.TestCase):
         self.assertIn("'pipewire-speaker-graph>=2'", deps)
         self.assertIn('pipewire-speaker-graph=2', (ROOT / 'packages/pipewire/PKGBUILD').read_text())
         self.assertNotIn('machines.json', main)
-        # The default audio stack keeps the legacy daemons as the fallback and
-        # pulls v2 with the upgrade tool, whose preset switches a Mac at boot
-        # only on a passing self-check; it replaces only the retired builds.
+        # The default audio stack pulls speakerguardd-v2 and aurora-speaker-upgrade,
+        # ships no legacy speaker graphs, retires legacy Aurora packages on upgrade,
+        # and provides aurora-speaker-stack for explicit user opt-out.
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
-        self.assertIn("'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora'", audio)
-        self.assertIn("'speakerguardd-v2>=1.0.0alpha.2-1' 'aurora-speaker-upgrade>=0.1-0.18'", audio)
-        self.assertIn("conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
-        self.assertIn("replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
+        self.assertNotIn("'speakersafetyd'", audio)
+        self.assertNotIn("'speakerguardd'", audio)
+        self.assertIn("'speakerguardd-v2>=1.0.0alpha.2-13' 'aurora-speaker-upgrade>=0.1-0.29'", audio)
+        self.assertIn("conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd<0.2' 'speakersafetyd-aurora-profiles' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
+        self.assertIn("replaces=('asahi-audio-aurora' 'speakerguardd<0.2' 'speakersafetyd-aurora-profiles' 'speakersafetyd>=2.0.1-1.1' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
+        self.assertIn('0001-install-no-speaker-graphs.patch', audio)
+        self.assertIn('aurora-speaker-stack', audio)
+        self.assertNotIn('speakersafetyd-aurora-profiles', (ROOT / 'packages/aurora-boot/PKGBUILD').read_text())
         for pkg in (ROOT / 'packages').glob('*/PKGBUILD'):
-            if pkg.parent.name in ('speakerguardd-v2', 'aurora-audio'):
+            if pkg.parent.name in ('speakerguardd-v2', 'aurora-audio', 'aurora-speaker-upgrade'):
                 continue
             body = pkg.read_text()
             for m in re.finditer(r"(?ms)^\s*depends=\((.*?)\)", body):

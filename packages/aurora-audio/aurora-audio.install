@@ -1,8 +1,9 @@
-# The speakerguardd v2 preview left per-user links into /run/speakerguardd-graph
-# that dangle once it is gone (PipeWire logs an error at every login).
+# aurora-audio post-install/upgrade hook: migrate default installs to
+# speakerguardd v2 while preserving an explicit user opt-out in
+# /etc/aurora/speaker-stack.conf.
 post_install() {
-  /usr/lib/aurora-audio/aurora-audio-v2-cleanup || :
+  /usr/bin/aurora-speaker-stack migrate --on-upgrade || :
 }
 post_upgrade() {
-  post_install
+  /usr/bin/aurora-speaker-stack migrate --on-upgrade || :
 }

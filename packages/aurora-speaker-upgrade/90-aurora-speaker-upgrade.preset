@@ -1,4 +1,4 @@
-# At the next boot the Mac moves its speakers to
-# speakerguardd v2 when its own tuning passes the silent self-check; a refused
-# Mac keeps speakersafetyd (aurora-speaker-upgrade run --at-boot).
+# At boot the Mac moves its speakers to speakerguardd v2 with its own tuning
+# (aurora-speaker-upgrade run --at-boot). Users who explicitly opted out with
+# `aurora-speaker-stack select speakersafetyd` have this unit masked.
 enable aurora-speaker-upgrade.service

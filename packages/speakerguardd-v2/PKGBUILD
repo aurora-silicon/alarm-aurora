@@ -1,11 +1,10 @@
-# speakerguardd 1.0 (the v2 branch), a new program that installs beside the
-# 0.1 speakerguardd and speakersafetyd. aurora-audio pulls it with
-# aurora-speaker-upgrade; its fleet gate keeps the older daemons in charge until
-# aurora-speaker-upgrade switches the Mac on a passing self-check. See README.md.
+# speakerguardd 1.0 (the v2 branch), the default speaker protection stack on
+# every Aurora installation. aurora-audio pulls it with aurora-speaker-upgrade.
+# See README.md.
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.2
-pkgrel=12
+pkgrel=13
 # Pin (speakerguardd main after v1.0.0-alpha.2: speakerguardd#200, #212, #213,
 # #215, #225, #226, #228, #229, #231, #232, #234, #236, #238, #239, #240,
 # #241, #242, #243, #244, #246, #248, #249, #250, #251, #252, #218, #262, #265, #266, #268, #270): the one place to move (with the first sha256sums
@@ -21,7 +20,7 @@ makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
 sha256sums=('f7ee11b038971e518aae284c951799eb3291326e775e7ed0318657b0a51b0698'
-            'acbcde75b69a51864e18a6f918934b4062b0dbec578c58f10276c957541180c3')
+            'a5dec4784279f5ec821d6be231e7998ad457dfac958c7643bc765e1ffda0a911')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 
@@ -78,8 +77,6 @@ must('speakerguardd-v2-session.service', f'ExecCondition={lx}/speakerguardd-prov
 # The kernel's "Speaker Protection" lock and lease writes need CAP_SYS_ADMIN.
 if not re.search(r'^CapabilityBoundingSet=.*\bCAP_SYS_ADMIN\b', Path('speakerguardd-v2.service').read_text(), re.M):
     raise SystemExit('speakerguardd-v2.service: CapabilityBoundingSet lacks CAP_SYS_ADMIN')
-Path('legacy-gate.conf').write_text(Path('packaging/systemd/legacy-gate.conf').read_text().replace('/usr/libexec/speakerguardd/', lx + '/'))
-must('legacy-gate.conf', f'ExecCondition=+{lx}/speakerguardd-gate legacy')
 PYUNIT
 }
 
@@ -148,11 +145,6 @@ package_speakerguardd-v2() {
   # Before every sleep: the amps unlinked and the supervisor stopped while awake.
   install -d "$pkgdir/usr/lib/systemd/system/sleep.target.wants"
   ln -s ../speakerguardd-v2-sleep.service "$pkgdir/usr/lib/systemd/system/sleep.target.wants/speakerguardd-v2-sleep.service"
-  # The older daemons start only where v2 does not run and the kernel has no
-  # v2 interface: exactly one stack holds the speakers on each boot.
-  for u in speakersafetyd speakerguardd; do
-    install -Dm644 legacy-gate.conf "$pkgdir/usr/lib/systemd/system/$u.service.d/60-speakerguardd-v2-gate.conf"
-  done
   install -Dm644 README.md docs/DESIGN.md docs/NEW-PLATFORM.md packaging/etc/speakerguardd.conf.example -t "$pkgdir/usr/share/doc/$pkgname/"
   install -Dm644 "$srcdir/README.md" "$pkgdir/usr/share/doc/$pkgname/README.packaging.md"
   install -Dm644 LICENSE crates/aurora-speaker-tuning/LICENSE-aurora-audio-dsp -t "$pkgdir/usr/share/licenses/$pkgname/"
