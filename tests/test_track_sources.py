@@ -71,7 +71,7 @@ class AlarmRecipeTests(unittest.TestCase):
     def test_single_archives_keep_local_sources_and_update_the_checksum(self):
         tracking = module.tl.load_tracking(ROOT)['sources']
         for name in ('aurora-diag', 'aurora-firstboot', 'aurora-kbd-light',
-                     'aurora-neo-platform-config', 'aurora-xart', 'upower-aurora'):
+                     'aurora-neo-platform-config', 'aurora-xart', 'speakerguardd-v2', 'upower-aurora'):
             with self.subTest(name=name):
                 directory = self.root / 'packages' / name
                 local_before = module.local_sources(directory)
