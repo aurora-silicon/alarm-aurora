@@ -69,11 +69,18 @@ class PinTests(unittest.TestCase):
         self.assertIn("'aurora-speaker-upgrade>=0.1-0.29'", deps)
         self.assertNotIn("'speakersafetyd'", deps)
         self.assertNotIn("'speakerguardd'", deps)
-        for field in ('conflicts', 'replaces'):
-            names = re.search(rf"(?ms)^{field}=\((.*?)\)", audio).group(1).split()
-            for name in ("'speakersafetyd'", "'speakersafetyd-aurora-profiles'", "'speakerguardd<0.2'",
-                         "'asahi-audio-aurora'", "'speakerguardd-v2<=1.0.0alpha.1-25'"):
-                self.assertIn(name, names, field)
+        conflicts = re.search(r"(?ms)^conflicts=\((.*?)\)", audio).group(1).split()
+        replaces = re.search(r"(?ms)^replaces=\((.*?)\)", audio).group(1).split()
+        for name in ("'speakerguardd<0.2'", "'asahi-audio-aurora'", "'speakerguardd-v2<=1.0.0alpha.1-25'"):
+            self.assertIn(name, replaces)
+        for name in ("'speakerguardd<0.2'", "'asahi-audio-aurora'", "'speakerguardd-v2<=1.0.0alpha.1-25'"):
+            self.assertIn(name, conflicts)
+        # speakersafetyd: replaced only up to the builds this repository shipped,
+        # never conflicted, so a later explicit install by the user stays.
+        self.assertIn("'speakersafetyd<2.0.1-2'", replaces)
+        self.assertIn("'speakersafetyd-aurora-profiles<1-3'", replaces)
+        self.assertFalse([n for n in conflicts if 'speakersafetyd' in n], conflicts)
+        self.assertFalse([n for n in replaces if n.strip("'") in ('speakersafetyd', 'speakersafetyd-aurora-profiles')], replaces)
         self.assertIn("'asahi-audio'", re.search(r"(?ms)^conflicts=\((.*?)\)", audio).group(1).split())
         # A v2 build at that floor exists in this tree.
         self.assertGreaterEqual(updatelib.alpm_vercmp(

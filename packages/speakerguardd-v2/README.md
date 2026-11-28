@@ -8,10 +8,10 @@ daemon, so it is packaged under its own name.
 
 speakerguardd v2 is the only speaker protection on every Mac, and the only
 program that takes the kernel's speaker interlock. aurora-audio (which every
-install has) depends on it and on aurora-speaker-upgrade, replaces and
-conflicts with speakersafetyd, speakersafetyd-aurora-profiles and
-speakerguardd 0.1, so `pacman -Syu` removes them, and installs no Asahi
-speaker graph.
+install has) depends on it and on aurora-speaker-upgrade, replaces the
+speakersafetyd and speakersafetyd-aurora-profiles builds this repository
+shipped and speakerguardd 0.1, so `pacman -Syu` removes them, and installs no
+Asahi speaker graph.
 
 At every boot the gate (`speakerguardd-gate`, the `ExecCondition=` of the
 supervisor and its sleep hook) starts v2 on a qualified board whose kernel

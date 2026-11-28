@@ -23,7 +23,7 @@ makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
 sha256sums=('f7ee11b038971e518aae284c951799eb3291326e775e7ed0318657b0a51b0698'
-            'deac13a7c715cf269c83ca59f30638656cd893e54e2ba6af0237d4558239d6cb')
+            '14c5c5c69937972460554728c69de036aaab854a0ac7cca83bfed8160b478e0a')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)
 

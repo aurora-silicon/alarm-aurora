@@ -9,14 +9,16 @@ license=('MIT')
 _commit=a8c68c27c448ff39c915b46b8d33c53f2c56b705
 makedepends=('make' 'patch')
 provides=("asahi-audio=$pkgver" "asahi-audio-aurora=$pkgver")
-# speakerguardd v2 is the only speaker stack: every install has this package,
-# so it retires the Asahi stack (speakersafetyd, its Aurora profiles and
-# speakerguardd 0.1) on the upgrade. The v2 preview builds up to RC7
-# (1.0.0alpha.1-25) stay replaced.
-conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25'
-           'speakersafetyd' 'speakersafetyd-aurora-profiles' 'speakerguardd<0.2')
+# speakerguardd v2 is the speaker stack of every install: this package, which
+# every install has, retires the Asahi stack (speakersafetyd, its Aurora
+# profiles and speakerguardd 0.1) on the upgrade. speakersafetyd is replaced
+# only up to the builds this repository shipped (2.0.1-1.2, profiles 1-2) and
+# never conflicted, so a speakersafetyd a user later installs and selects on
+# purpose is not replaced again by the next pacman -Syu. The v2 preview builds
+# up to RC7 (1.0.0alpha.1-25) stay replaced.
+conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25' 'speakerguardd<0.2')
 replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25'
-          'speakersafetyd' 'speakersafetyd-aurora-profiles' 'speakerguardd<0.2')
+          'speakersafetyd<2.0.1-2' 'speakersafetyd-aurora-profiles<1-3' 'speakerguardd<0.2')
 backup=('etc/mkinitcpio.conf.d/90-aurora-audio.conf')
 # speakerguardd v2 drives every Mac's speakers from the Mac's own tuning: no
 # speaker graph, speaker FIR or raw speaker volume lock is installed.
