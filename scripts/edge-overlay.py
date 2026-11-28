@@ -46,9 +46,12 @@ def main():
     args.output.mkdir(parents=True)
     for path in files:
         shutil.copyfile(path, args.output / path.name)
+    trees = json.loads(args.trees.read_text())
     record = {'schema': 1, 'channel': 'edge', 'build_run': args.build_run, 'packages': names,
               'packaged_sources': edgelib.packaged_sources(json.loads(args.sources.read_text()),
-                                                           json.loads(args.trees.read_text()))}
+                                                           trees)}
+    if 'linux_release_sha256' in trees:
+        record['kernel_release'] = {'tag': 'aurora-edge', 'source_sha256': trees['linux_release_sha256']}
     args.record.write_text(json.dumps(record, indent=2, sort_keys=True) + '\n')
     print(f'Edge overlay: {len(names)} kernel and Mesa packages from build {args.build_run}')
 

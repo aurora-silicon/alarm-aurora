@@ -1,13 +1,20 @@
 name: Publish a signed ALARM Edge overlay
 # The [aurora-edge] overlay: the kernel and Mesa of one aurora-edge pair, built
-# on an edge-staging branch, ahead of [aurora] (Testing). Publishing serves
+# on an edge-staging branch, ahead of the signed Testing snapshot recorded as
+# the immutable [aurora] base. Publishing serves
 # nothing: the Edge feed moves only with the adopted aurora-distributions Edge
 # train (deploy-snapshot.yml channel=edge).
 on:
   workflow_dispatch:
     inputs:
+      linux-publication:
+        description: Successful Linux Edge kernel-release run ID and attempt (RUN_ID/ATTEMPT)
+        required: true
       build-run:
         description: Successful packages.yml run on an edge-staging/* branch (linux-aurora, mesa-aurora, mesa-aurora-fex-guest, aurora-flatpak-gl)
+        required: true
+      base-release:
+        description: Signed Testing snapshot (testing-YYYYMMDD.N) supplying the frozen Aurora userland
         required: true
       release-tag:
         description: Optional new tag. Empty creates edge-YYYYMMDD.N
@@ -54,7 +61,8 @@ jobs:
             echo "Release $RELEASE_TAG already exists" >&2; exit 1
           fi
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-      - name: Authenticate the edge-staging build and its packaged pair
+      - id: packaged-sources
+        name: Authenticate the edge-staging build identity
         env:
           GH_TOKEN: ${{ github.token }}
           BUILD_RUN: ${{ inputs.build-run }}
@@ -70,16 +78,37 @@ jobs:
           python3 -c 'import json,sys; sys.path.insert(0,"scripts"); import edgelib; edgelib.check_staging_files(json.load(open("staging-files.json")))'
           gh api "repos/$GITHUB_REPOSITORY/contents/sources.json?ref=$head" \
             -H 'Accept: application/vnd.github.raw+json' > edge-build-sources.json
-          linux=$(jq -r '.["linux-aurora"].commit' edge-build-sources.json)
+          linux=$(jq -er '."kernel-aurora".commit' edge-build-sources.json)
           mesa=$(jq -r '.["mesa-aurora"].commit' edge-build-sources.json)
-          for pair in "linux $linux" "mesa $mesa"; do
-            read -r name revision <<< "$pair"
-            [[ $revision =~ ^[0-9a-f]{40}$ ]]
-            gh api "repos/aurora-silicon/$name/compare/$revision...aurora-edge" --jq .status | grep -Eqx 'ahead|identical'
-          done
+          [[ $linux =~ ^[0-9a-f]{40}$ && $mesa =~ ^[0-9a-f]{40}$ ]]
+          printf 'linux=%s\nmesa=%s\nhead=%s\n' "$linux" "$mesa" "$head" >> "$GITHUB_OUTPUT"
+      - id: linux-publication
+        uses: aurora-silicon/linux/.github/actions/verify-edge-source@5d340223ef75e9fcb691e83c54bcf1c82dd3973e
+        with:
+          revision: ${{ steps.packaged-sources.outputs.linux }}
+          publication: ${{ inputs.linux-publication }}
+          token: ${{ github.token }}
+      - name: Verify Mesa ancestry and record the packaged source trees
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINUX: ${{ steps.packaged-sources.outputs.linux }}
+          MESA: ${{ steps.packaged-sources.outputs.mesa }}
+          LINUX_SOURCE_SHA256: ${{ steps.linux-publication.outputs.source-sha256 }}
+          BUILD_HEAD: ${{ steps.packaged-sources.outputs.head }}
+          BUILD_RUN: ${{ inputs.build-run }}
+        run: |
+          set -euo pipefail
+          linux=$LINUX mesa=$MESA head=$BUILD_HEAD
+          [[ $LINUX_SOURCE_SHA256 =~ ^[0-9a-f]{64}$ ]]
+          mesa_repo=aurora-silicon/mesa
+          [[ $(gh api "repos/$mesa_repo" --jq .default_branch) == aurora-wip ]]
+          mesa_tip=$(gh api "repos/$mesa_repo/git/ref/heads/aurora-wip" --jq .object.sha)
+          [[ $mesa_tip =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$mesa_repo/compare/$mesa...$mesa_tip" --jq .status | grep -Eqx 'ahead|identical'
           jq -n --arg linux "$(gh api "repos/aurora-silicon/linux/git/commits/$linux" --jq .tree.sha)" \
                 --arg mesa "$(gh api "repos/aurora-silicon/mesa/git/commits/$mesa" --jq .tree.sha)" \
-                '{linux: $linux, mesa: $mesa}' > edge-trees.json
+                --arg linux_release_sha256 "$LINUX_SOURCE_SHA256" \
+                '{linux: $linux, mesa: $mesa, linux_release_sha256: $linux_release_sha256}' > edge-trees.json
           for package in linux-aurora mesa-aurora mesa-aurora-fex-guest aurora-flatpak-gl; do
             gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" -n "alarm-$package" -D "downloaded/$package"
             # The recipe's split packages, read as text, must all be in the overlay.
@@ -93,6 +122,13 @@ jobs:
                 --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/packages.yml" \
                 --source-digest "$head" --deny-self-hosted-runners
             done
+      - name: Authenticate the immutable ALARM base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_RELEASE: ${{ inputs.base-release }}
+        run: |
+          set -euo pipefail
+          python3 scripts/channel-site.py edge-base --tag "$BASE_RELEASE" --work "$RUNNER_TEMP/base" > edge-base.json
       - id: candidate
         name: Assemble the unsigned overlay
         env:
@@ -106,6 +142,8 @@ jobs:
               --record candidate/edge-sources.json
           '
           sudo chown -R "$(id -u):$(id -g)" candidate
+          jq --slurpfile base edge-base.json '.base = $base[0]' candidate/edge-sources.json \
+            > edge-sources.json && mv edge-sources.json candidate/
           tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf candidate.tar -C candidate .
           echo "digest=$(sha256sum candidate.tar | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -184,8 +222,25 @@ jobs:
           test -f repository/aurora-edge.db.sig
           jq -e '.dry_run != true and .channel == "edge" and .signing_key == $fpr' --arg fpr "$(cat keys/fingerprint.txt)" \
             repository/manifest.json
-          jq -e '.schema == 1 and .channel == "edge"' repository/edge-sources.json
+          jq -e '.schema == 1 and .channel == "edge" and .kernel_release.tag == "aurora-edge"
+                 and (.kernel_release.source_sha256 | test("^[0-9a-f]{64}$"))
+                 and (.base.tag | test("^testing-[0-9]{8}\\.[1-9][0-9]*$"))
+                 and (.base.packaging_commit | test("^[0-9a-f]{40}$"))
+                 and ([.base.manifest_sha256, .base.database_sha256, .base.provenance_sha256]
+                      | all(test("^[0-9a-f]{64}$")))' \
+            repository/edge-sources.json
           (cd repository && sha256sum -- * > ../SHA256SUMS) && mv SHA256SUMS repository/
+      - name: Verify closure against the recorded immutable base
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base=$(jq -er '.base.tag' repository/edge-sources.json)
+          work="$RUNNER_TEMP/verify-base"
+          python3 scripts/channel-site.py edge-base --tag "$base" --work "$work" > verified-base.json
+          jq -e --slurpfile base verified-base.json '.base == $base[0]' repository/edge-sources.json >/dev/null
+          python3 scripts/check-edge-closure.py --overlay repository/aurora-edge.db.tar.gz \
+            --testing "$work/edge-base/aurora.db.tar.gz"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-checksums: repository/SHA256SUMS
@@ -197,5 +252,5 @@ jobs:
           set -euo pipefail
           gh release create "$RELEASE_TAG" repository/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --prerelease --title "Aurora Alarm $RELEASE_TAG" \
-            --notes 'Signed [aurora-edge] overlay: the kernel and Mesa of one aurora-edge pair (edge-sources.json), ahead of [aurora] on Edge installs. Every asset carries a GitHub build provenance attestation (SHA256SUMS). The Edge feed serves it only after the Edge train that names it is adopted.'
+            --notes 'Signed [aurora-edge] overlay with the immutable [aurora] userland base named in edge-sources.json. Every asset carries a GitHub build provenance attestation (SHA256SUMS). The Edge feed serves it only after the Edge train that names it is adopted.'
           echo "Published [$RELEASE_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG)." >> "$GITHUB_STEP_SUMMARY"
