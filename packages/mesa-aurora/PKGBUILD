@@ -44,7 +44,7 @@ options=('!debug')
 _options=(-Dplatforms=x11,wayland
   -Dgallium-drivers=asahi,radeonsi,r600,r300,iris,crocus,nouveau,zink,softpipe
   -Dvulkan-drivers=asahi,amd,intel,intel_hasvk,nouveau
-  -Damd-use-llvm=false -Ddraw-use-llvm=false -Dgallium-va=enabled
+  -Damd-use-llvm=false -Dgallium-va=enabled
   -Degl=enabled -Dgbm=enabled -Dglx=dri -Dgles1=enabled -Dgles2=enabled
   -Dglvnd=enabled -Dvideo-codecs=all -Dvulkan-layers=
   -Dexpat=enabled -Dzstd=enabled -Dlmsensors=enabled -Dlibunwind=disabled -Dvalgrind=disabled)
@@ -66,7 +66,7 @@ build() {
   local _tools_options=("${_options[@]/#-Dvulkan-drivers=*/-Dvulkan-drivers=asahi,swrast}")
   _tools_options=("${_tools_options[@]/#-Dgallium-drivers=*/-Dgallium-drivers=asahi,zink,softpipe}")
   _tools_options=("${_tools_options[@]/#-Dgallium-va=*/-Dgallium-va=disabled}")
-  _meson mesa tools "${_tools_options[@]}" -Dllvm=enabled -Dgallium-rusticl=true -Dbuild-tests=false
+  _meson mesa tools "${_tools_options[@]}" -Dllvm=enabled -Ddraw-use-llvm=true -Dgallium-rusticl=true -Dbuild-tests=false
   ninja -C tools -j "${OMARCHY_BUILD_JOBS:-10}" \
     src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/asahi/clc/asahi_clc \
     src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0 \
@@ -77,7 +77,7 @@ build() {
     "asahi_clc = '$srcdir/tools/src/asahi/clc/asahi_clc'" > tools.ini
 
   _meson mesa build "${_options[@]}" --native-file tools.ini \
-    -Dgallium-rusticl=false -Dllvm=disabled -Dspirv-tools=disabled -Dmesa-clc=system -Dprecomp-compiler=system \
+    -Dgallium-rusticl=false -Dllvm=disabled -Ddraw-use-llvm=false -Dspirv-tools=disabled -Dmesa-clc=system -Dprecomp-compiler=system \
     -Dbuild-tests=true
   meson compile -C build -j "${OMARCHY_BUILD_JOBS:-10}"
   DESTDIR="$srcdir/mesa-stage" meson install -C build --no-rebuild
