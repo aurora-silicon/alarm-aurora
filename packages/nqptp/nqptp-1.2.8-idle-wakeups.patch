@@ -1,0 +1,67 @@
+From: Ryan Murray <ryan@aurorasilicon.org>
+Subject: [PATCH] Block in select() until a timed task has work to do
+
+The main loop polled with a 10 ms select() timeout, so a SCHED_FIFO
+thread woke 100 times a second even with no AirPlay session. Sleep until
+a packet arrives, and wake for the broadcasting task only while a clock
+is waiting to be awakened, which is the only case in which it acts.
+
+nqptp 1.2.8 version of fedora-aurora nqptp-1.2.9-idle-wakeups.patch:
+1.2.8 keeps one clock table instead of one per client.
+---
+--- a/nqptp.c
++++ b/nqptp.c
+@@ -283,6 +283,7 @@
+ 
+   // start the timed tasks
+   uint64_t broadcasting_task(uint64_t call_time, void *private_data);
++  int clock_awaiting_awakening(void);
+ 
+   timed_tasks[0].trigger_time = get_time_now() + 100000000; // start after 100 ms
+   timed_tasks[0].private_data = (void *)&clocks_private;
+@@ -303,9 +304,24 @@
+         FD_SET(sockets_open_stuff.sockets[s].number, &readSockSet);
+       }
+ 
+-      timeout.tv_sec = 0;
+-      timeout.tv_usec = 10000; // timeout after ten milliseconds
+-      int retval = select(smax + 1, &readSockSet, NULL, NULL, &timeout);
++      // Sleep until a packet arrives or a timed task has work to do. The
++      // broadcasting task only acts on a clock that has sent three
++      // Announce messages without a Follow_Up, and that only changes when
++      // a packet is handled, so with no such clock there is nothing to wake
++      // up for. Polling every 10 ms instead woke a real-time thread 100
++      // times a second while idle, which keeps CPU clusters at their
++      // highest performance state on schedutil systems.
++      struct timeval *timeout_p = NULL;
++      if (clock_awaiting_awakening()) {
++        uint64_t now = get_time_now();
++        uint64_t wait_ns = 0;
++        if (timed_tasks[0].trigger_time > now)
++          wait_ns = timed_tasks[0].trigger_time - now;
++        timeout.tv_sec = wait_ns / 1000000000;
++        timeout.tv_usec = (wait_ns % 1000000000) / 1000;
++        timeout_p = &timeout;
++      }
++      int retval = select(smax + 1, &readSockSet, NULL, NULL, timeout_p);
+       uint64_t reception_time = get_time_now(); // use this if other methods fail
+       if (retval > 0) {
+         unsigned t;
+@@ -534,6 +550,17 @@
+     }
+   }
+   free(msg);
++}
++
++// Whether broadcasting_task() has a clock to awaken.
++int clock_awaiting_awakening(void) {
++  int i;
++  for (i = 0; i < MAX_CLOCKS; i++) {
++    // the same test as broadcasting_task()
++    if (clocks_private[i].announcements_without_followups == 3)
++      return 1;
++  }
++  return 0;
+ }
+ 
+ uint64_t broadcasting_task(uint64_t call_time, __attribute__((unused)) void *private_data) {

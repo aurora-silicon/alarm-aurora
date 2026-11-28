@@ -1,0 +1,49 @@
+# Maintainer Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Logan Sevcik <logan+aur@sevcik.email>
+# Arch's nqptp 1.2.8-1 recipe for aarch64 with Aurora's idle-wakeup patch.
+# 1.2.8 stays: its shared memory interface (smi10) is the one ALARM's
+# shairport-sync 5.0.4 reads. pkgrel 1.1 sorts above ALARM's 1.2.8-1.
+
+pkgname=nqptp
+pkgver=1.2.8
+pkgrel=1.1
+pkgdesc="A daemon that monitors timing data from PTP clocks"
+arch=(aarch64)
+url="https://github.com/mikebrady/nqptp"
+license=(GPL-2.0-only)
+source=(https://github.com/mikebrady/nqptp/archive/refs/tags/$pkgver.tar.gz
+	nqptp.sysusers
+	nqptp-1.2.8-idle-wakeups.patch
+)
+sha256sums=('3a2882a299c21605f53bb215ce537f9cc7a1e894476f639ab28562c68fd183a9'
+            '5d98c7093d69d753f73f07939211faf29bbdb3d7e0233ec76ca31a0baa752032'
+            'c7e7c073fa4f3d70464400e2a069837165535d95d650ec88e05ea400b32f73f4')
+
+prepare() {
+  cd nqptp-$pkgver
+  # Sleep in select() until a packet arrives or a clock waits to be awakened,
+  # instead of waking a SCHED_FIFO thread every 10 ms with no AirPlay session
+  # (0.3-1.4 W at idle on Apple silicon; Fedora's nqptp carries the 1.2.9 form).
+  patch -Np1 --fuzz=0 -i "$srcdir/nqptp-1.2.8-idle-wakeups.patch"
+}
+
+build() {
+  cd nqptp-$pkgver
+  autoreconf -fi
+  ./configure --prefix=/usr
+  make
+}
+
+check() {
+  cd nqptp-$pkgver
+  grep -qF 'select(smax + 1, &readSockSet, NULL, NULL, timeout_p)' nqptp.c
+  ./nqptp -V | grep -F 'Version: 1.2.8. Shared Memory Interface Version: smi10.'
+}
+
+package() {
+  cd nqptp-$pkgver
+  make DESTDIR="$pkgdir/" install
+  mkdir -p "$pkgdir/usr/lib/systemd/system" "$pkgdir/usr/lib/sysusers.d/"
+  cp nqptp.service "$pkgdir/usr/lib/systemd/system/"
+  cp ../nqptp.sysusers "$pkgdir/usr/lib/sysusers.d/nqptp.conf"
+}
