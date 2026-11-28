@@ -364,11 +364,11 @@
   },
   "aurora-wifi-firmware": {
     "repository": "https://github.com/aurora-silicon/aurora-installer",
-    "commit": "4085a62eadbbd296f3acab00ec8890baab370e2d",
+    "commit": "b2383137c7f6049ca3652722a2346dd928d54c45",
     "version": "0.3",
-    "source_url": "https://codeload.github.com/aurora-silicon/aurora-installer/tar.gz/4085a62eadbbd296f3acab00ec8890baab370e2d",
-    "archive_root": "aurora-installer-4085a62eadbbd296f3acab00ec8890baab370e2d",
-    "sha256": "95b5188590062f0d1715f4b2652fd6e769bd2c583fa437eca11be56b851eef13"
+    "source_url": "https://codeload.github.com/aurora-silicon/aurora-installer/tar.gz/b2383137c7f6049ca3652722a2346dd928d54c45",
+    "archive_root": "aurora-installer-b2383137c7f6049ca3652722a2346dd928d54c45",
+    "sha256": "0423c2e3a16fb075042f63b769eae8070a773652f34619cef1a2755336d9991b"
   },
   "aurora-sep-host-state": {
     "repository": "https://github.com/aurora-silicon/aurora-sep-userspace",
