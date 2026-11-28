@@ -1,0 +1,148 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ryan Murray <ryan@aurorasilicon.org>
+Date: Wed, 25 Nov 2026 16:26:16 +1100
+Subject: [PATCH] mouse: Add a touchpad scroll speed slider
+
+org.gnome.desktop.peripherals.touchpad has a scroll-speed key (a factor
+on the touchpad finger scroll distance, default 1.0) that Mutter
+applies. Add a Scroll Speed slider for it to the Scrolling group of the
+Touchpad page.
+
+The slider is logarithmic: it runs from -2 to 2, the key is 2 to the
+power of the slider value, so a quarter and four times the default
+scroll distance are equally far from the centre mark (1.0). The row
+only shows when the installed schema has the key.
+
+Signed-off-by: Ryan Murray <ryan@aurorasilicon.org>
+---
+ panels/mouse/cc-mouse-panel.blp | 25 +++++++++++++++++++++
+ panels/mouse/cc-mouse-panel.c   | 39 +++++++++++++++++++++++++++++++++
+ panels/mouse/meson.build        |  1 +
+ 3 files changed, 65 insertions(+)
+
+diff --git a/panels/mouse/cc-mouse-panel.blp b/panels/mouse/cc-mouse-panel.blp
+index 5e30b65..a340d7b 100644
+--- a/panels/mouse/cc-mouse-panel.blp
++++ b/panels/mouse/cc-mouse-panel.blp
+@@ -255,6 +255,31 @@ template $CcMousePanel: $CcPanel {
+                 alternative-illustration-resource: "/org/gnome/control-center/mouse/assets/edge-scroll.webm";
+                 notify::use-default => $on_touchpad_scroll_method_changed_cb(template);
+               }
++
++              Adw.ActionRow touchpad_scroll_speed_row {
++                visible: false;
++                title: _("Scroll S_peed");
++                use-underline: true;
++                activatable-widget: touchpad_scroll_speed_scale;
++
++                [suffix]
++                Scale touchpad_scroll_speed_scale {
++                  hexpand: true;
++
++                  marks [
++                    mark (-2, bottom, _("Slow")),
++                    mark (0),
++                    mark (2, bottom, _("Fast")),
++                  ]
++
++                  adjustment: Adjustment {
++                    lower: -2;
++                    upper: 2;
++                    step-increment: 0.1;
++                    page-increment: 0.5;
++                  };
++                }
++              }
+             }
+ 
+             Adw.PreferencesGroup {
+diff --git a/panels/mouse/cc-mouse-panel.c b/panels/mouse/cc-mouse-panel.c
+index ada22fb..845b173 100644
+--- a/panels/mouse/cc-mouse-panel.c
++++ b/panels/mouse/cc-mouse-panel.c
+@@ -22,6 +22,7 @@
+  */
+ 
+ #include <gdesktop-enums.h>
++#include <math.h>
+ #include <gtk/gtk.h>
+ 
+ #include "cc-illustrated-row.h"
+@@ -52,6 +53,8 @@ struct _CcMousePanel {
+     AdwViewStackPage *touchpad_stack_page;
+     CcSplitRow *touchpad_scroll_direction_row;
+     CcSplitRow *touchpad_scroll_method_row;
++    AdwActionRow *touchpad_scroll_speed_row;
++    GtkScale *touchpad_scroll_speed_scale;
+     GtkScale *touchpad_speed_scale;
+     AdwSwitchRow *touchpad_toggle_row;
+     AdwSwitchRow *touchpad_typing_row;
+@@ -252,6 +255,32 @@ mouse_accel_set_mapping (const GValue *value, const GVariantType *type, gpointer
+     return g_variant_new_string (g_value_get_boolean (value) ? "default" : "flat");
+ }
+ 
++/* The slider works in powers of two, so slower and faster are equally far from
++ * the default: -2 is a quarter of the default scroll distance, 2 four times it. */
++static gboolean
++scroll_speed_get_mapping (GValue *value, GVariant *variant, gpointer user_data)
++{
++    g_value_set_double (value, log2 (g_variant_get_double (variant)));
++
++    return TRUE;
++}
++
++static GVariant *
++scroll_speed_set_mapping (const GValue *value, const GVariantType *type, gpointer user_data)
++{
++    return g_variant_new_double (exp2 (g_value_get_double (value)));
++}
++
++static gboolean
++settings_has_key (GSettings *settings, const gchar *key)
++{
++    g_autoptr (GSettingsSchema) schema = NULL;
++
++    g_object_get (settings, "settings-schema", &schema, NULL);
++
++    return schema != NULL && g_settings_schema_has_key (schema, key);
++}
++
+ static gboolean
+ pointingstick_accel_get_mapping (GValue *value, GVariant *variant, gpointer user_data)
+ {
+@@ -326,6 +355,14 @@ setup_dialog (CcMousePanel *self)
+     g_settings_bind (self->touchpad_settings, "edge-scrolling-enabled", self->touchpad_scroll_method_row, "use-default",
+                      G_SETTINGS_BIND_INVERT_BOOLEAN | G_SETTINGS_BIND_NO_SENSITIVITY);
+ 
++    if (settings_has_key (self->touchpad_settings, "scroll-speed")) {
++        gtk_widget_set_visible (GTK_WIDGET (self->touchpad_scroll_speed_row), TRUE);
++        g_settings_bind_with_mapping (self->touchpad_settings, "scroll-speed",
++                                      gtk_range_get_adjustment (GTK_RANGE (self->touchpad_scroll_speed_scale)), "value",
++                                      G_SETTINGS_BIND_DEFAULT | G_SETTINGS_BIND_NO_SENSITIVITY,
++                                      scroll_speed_get_mapping, scroll_speed_set_mapping, NULL, NULL);
++    }
++
+     g_settings_bind (self->touchpad_settings, "disable-while-typing", self->touchpad_typing_row, "active",
+                      G_SETTINGS_BIND_DEFAULT);
+ 
+@@ -451,6 +488,8 @@ cc_mouse_panel_class_init (CcMousePanelClass *klass)
+     gtk_widget_class_bind_template_child (widget_class, CcMousePanel, tap_to_click_switch);
+     gtk_widget_class_bind_template_child (widget_class, CcMousePanel, touchpad_scroll_direction_row);
+     gtk_widget_class_bind_template_child (widget_class, CcMousePanel, touchpad_scroll_method_row);
++    gtk_widget_class_bind_template_child (widget_class, CcMousePanel, touchpad_scroll_speed_row);
++    gtk_widget_class_bind_template_child (widget_class, CcMousePanel, touchpad_scroll_speed_scale);
+     gtk_widget_class_bind_template_child (widget_class, CcMousePanel, touchpad_stack_page);
+     gtk_widget_class_bind_template_child (widget_class, CcMousePanel, touchpad_speed_scale);
+     gtk_widget_class_bind_template_child (widget_class, CcMousePanel, touchpad_toggle_row);
+diff --git a/panels/mouse/meson.build b/panels/mouse/meson.build
+index 6ced1ed..ec872be 100644
+--- a/panels/mouse/meson.build
++++ b/panels/mouse/meson.build
+@@ -42,6 +42,7 @@ sources = common_sources + files(
+ deps = common_deps + [
+   gnome_settings_dep,
+   libdevice_dep,
++  m_dep,
+ ]
+ 
+ panels_libs += static_library(

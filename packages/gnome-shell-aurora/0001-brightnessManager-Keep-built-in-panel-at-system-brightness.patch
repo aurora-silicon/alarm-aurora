@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Ryan Murray <ryan@aurorasilicon.org>
+Date: Wed, 25 Nov 2026 13:15:00 +1100
+Subject: [PATCH] brightnessManager: Keep built-in panel on the system brightness level
+
+GNOME Shell 51 persists per-monitor brightness levels in
+~/.local/share/gnome-shell/brightnesses and reapplies them on session
+start. For a built-in panel whose brightness is managed across the boot
+loader, Linux, and macOS (e.g. via aurora-panel-nits / systemd-backlight),
+the shell's per-user saved value overrides the restored system level on
+login.
+
+Skip loading and saving persistent shell brightness state for built-in
+panels so they always initialize from the current backlight level via
+syncWithBacklight(), while keeping per-monitor persistence for external
+displays.
+
+Signed-off-by: Ryan Murray <ryan@aurorasilicon.org>
+---
+diff --git a/js/misc/brightnessManager.js b/js/misc/brightnessManager.js
+index 5e5c1df..749ef31 100644
+--- a/js/misc/brightnessManager.js
++++ b/js/misc/brightnessManager.js
+@@ -189,12 +189,21 @@ export const BrightnessManager = GObject.registerClass({
+         this._monitorScales.get(monitor)?.cycleUp();
+     }
+ 
++    _isBuiltinMonitor(logicalMonitor) {
++        const monitors = logicalMonitor.get_monitors()
++            .filter(m => m.get_backlight() && m.is_active());
++        return monitors.length > 0 && monitors.every(m => m.is_builtin());
++    }
++
+     _loadBrightnesses() {
+         const monitors = [...this._monitorScales.values()].map(s => s.monitor);
+         const brightnesses = this._getSavedBrightnesses(monitors);
+ 
+-        for (const scale of this._monitorScales.values())
+-            scale.value = brightnesses.get(scale.monitor);
++        for (const scale of this._monitorScales.values()) {
++            const value = brightnesses.get(scale.monitor);
++            if (value >= 0)
++                scale.value = value;
++        }
+     }
+ 
+     _getState() {
+@@ -218,6 +227,11 @@ export const BrightnessManager = GObject.registerClass({
+         const saved = this._getState();
+ 
+         for (const logicalMonitor of monitors) {
++            if (this._isBuiltinMonitor(logicalMonitor)) {
++                map.set(logicalMonitor, -1.0);
++                continue;
++            }
++
+             const mId = MonitorId.fromMonitor(logicalMonitor);
+             const {brightness} = saved.find(s => s.id.equalsExact(mId)) ??
+                 saved.find(s => s.id.equals(mId)) ??
+@@ -241,6 +255,9 @@ export const BrightnessManager = GObject.registerClass({
+             let values = this._getState();
+ 
+             for (const scale of this._monitorScales.values()) {
++                if (this._isBuiltinMonitor(scale.monitor))
++                    continue;
++
+                 const mId = MonitorId.fromMonitor(scale.monitor);
+ 
+                 values = values.filter(v => !v.id.equalsExact(mId));

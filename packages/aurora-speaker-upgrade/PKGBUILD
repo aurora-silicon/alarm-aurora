@@ -1,18 +1,22 @@
 pkgname=aurora-speaker-upgrade
 pkgver=0.1
-pkgrel=0.20
-pkgdesc='Move the speakers to speakerguardd v2 with this Mac'"'"'s own tuning (enabled by preset; the legacy protection stays installed and keeps a refused Mac, --revert goes back)'
+pkgrel=0.28
+pkgdesc='Move the speakers to speakerguardd v2 with the pinned macOS restore image'"'"'s tuning and this Mac'"'"'s calibration (enabled by preset; the legacy protection stays installed and keeps a refused Mac, --revert goes back)'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/speakerguardd/tree/v2/packaging/upgrade'
 license=('MIT')
-_commit=29263b5cfa8dbe393bb67b5dadfc51e9df2b6b03
+_commit=89b6e40e6dab5bee69790d783a11628f85591338
 makedepends=('git' 'make' 'python' 'python-cryptography')
 depends=('python' 'python-cryptography' 'util-linux' 'alsa-utils' 'systemd')
 # The switch needs speakerguardd v2; without it the tool refuses and the
 # legacy protection keeps the speakers.
+# lzfse is in-tree (packages/lzfse), so it cannot be a hard dependency of a
+# package the CI builds against the stock ALARM repositories; Aurora images
+# install it (scripts/build-image). Without it the tool refuses and the
+# legacy protection keeps the speakers.
 optdepends=('speakerguardd-v2: the protection it switches to'
-            'lzfse: route 2 (Apple'"'"'s restore image) and LZFSE-compressed macOS files')
+            'lzfse: reading the pinned macOS restore image (required for a switch)')
 install=aurora-speaker-upgrade.install
 source=("speakerguardd::git+https://github.com/aurora-silicon/speakerguardd.git#commit=$_commit"
         90-aurora-speaker-upgrade.preset)

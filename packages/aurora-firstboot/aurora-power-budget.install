@@ -1,0 +1,25 @@
+# Apply the shipped preset, as Fedora's systemd_post does. A unit already
+# enabled or disabled stays as it is.
+post_install() {
+  systemctl --preset-mode=enable-only preset aurora-power-budget.service aurora-power-modes.service >/dev/null 2>&1 || :
+  mkdir -p /var/lib/aurora && touch /var/lib/aurora/power-modes-preset-done || :
+}
+
+post_upgrade() {
+  # aurora-power-modes is new in 0.1.13-7 and post_install runs only on a
+  # first install: preset it once on the upgrade that brings it, and never
+  # again, so an administrator's later disable sticks. Where the administrator
+  # had disabled aurora-power-budget, the new unit stays disabled too. It is
+  # enabled, not started: its legs apply from the next boot.
+  if [ ! -e /var/lib/aurora/power-modes-preset-done ] &&
+     systemctl -q is-enabled aurora-power-budget.service 2>/dev/null; then
+    systemctl --preset-mode=enable-only preset aurora-power-modes.service >/dev/null 2>&1 || :
+  fi
+  mkdir -p /var/lib/aurora && touch /var/lib/aurora/power-modes-preset-done || :
+  systemctl try-restart aurora-power-budget.service aurora-power-modes.service >/dev/null 2>&1 || :
+}
+
+pre_remove() {
+  systemctl disable --now aurora-power-budget.service aurora-power-modes.service >/dev/null 2>&1 || :
+  rm -f /var/lib/aurora/power-modes-preset-done
+}

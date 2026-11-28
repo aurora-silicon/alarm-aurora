@@ -4,16 +4,16 @@
 # receiver. Everything is installed off. Same contents as fedora-aurora's
 # omdrop-awdl; the helpers keep upstream's /usr/lib/omdrop.
 pkgname=omdrop-awdl
-pkgver=0.10.5
-pkgrel=1
+pkgver=0.10.7
+pkgrel=2
 pkgdesc='AirDrop over firmware-native AWDL on Apple Silicon Macs (opt in)'
 arch=('any')
 url='https://github.com/netmojo-systems/omdrop-awdl'
 license=('GPL-2.0-only' 'MIT')
-_commit=ffc201f33773541063f2f3d57c8a279cad5ede11
+_commit=9b59420299203805b213f7f65fbcba1d7690177f
 _plugin=e5aa51a41f963e73b5a67914cae3c916a83739f1
 depends=('bash' 'coreutils' 'iproute2' 'iputils' 'iw' 'openssl' 'polkit' 'procps-ng'
-         'python' 'python-libarchive-c' 'systemd' 'util-linux')
+         'python' 'python-ifaddr' 'python-libarchive-c' 'python-zeroconf' 'systemd' 'util-linux')
 optdepends=('networkmanager: keeps awdl0 unmanaged and settles the Wi-Fi MAC first'
             'python-pillow: the thumbnail an iPhone needs before it shows a prompt'
             'bluez: the advert that wakes a nearby Apple device'
@@ -26,7 +26,7 @@ source=("omdrop-awdl-$_commit.tar.gz::https://codeload.github.com/netmojo-system
         'omdrop-awdl-0.10.5-stable-cloned-mac.patch'
         'omdrop-awdl-0.10.5-follow-infra-channel.patch'
         'omdrop-awdl-0.10.5-5ghz-social-channel.patch')
-sha256sums=('bc52318293615f773ef0f9a9523772a83bf73edaaf87b528e2a32856ff02d385'
+sha256sums=('a332002304b6c76986dfcfb2ba82c27d0b23c298200bb4e325bab2bf53de275c'
             'db362d1fc13be701643cb5e4c390f292ea4e3ce006c0ebda5440b07763b90c41'
             'd207972480eed3484abf079c20127ff0a8d3cf8b7c0472327c3f36b1de3e84cc'
             'a41302e308482cdb28eb741036dda172c8fc095a15ded34f145497254e548556'

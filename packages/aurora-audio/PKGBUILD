@@ -1,12 +1,12 @@
 pkgname=aurora-audio
 pkgver=4.1.aurora2
-pkgrel=17
+pkgrel=18
 pkgdesc='Aurora Apple Silicon PipeWire/WirePlumber DSP profiles including J700'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/asahi-audio'
 license=('MIT')
-_commit=c967141161bea3badc7754e23d80b39ffb1bdafd
+_commit=a8c68c27c448ff39c915b46b8d33c53f2c56b705
 makedepends=('make' 'patch')
 provides=("asahi-audio=$pkgver" "asahi-audio-aurora=$pkgver")
 # Only the retired v2 preview builds (up to RC7, 1.0.0alpha.1-25) are replaced;
@@ -18,8 +18,8 @@ install=aurora-audio.install
 source=("aurora-audio-${_commit}.tar.gz::https://codeload.github.com/aurora-silicon/asahi-audio/tar.gz/$_commit"
         90-aurora-audio.conf aurora-audio.hook 0001-restore-legacy-speaker-graphs.patch
         aurora-audio-v2-cleanup 99-aurora-speaker-irq.conf)
-sha256sums=('4a5fc1eb37113742791eb632819fb09301f97b76a78586e96760442be6c87dd7' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953'
-            '06ec664457f32bba4747fd5498c52a4e68aad04acb84580171b87f378c214f9b' '589e21eb68c95ee43c9b9c2e8c702c133c0996f9eff79b5e227bbc5071b6c261' '643cf124571214174d84a8b78ffb3e61edaffc12246890eeb00dd3437fc830a4')
+sha256sums=('d054fa799500ec845b8dbb7cc18d653d836cda9dd3780da76f71a4aa1bb71a96' '51aa32a5520783b65c972e9721a571a7a47b802f0b278b5c9a3ff9fbc4885fa7' 'a39355d15c1cfd16372d0921313c80def045c6524b6938d3c041551a322e7953'
+            'ba21e6c8fcc99f75d41a69aa3e8d29239aa16cf2a437e3d319de7194c93a7d1f' '589e21eb68c95ee43c9b9c2e8c702c133c0996f9eff79b5e227bbc5071b6c261' '643cf124571214174d84a8b78ffb3e61edaffc12246890eeb00dd3437fc830a4')
 prepare() {
   patch -d "asahi-audio-$_commit" -Np1 < 0001-restore-legacy-speaker-graphs.patch
 }

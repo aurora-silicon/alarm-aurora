@@ -36,8 +36,13 @@ export GNUSTEP_CONFIG_FILE="$prefix/etc/GNUstep/GNUstep.conf"
 . "$prefix/share/GNUstep/Makefiles/GNUstep.sh"
 (
   cd "$sources/libs-base-3d7013e144b153abcd6c088dc8d6c64ebd43bc4b"
+  # configure looks for libbfd even with --disable-bfd, its default, and puts
+  # what it finds in LIBS. Arch's libbfd.so is a linker script that names
+  # libsframe, so the library would need binutils' libsframe.so at run time
+  # for code it never calls. Report libbfd and libiberty as absent.
   configure_stage --prefix="$prefix" --disable-tls --disable-xslt --disable-zeroconf \
-    --disable-libdispatch --disable-nsurlsession
+    --disable-libdispatch --disable-nsurlsession --disable-bfd \
+    ac_cv_lib_bfd_bfd_openr=no ac_cv_lib_iberty_dyn_string_append=no
   make -j "$jobs"
   make install
 )

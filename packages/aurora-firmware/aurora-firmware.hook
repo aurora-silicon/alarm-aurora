@@ -1,0 +1,17 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Path
+Target = usr/lib/initcpio/install/aurora-vendor
+Target = usr/lib/modprobe.d/aurora-firmware-order.conf
+Target = usr/libexec/aurora/peripheral-firmware
+Target = usr/libexec/aurora/load-vendor-firmware
+Target = usr/lib/aurora/initrd/aurora-vendor-firmware.service
+Target = usr/lib/firmware/regulatory.db
+Target = usr/lib/firmware/regulatory.db.p7s
+
+[Action]
+Description = Updating the Aurora vendor firmware initramfs...
+When = PostTransaction
+Exec = /usr/bin/mkinitcpio -P

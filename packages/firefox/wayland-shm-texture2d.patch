@@ -1,0 +1,37 @@
+Wayland: tag SHM video frames on the WebRender compositor path as Texture2D
+
+With the WebRender native compositor on Wayland (Firefox enables it together
+with HDR), BufferTextureHost hands software-decoded/SHM video frames to
+WebRender through RenderWaylandTextureHost. Those frames are uploaded into
+ordinary GL_TEXTURE_2D textures (SHMBufSurface::UploadTexture), but the image
+was tagged ImageBufferKind::TextureRect. WebRender only builds TEXTURE_RECT
+shader variants on desktop GL; on GLES (the default on GTK/aarch64,
+gfx.egl.prefer-gles) the first such frame drawn through the quad path (any
+clipped or rounded video, e.g. a YouTube player) panics with
+"bug: ps_quad_textured TEXTURE_RECT variant not loaded" and takes the parent
+process down.
+
+Backport of the BufferTextureHost::PushResourceUpdates hunk of upstream
+Bug 2084900 (e1da14d64fab, "Use RenderLinuxTextureHost for Wayland compositor
+and make direct composition optional"), which tags these textures as
+Texture2D. The rest of that change (RenderLinuxTextureHost refactor) is not
+needed for the fix.
+
+--- a/gfx/layers/composite/TextureHost.cpp
++++ b/gfx/layers/composite/TextureHost.cpp
+@@ -560,9 +560,12 @@
+       aResources.GetCapabilities().mBackendType, GetSize());
+   bool useNativeTexture =
+       (policy == REQUIRE) || (policy != FORBID && UseExternalTextures());
+-  auto imageType = useNativeTexture ? wr::ExternalImageType::TextureHandle(
+-                                          wr::ImageBufferKind::TextureRect)
+-                                    : wr::ExternalImageType::Buffer();
++  // External textures are used on Wayland where texture 2D is used.
++  auto textureType = UseExternalTextures() ? wr::ImageBufferKind::Texture2D
++                                           : wr::ImageBufferKind::TextureRect;
++  auto imageType = useNativeTexture
++                       ? wr::ExternalImageType::TextureHandle(textureType)
++                       : wr::ExternalImageType::Buffer();
+ 
+   if (!IsYCbCr()) {
+     if (aImageKeys.length() != 1) {

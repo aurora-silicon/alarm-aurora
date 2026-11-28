@@ -68,6 +68,52 @@ class AlarmRecipeTests(unittest.TestCase):
         self.assertTrue(pkgbuild.read_text().startswith(f'# Earlier note about {old[:9]}\n'))
         self.assertEqual(self.field('aura', '_commit'), NEW)
 
+    def test_single_archives_keep_local_sources_and_update_the_checksum(self):
+        tracking = module.tl.load_tracking(ROOT)['sources']
+        for name in ('aurora-diag', 'aurora-firstboot', 'aurora-kbd-light',
+                     'aurora-neo-platform-config', 'aurora-xart', 'speakerguardd-v2', 'upower-aurora'):
+            with self.subTest(name=name):
+                directory = self.root / 'packages' / name
+                local_before = module.local_sources(directory)
+                pkgbuild = directory / 'PKGBUILD'
+                checksums = re.search(r'^sha256sums=\([^)]*\)', pkgbuild.read_text(), re.M)[0]
+                archive_digest = re.search(r"[0-9a-f]{64}", checksums)[0]
+                previous = int(self.field(name, 'pkgrel'))
+                item = self.item(name)
+                checksum = 'd' * 64
+                self.pins[name].update(commit=NEW, sha256=checksum)
+                (self.root / 'sources.json').write_text(json.dumps(self.pins))
+                module.update_recipe(self.root, item, TODAY)
+                self.assertEqual(tracking[name]['merge'], 'manual')
+                self.assertEqual(self.field(name, '_commit'), NEW)
+                self.assertIn(checksums.replace(archive_digest, checksum, 1), pkgbuild.read_text())
+                self.assertEqual(int(self.field(name, 'pkgrel')), previous + 1)
+                self.assertEqual(module.local_sources(directory), local_before)
+
+    def test_git_sources_preserve_checkout_layout_and_increment_pkgrel(self):
+        tracking = module.tl.load_tracking(ROOT)['sources']
+        for name in ('alsa-ucm-conf-aurora', 'aurora-bless'):
+            with self.subTest(name=name):
+                before = int(self.field(name, 'pkgrel'))
+                source = self.field(name, 'source')
+                sums = self.field(name, 'sha256sums')
+                item = self.item(name)
+                module.update_recipe(self.root, item, TODAY)
+                self.assertEqual(tracking[name]['merge'], 'manual')
+                self.assertEqual(self.field(name, '_commit'), NEW)
+                self.assertEqual(self.field(name, 'source'), source)
+                self.assertEqual(self.field(name, 'sha256sums'), sums)
+                self.assertEqual(int(self.field(name, 'pkgrel')), before + 1)
+                self.assertTrue(any(re.fullmatch(pattern, f'packages/{name}/PKGBUILD')
+                                    for pattern in module.PATCH_PATHS))
+
+    def test_git_source_must_use_the_commit_assignment(self):
+        name = 'aurora-bless'
+        pkgbuild = self.root / 'packages' / name / 'PKGBUILD'
+        pkgbuild.write_text(pkgbuild.read_text().replace('#commit=$_commit', '#branch=main'))
+        with self.assertRaisesRegex(ValueError, 'Git source pinned by _commit'):
+            module.update_recipe(self.root, self.item(name), TODAY)
+
     def test_same_day_aura_update_increments_pkgrel(self):
         pkgbuild = self.root / 'packages/aura/PKGBUILD'
         text = pkgbuild.read_text()

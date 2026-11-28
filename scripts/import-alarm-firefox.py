@@ -6,8 +6,10 @@ touched it, with these PKGBUILD edits (see `edit_pkgbuild`):
 
 - add rdd-v4l2-request.patch (V4L2 stateless decoders in the RDD sandbox,
   Mozilla bug 2080696, and sysinfo in the RDD sandbox for Mesa's zink
-  driver; prepare() applies every *.patch source);
-- pkgrel N becomes N.2, so the rebuild replaces ALARM's firefox N;
+  driver) and wayland-shm-texture2d.patch (SHM video frames on the Wayland
+  WebRender compositor path are Texture2D, backport from Mozilla bug
+  2084900); prepare() applies every *.patch source;
+- pkgrel N becomes N.3, so the rebuild replaces ALARM's firefox N;
 - arch is aarch64 (the native builder's CARCH);
 - Arch's Google API key is for Arch Linux only, so it is not used: the build
   has no Google key (as any build without one);
@@ -28,10 +30,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / 'packages' / 'firefox'
 UPSTREAM = 'archlinuxarm/PKGBUILDs'
 PATH = 'extra/firefox'
-OURS = 'rdd-v4l2-request.patch'
+OURS = {
+    'rdd-v4l2-request.patch': 'V4L2 stateless decoders in RDD (Mozilla bug 2080696)',
+    'wayland-shm-texture2d.patch': 'Wayland SHM video textures are Texture2D (Mozilla bug 2084900 backport)',
+}
 KEEP = ('PKGBUILD', 'firefox-symbolic.svg', 'firefox.desktop', 'org.mozilla.firefox.metainfo.xml',
         '0001-Install-under-remoting-name.patch', 'LICENSE')
-SUBREL = 2
+SUBREL = 3
 
 
 def once(text, pattern, replacement, what):
@@ -47,7 +52,8 @@ def array(text, name):
     return match
 
 
-def edit_pkgbuild(text, commit, patch):
+def edit_pkgbuild(text, commit, patches):
+    """patches: {file name: bytes}, in OURS order."""
     text = once(text, r'^pkgrel=(\d+)$', rf'pkgrel=\g<1>.{SUBREL}', 'pkgrel')
     text = once(text, r'^arch=\(x86_64\)$', 'arch=(aarch64)', 'arch')
     text = once(text, r'^_google_api_key=\S+$', '_google_api_key=', 'Google API key')
@@ -60,12 +66,13 @@ def edit_pkgbuild(text, commit, patch):
         sums = re.findall(r"'([^']*)'", match[1])
         if len(sums) < 2 or sums[1] != 'SKIP':
             raise SystemExit(f'PKGBUILD: {name} does not have the signature second')
-        sums = [sums[0]] + sums[2:] + [hashlib.new('sha256' if name == 'sha256sums' else 'blake2b', patch).hexdigest()]
+        sums = [sums[0]] + sums[2:] + [hashlib.new('sha256' if name == 'sha256sums' else 'blake2b', data).hexdigest()
+                                       for data in patches.values()]
         indent = ' ' * (len(name) + 2)
         text = text[:match.start()] + f'{name}=(' + f'\n{indent}'.join(f"'{s}'" for s in sums) + ')' + text[match.end():]
     text = once(text, r'^validpgpkeys=\(\n(?:.*\n)*?\)\n', '', 'validpgpkeys')
     match = array(text, 'source')
-    body = match[1].rstrip('\n') + f'\n\n  # Aurora: V4L2 stateless decoders in RDD (Mozilla bug 2080696)\n  {OURS}\n'
+    body = match[1].rstrip('\n') + ''.join(f'\n\n  # Aurora: {OURS[name]}\n  {name}' for name in patches) + '\n'
     text = text[:match.start()] + f'source=({body})' + text[match.end():]
     header = ('# aurora-builder: heavy\n'
               '# Aurora Silicon: Arch Linux ARM\'s firefox recipe (archlinuxarm/PKGBUILDs\n'
@@ -92,11 +99,11 @@ def main():
     parser.add_argument('--check', action='store_true', help='fail if packages/firefox differs instead of writing')
     args = parser.parse_args()
     commit = args.commit or api(f'repos/{UPSTREAM}/commits?path={PATH}&per_page=1')[0]['sha']
-    patch = (PACKAGE / OURS).read_bytes()
-    wanted = {OURS: patch}
+    patches = {name: (PACKAGE / name).read_bytes() for name in OURS}
+    wanted = dict(patches)
     for name in KEEP:
         data = base64.b64decode(api(f'repos/{UPSTREAM}/contents/{PATH}/{name}?ref={commit}')['content'])
-        wanted[name] = edit_pkgbuild(data.decode(), commit, patch).encode() if name == 'PKGBUILD' else data
+        wanted[name] = edit_pkgbuild(data.decode(), commit, patches).encode() if name == 'PKGBUILD' else data
     present = {p.name: p.read_bytes() for p in PACKAGE.iterdir() if p.is_file()}
     if args.check:
         if present != wanted:

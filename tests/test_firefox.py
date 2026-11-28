@@ -42,23 +42,25 @@ END
 
 class FirefoxRecipeTests(unittest.TestCase):
     def test_pkgbuild_edit(self):
-        text = importer.edit_pkgbuild(ALARM, 'a' * 40, b'patch')
+        text = importer.edit_pkgbuild(ALARM, 'a' * 40, {'rdd-v4l2-request.patch': b'patch',
+                                                         'wayland-shm-texture2d.patch': b'patch2'})
         self.assertTrue(text.startswith('# aurora-builder: heavy\n'))
-        self.assertIn('\npkgrel=2.2\n', text)
+        self.assertIn('\npkgrel=2.3\n', text)
         self.assertIn('\narch=(aarch64)\n', text)
         self.assertIn('\n_google_api_key=\n', text)
         self.assertNotIn('api-keyfile', text)
         self.assertNotIn('validpgpkeys', text)
         self.assertNotIn('SKIP', text)
         self.assertIn('.source.tar.xz\n', text)
-        self.assertIn('  rdd-v4l2-request.patch\n)', text)
-        self.assertRegex(text, r"sha256sums=\('aa'\n\s+'bb'\n\s+'[0-9a-f]{64}'\)")
-        self.assertRegex(text, r"b2sums=\('cc'\n\s+'dd'\n\s+'[0-9a-f]{128}'\)")
+        self.assertIn('  rdd-v4l2-request.patch\n\n  # Aurora: Wayland SHM', text)
+        self.assertIn('  wayland-shm-texture2d.patch\n)', text)
+        self.assertRegex(text, r"sha256sums=\('aa'\n\s+'bb'\n\s+'[0-9a-f]{64}'\n\s+'[0-9a-f]{64}'\)")
+        self.assertRegex(text, r"b2sums=\('cc'\n\s+'dd'\n\s+'[0-9a-f]{128}'\n\s+'[0-9a-f]{128}'\)")
 
     def test_pkgbuild_edit_refuses_an_unknown_recipe(self):
         for old in ('pkgrel=2\n', '_google_api_key=AIzaSyFAKE\n', "            'SKIP'\n"):
             with self.subTest(removed=old), self.assertRaises(SystemExit):
-                importer.edit_pkgbuild(ALARM.replace(old, ''), 'a' * 40, b'patch')
+                importer.edit_pkgbuild(ALARM.replace(old, ''), 'a' * 40, {'rdd-v4l2-request.patch': b'patch'})
 
     def test_imported_recipe(self):
         text = (PACKAGE / 'PKGBUILD').read_text()
@@ -66,6 +68,7 @@ class FirefoxRecipeTests(unittest.TestCase):
         self.assertRegex(text, r'(?m)^pkgrel=\d+\.\d+$')
         self.assertRegex(text, r'(?m)^_google_api_key=$')
         self.assertIn('  rdd-v4l2-request.patch\n', text)
+        self.assertIn('  wayland-shm-texture2d.patch\n', text)
         self.assertNotRegex(text, r'AIza')
 
     def test_seccomp_admits_exactly_four_media_ioctls(self):
@@ -77,6 +80,11 @@ class FirefoxRecipeTests(unittest.TestCase):
                          ['MEDIA_IOC_G_TOPOLOGY', 'MEDIA_IOC_REQUEST_ALLOC',
                           'MEDIA_REQUEST_IOC_QUEUE', 'MEDIA_REQUEST_IOC_REINIT'])
         self.assertIn('aM2mDevices.Contains(', patch)
+
+    def test_wayland_shm_frames_are_texture2d(self):
+        # GLES WebRender never builds TEXTURE_RECT shaders (upstream bug 2084900).
+        patch = (PACKAGE / 'wayland-shm-texture2d.patch').read_text()
+        self.assertIn('+  auto textureType = UseExternalTextures() ? wr::ImageBufferKind::Texture2D\n', patch)
 
     def test_patch_matches_the_fedora_and_nixos_copy(self):
         # Same bytes as fedora-aurora packages/firefox/rdd-v4l2-request.patch.
