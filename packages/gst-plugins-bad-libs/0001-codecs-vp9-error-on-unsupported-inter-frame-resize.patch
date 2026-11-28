@@ -1,0 +1,24 @@
+diff --git a/subprojects/gst-plugins-bad/gst-libs/gst/codecs/gstvp9decoder.c b/subprojects/gst-plugins-bad/gst-libs/gst/codecs/gstvp9decoder.c
+--- a/subprojects/gst-plugins-bad/gst-libs/gst/codecs/gstvp9decoder.c
++++ b/subprojects/gst-plugins-bad/gst-libs/gst/codecs/gstvp9decoder.c
+@@ -447,13 +447,16 @@
+     }
+   } else if (!frame_hdr.show_existing_frame && !priv->support_non_kf_change &&
+       gst_vp9_decoder_is_format_change (self, &frame_hdr)) {
+-    GST_DEBUG_OBJECT (self, "Drop frame on non-keyframe format change");
+-
+     gst_buffer_unmap (in_buf, &map);
+     gst_video_decoder_release_frame (decoder, frame);
+ 
+-    /* Drains frames if any and waits for keyframe again */
+-    return gst_vp9_decoder_drain_internal (self, TRUE);
++    ret = gst_vp9_decoder_drain_internal (self, TRUE);
++    if (ret != GST_FLOW_OK)
++      return ret;
++
++    GST_ELEMENT_ERROR (self, STREAM, FORMAT,
++        ("VP9 format change requires a keyframe"), (NULL));
++    return GST_FLOW_ERROR;
+   }
+ 
+   if (!priv->had_sequence) {
