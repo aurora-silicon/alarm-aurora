@@ -1,0 +1,147 @@
+From 8267b68d3256987394a80629def93f261b6392b2 Mon Sep 17 00:00:00 2001
+From: Ryan Murray <ryan@aurorasilicon.org>
+Date: Wed, 25 Nov 2026 11:26:22 +1100
+Subject: [PATCH] alsa: announce an HDMI/DP node again when its monitor name
+ arrives
+
+The ELD of an HDMI or DisplayPort sink often reaches ALSA after the
+node for it was announced: on hotplug, or when the display is read after
+the sound server has started. ACP updates the port's product name and
+the routes, but the node keeps the hdmi.product.name it was created
+with (none), so the session manager keeps naming the sink after the
+card instead of the monitor.
+
+Remember the product name each device's node was announced with, and
+when the card's properties change, announce the node again for a
+device of the active profile whose product name is now different. A
+name that goes away (unplug, or an ELD cleared for a moment) leaves the
+node alone, so an unplug and replug of the same monitor, or a sleep,
+does not recreate it.
+
+The session manager recreates a node that is announced again, so a
+stream already playing on it is re-linked: this happens at most once
+per new monitor name, normally right as the display comes up.
+
+Signed-off-by: Ryan Murray <ryan@aurorasilicon.org>
+---
+ spa/plugins/alsa/alsa-acp-device.c | 69 +++++++++++++++++++++++++++++-
+ 1 file changed, 67 insertions(+), 2 deletions(-)
+
+diff --git a/spa/plugins/alsa/alsa-acp-device.c b/spa/plugins/alsa/alsa-acp-device.c
+index d884722..88ce030 100644
+--- a/spa/plugins/alsa/alsa-acp-device.c
++++ b/spa/plugins/alsa/alsa-acp-device.c
+@@ -82,6 +82,10 @@ struct impl {
+ 	struct pollfd pfds[MAX_POLL];
+ 	int n_pfds;
+ 	struct spa_source sources[MAX_POLL];
++
++	/* HDMI/DP product name each device's node was last announced with */
++	char **node_product;
++	uint32_t n_node_product;
+ };
+ 
+ static int emit_info(struct impl *this, bool full);
+@@ -167,6 +171,42 @@ static int replace_string(const char *str, const char *val, const char *rep,
+ 	return 0;
+ }
+ 
++static const char *device_hdmi_product(struct acp_device *dev)
++{
++	if (dev->n_ports != 1)
++		return NULL;
++	return acp_dict_lookup(&dev->ports[0]->props, SPA_KEY_DEVICE_PRODUCT_NAME);
++}
++
++static void remember_node_product(struct impl *this, struct acp_device *dev,
++		const char *product)
++{
++	if (dev->index >= this->n_node_product) {
++		uint32_t n = this->card->n_devices > dev->index ?
++			this->card->n_devices : dev->index + 1;
++		char **np = realloc(this->node_product, n * sizeof(char *));
++		if (np == NULL)
++			return;
++		memset(np + this->n_node_product, 0,
++				(n - this->n_node_product) * sizeof(char *));
++		this->node_product = np;
++		this->n_node_product = n;
++	}
++	free(this->node_product[dev->index]);
++	this->node_product[dev->index] = product ? strdup(product) : NULL;
++}
++
++static void free_node_products(struct impl *this)
++{
++	uint32_t i;
++
++	for (i = 0; i < this->n_node_product; i++)
++		free(this->node_product[i]);
++	free(this->node_product);
++	this->node_product = NULL;
++	this->n_node_product = 0;
++}
++
+ static int emit_node(struct impl *this, struct acp_device *dev)
+ {
+ 	struct spa_dict_item *items;
+@@ -235,9 +275,9 @@ static int emit_node(struct impl *this, struct acp_device *dev)
+ 	snprintf(routes, sizeof(routes), "%d", dev->n_ports);
+ 	items[n_items++] = SPA_DICT_ITEM_INIT("device.routes", routes);
+ 
+-	if (dev->n_ports == 1 &&
+-	    (product = acp_dict_lookup(&dev->ports[0]->props, SPA_KEY_DEVICE_PRODUCT_NAME)))
++	if ((product = device_hdmi_product(dev)))
+ 		items[n_items++] = SPA_DICT_ITEM_INIT(ACP_KEY_HDMI_PRODUCT_NAME, product);
++	remember_node_product(this, dev, product);
+ 
+ 	acp_dict_for_each(it, &dev->props)
+ 		items[n_items++] = SPA_DICT_ITEM_INIT(it->key, it->value);
+@@ -917,12 +957,36 @@ static const struct spa_device_methods impl_device = {
+ static void card_props_changed(void *data)
+ {
+ 	struct impl *this = data;
++	struct acp_card *card = this->card;
++	uint32_t i;
++
+ 	spa_log_info(this->log, "card properties changed");
+ 
+ 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+ 	this->params[IDX_EnumRoute].user++;
+ 	this->params[IDX_Route].user++;
+ 	emit_info(this, false);
++
++	/* The ELD of an HDMI/DP sink often arrives after its node was announced
++	 * (hotplug, or a display that is read after the sound server starts).
++	 * Announce the node again when the sink's product name has changed, so
++	 * the session manager can name it after the monitor. A name that goes
++	 * away (unplug) keeps the node as it is, to avoid churn. */
++	if (card->active_profile_index >= card->n_profiles)
++		return;
++	struct acp_card_profile *pr = card->profiles[card->active_profile_index];
++	for (i = 0; i < pr->n_devices; i++) {
++		struct acp_device *dev = pr->devices[i];
++		const char *product = device_hdmi_product(dev);
++		const char *old = dev->index < this->n_node_product ?
++			this->node_product[dev->index] : NULL;
++
++		if (product == NULL || spa_streq(product, old))
++			continue;
++		spa_log_info(this->log, "device %u: HDMI product '%s' -> '%s', announcing node again",
++				dev->index, old ? old : "", product);
++		emit_node(this, dev);
++	}
+ }
+ 
+ static bool has_device(struct acp_card_profile *pr, uint32_t index)
+@@ -1153,6 +1217,7 @@ static int impl_clear(struct spa_handle *handle)
+ 		acp_card_destroy(this->card);
+ 		this->card = NULL;
+ 	}
++	free_node_products(this);
+ 	return 0;
+ }
+ 
+-- 
+2.54.0
+

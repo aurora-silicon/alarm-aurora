@@ -21,6 +21,7 @@ PATCHES = [
     '1008-alsa-a-start-on-a-suspended-PCM-is-expected-not-an-error.patch',
     '1009-alsa-put-the-ELD-product-name-on-HDMI-DP-nodes.patch',
     '1010-alsa-prepare-a-stream-again-after-its-start-failed.patch',
+    '1011-alsa-announce-an-HDMI-DP-node-again-when-its-monitor.patch',
 ]
 
 

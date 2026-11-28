@@ -8,7 +8,7 @@
 # Arch Linux ARM's PipeWire recipe (archlinuxarm/PKGBUILDs extra/pipewire at
 # 6fa5f72fa1cc7cf3b37a61a2bd44d92a9e230db8, 1:1.6.11-2) for aarch64 with the
 # Aurora patches that fedora-aurora carries on 1.6.11; they apply to 1.6.11
-# unchanged. pkgrel 2.1 sorts above ALARM's 2 and [aurora] precedes [core] and
+# unchanged. pkgrel 2.2 sorts above ALARM's 2 and [aurora] precedes [core] and
 # [extra] in pacman.conf, so pacman keeps these packages even after ALARM moves
 # to a newer PipeWire. Rebase the patches when this recipe moves to a new
 # upstream release; drop each one when upstream carries it.
@@ -41,7 +41,7 @@ pkgname=(
   pulse-native-provider
 )
 pkgver=1.6.11
-pkgrel=2.1
+pkgrel=2.2
 epoch=1
 pkgdesc="Low-latency audio/video router and processor"
 url="https://pipewire.org"
@@ -133,6 +133,10 @@ source=(
   # stream marked prepared, so every later start skipped the silence prefill
   # and failed with -EPIPE until PipeWire restarted: prepare it again.
   1010-alsa-prepare-a-stream-again-after-its-start-failed.patch
+  # The ELD of a display often reaches ALSA after its node was announced
+  # (hotplug, or a display read after PipeWire started): announce the node
+  # again when its monitor name arrives, so the sink is named after it.
+  1011-alsa-announce-an-HDMI-DP-node-again-when-its-monitor.patch
 )
 b2sums=('2359991befdbc6cf5a2e5ad31cde4a3f1904675fe455b9ab719754549e994ba0538b0f070b9954a4d64619067101eff9ed9e03ea3d5dd4674b3d21e9991da5b2'
         'ea19c2cd60b7b9773b48b2a044c764fbec260ec356d4a0f66a31737015dad5f1509145bf97094988fc2ea55282e98d52df4448a80e46b9e3c2fef57345b87846'
@@ -146,7 +150,8 @@ b2sums=('2359991befdbc6cf5a2e5ad31cde4a3f1904675fe455b9ab719754549e994ba0538b0f0
         '63f63c44d6022cad38cae9862efcf4cb71ca2c01e272a4e5d4818d1e856e30f7f779542a8bcf015a83940bb1ea2d1e3ec009d0dfc4d5d8b64d06f991da70cda6'
         '4c839af6bb319eb95d096c16b34b40636b77acad8de768fc902d317d9873afccfd2882461e6a98572db0000733a4b0e2647e2d7ffbe4fe3e765e3f520f2417e9'
         '46189ba943e5fa14aa5cce7c0a79ccf864ef6e29f39e5817ed23dd7eba30131d8b1168634a07938c80aec7809dd87ed44a51dc529610cef727cef773d5e36a8c'
-        '7438f3bbaebd5d84f80eb62b067584c9fca06dff5faeac2bfa20132e409db74dd9fce7dda8b8d1918700c43f91e4fa0d4695dabeeb4893e23e0ff036b2fbdce0')
+        '7438f3bbaebd5d84f80eb62b067584c9fca06dff5faeac2bfa20132e409db74dd9fce7dda8b8d1918700c43f91e4fa0d4695dabeeb4893e23e0ff036b2fbdce0'
+        '9642d1b6f70300cb402c854a0014db9e3f8496829d9fde115e5b0c121caed0d32d22043b37e17a8076d651916cd71c0c544eb5b21e6852ea68b03c218a0ae84a')
 
 prepare() {
   cd pipewire
