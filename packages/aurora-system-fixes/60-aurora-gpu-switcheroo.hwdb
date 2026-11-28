@@ -1,0 +1,93 @@
+# Name Apple Silicon platform GPUs for switcheroo-control (which reads
+# SWITCHEROO_CONTROL_{VENDOR,PRODUCT}_NAME on the DRM render node's parent
+# platform device, matching how PCI GPUs get names from 20-pci-vendor-model.hwdb).
+
+of:N*T*Capple,agx-*
+ SWITCHEROO_CONTROL_VENDOR_NAME=Apple
+ SWITCHEROO_CONTROL_PRODUCT_NAME=Silicon GPU
+
+of:N*T*Capple,agx-t8103*
+of:N*T*Capple,agx-g13g*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M1 GPU
+
+of:N*T*Capple,agx-t6000*
+of:N*T*Capple,agx-g13s*
+of:N*T*Capple,agx-g13x*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M1 Pro GPU
+
+of:N*T*Capple,agx-t6001*
+of:N*T*Capple,agx-g13c*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M1 Max GPU
+
+of:N*T*Capple,agx-t6002*
+of:N*T*Capple,agx-g13d*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M1 Ultra GPU
+
+of:N*T*Capple,agx-t8112*
+of:N*T*Capple,agx-g14g*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M2 GPU
+
+of:N*T*Capple,agx-t6020*
+of:N*T*Capple,agx-g14s*
+of:N*T*Capple,agx-g14x*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M2 Pro GPU
+
+of:N*T*Capple,agx-t6021*
+of:N*T*Capple,agx-g14c*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M2 Max GPU
+
+of:N*T*Capple,agx-t6022*
+of:N*T*Capple,agx-g14d*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M2 Ultra GPU
+
+of:N*T*Capple,agx-t8122*
+of:N*T*Capple,agx-g15g*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M3 GPU
+
+of:N*T*Capple,agx-t6030*
+of:N*T*Capple,agx-g15s*
+of:N*T*Capple,agx-g15x*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M3 Pro GPU
+
+of:N*T*Capple,agx-t6031*
+of:N*T*Capple,agx-t6034*
+of:N*T*Capple,agx-g15c*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M3 Max GPU
+
+of:N*T*Capple,agx-t6032*
+of:N*T*Capple,agx-g15d*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M3 Ultra GPU
+
+of:N*T*Capple,agx-t8132*
+of:N*T*Capple,agx-g16g*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M4 GPU
+
+of:N*T*Capple,agx-t6040*
+of:N*T*Capple,agx-g16s*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M4 Pro GPU
+
+of:N*T*Capple,agx-t6041*
+of:N*T*Capple,agx-g16c*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M4 Max GPU
+
+of:N*T*Capple,agx-t8140*
+of:N*T*Capple,agx-g17p*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=A18 Pro GPU
+
+of:N*T*Capple,agx-t8142*
+of:N*T*Capple,agx-g17g*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M5 GPU
+
+of:N*T*Capple,agx-t6050*
+of:N*T*Capple,agx-g17s*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M5 Pro GPU
+
+of:N*T*Capple,agx-g17c*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M5 Max GPU
+
+of:N*T*Capple,agx-g17d*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M5 Ultra GPU
+
+of:N*T*Capple,agx-t8152*
+of:N*T*Capple,agx-g18g*
+ SWITCHEROO_CONTROL_PRODUCT_NAME=M6 GPU

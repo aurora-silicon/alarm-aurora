@@ -2,8 +2,8 @@ pkgbase=mesa-aurora
 pkgname=('mesa-aurora' 'vulkan-aurora' 'opencl-rusticl-aurora' 'vulkan-lavapipe-aurora')
 epoch=1
 pkgver=26.3.0_devel.202611260351.36623c0a4a5
-pkgrel=2
-pkgdesc='Aurora Asahi Gallium, Zink and Honeykrisp'
+pkgrel=3
+pkgdesc='Aurora Gallium, Vulkan and VA-API drivers for Apple Silicon and PCIe eGPUs'
 arch=('aarch64')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/mesa'
@@ -18,15 +18,33 @@ _commit=36623c0a4a5a3e2a94fedd5f0874258d8126648d
 # first build makes those compilers and the packaged one uses them.
 makedepends=('git' 'meson' 'ninja' 'python-mako' 'python-yaml' 'python-packaging' 'rust'
              'rust-bindgen' 'clang' 'llvm' 'libclc' 'spirv-llvm-translator' 'spirv-tools'
-             'cbindgen' 'glslang' 'libdrm' 'expat' 'libglvnd'
+             'cbindgen' 'glslang' 'libdrm' 'libelf' 'libva' 'expat' 'libglvnd'
              'libx11' 'libxcb' 'libxext' 'libxfixes' 'libxrandr' 'libxshmfence' 'libxxf86vm'
              'wayland' 'wayland-protocols' 'vulkan-headers' 'vulkan-icd-loader' 'libdisplay-info'
              'lm_sensors' 'zlib' 'zstd' 'xcb-util-keysyms')
-source=("mesa::git+$url.git#commit=$_commit")
-sha256sums=('SKIP')
+source=("mesa::git+$url.git#commit=$_commit"
+        0001-radv-amdgpu-pad-page-cpu-page-size.patch
+        "syn-2.0.87.tar.gz::https://static.crates.io/crates/syn/2.0.87/download"
+        "quote-1.0.35.tar.gz::https://static.crates.io/crates/quote/1.0.35/download"
+        "proc-macro2-1.0.86.tar.gz::https://static.crates.io/crates/proc-macro2/1.0.86/download"
+        "unicode-ident-1.0.12.tar.gz::https://static.crates.io/crates/unicode-ident/1.0.12/download"
+        "paste-1.0.14.tar.gz::https://static.crates.io/crates/paste/1.0.14/download"
+        "rustc-hash-2.1.1.tar.gz::https://static.crates.io/crates/rustc-hash/2.1.1/download")
+noextract=(syn-2.0.87.tar.gz quote-1.0.35.tar.gz proc-macro2-1.0.86.tar.gz
+           unicode-ident-1.0.12.tar.gz paste-1.0.14.tar.gz rustc-hash-2.1.1.tar.gz)
+sha256sums=('SKIP'
+            '93a9986aadcd0958a52630761369a3d7df40968c29a2912f20292dbb8c5d9739'
+            '25aa4ce346d03a6dcd68dd8b4010bcb74e54e62c90c573f394c46eae99aba32d'
+            '291ec9ab5efd934aaf503a6466c5d5251535d108ee747472c3977cc5acc868ef'
+            '5e719e8df665df0d1c8fbfd238015744736151d4445ec0836b8e628aae103b77'
+            '3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b'
+            'de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c'
+            '357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d')
 options=('!debug')
 _options=(-Dplatforms=x11,wayland
-  -Dgallium-drivers=asahi,zink,softpipe -Dvulkan-drivers=asahi
+  -Dgallium-drivers=asahi,radeonsi,r600,r300,iris,crocus,nouveau,zink,softpipe
+  -Dvulkan-drivers=asahi,amd,intel,intel_hasvk,nouveau
+  -Damd-use-llvm=false -Dgallium-va=enabled
   -Degl=enabled -Dgbm=enabled -Dglx=dri -Dgles1=enabled -Dgles2=enabled
   -Dglvnd=enabled -Dvideo-codecs=all -Dvulkan-layers=
   -Dexpat=enabled -Dzstd=enabled -Dlmsensors=enabled -Dlibunwind=disabled -Dvalgrind=disabled)
@@ -36,10 +54,19 @@ _meson() {
   meson setup --prefix /usr --libexecdir lib --sbindir bin --buildtype plain \
     --wrap-mode nodownload -Db_pie=true -Db_ndebug=true -Dpython.bytecompile=1 "$@"
 }
+prepare() {
+  patch -d mesa -Np1 -i "$srcdir/0001-radv-amdgpu-pad-page-cpu-page-size.patch"
+  install -d mesa/subprojects/packagecache
+  cp -f "$srcdir"/{syn-2.0.87,quote-1.0.35,proc-macro2-1.0.86,unicode-ident-1.0.12,paste-1.0.14,rustc-hash-2.1.1}.tar.gz \
+    mesa/subprojects/packagecache/
+}
 build() {
   export MESA_GIT_SHA1_OVERRIDE=$_commit
   # Rusticl needs LLVM at runtime; native GL/Vulkan use the second tree.
-  _meson mesa tools "${_options[@]/#-Dvulkan-drivers=asahi/-Dvulkan-drivers=asahi,swrast}" -Dllvm=enabled -Dgallium-rusticl=true -Dbuild-tests=false
+  local _tools_options=("${_options[@]/#-Dvulkan-drivers=*/-Dvulkan-drivers=asahi,swrast}")
+  _tools_options=("${_tools_options[@]/#-Dgallium-drivers=*/-Dgallium-drivers=asahi,zink,softpipe}")
+  _tools_options=("${_tools_options[@]/#-Dgallium-va=*/-Dgallium-va=disabled}")
+  _meson mesa tools "${_tools_options[@]}" -Dllvm=enabled -Ddraw-use-llvm=true -Dgallium-rusticl=true -Dbuild-tests=false
   ninja -C tools -j "${OMARCHY_BUILD_JOBS:-10}" \
     src/compiler/clc/mesa_clc src/compiler/spirv/vtn_bindgen2 src/asahi/clc/asahi_clc \
     src/gallium/targets/rusticl/libRusticlOpenCL.so.1.0.0 \
@@ -50,7 +77,7 @@ build() {
     "asahi_clc = '$srcdir/tools/src/asahi/clc/asahi_clc'" > tools.ini
 
   _meson mesa build "${_options[@]}" --native-file tools.ini \
-    -Dgallium-rusticl=false -Dllvm=disabled -Dspirv-tools=disabled -Dmesa-clc=system -Dprecomp-compiler=system \
+    -Dgallium-rusticl=false -Dllvm=disabled -Ddraw-use-llvm=false -Dspirv-tools=disabled -Dmesa-clc=system -Dprecomp-compiler=system \
     -Dbuild-tests=true
   meson compile -C build -j "${OMARCHY_BUILD_JOBS:-10}"
   DESTDIR="$srcdir/mesa-stage" meson install -C build --no-rebuild
@@ -80,29 +107,34 @@ check() {
 }
 
 package_mesa-aurora() {
-  pkgdesc='Aurora native Asahi Gallium and Zink OpenGL drivers'
-  depends=('expat' 'glibc' 'gcc-libs' 'libdrm' 'libglvnd' 'libx11' 'libxcb' 'libxext'
+  pkgdesc='Aurora OpenGL, PCIe eGPU Gallium, and VA-API drivers'
+  depends=('expat' 'glibc' 'gcc-libs' 'libdrm' 'libelf' 'libglvnd' 'libx11' 'libxcb' 'libxext'
            'libxshmfence' 'libxxf86vm' 'lm_sensors' 'wayland' 'zlib' 'zstd'
            'vulkan-mesa-implicit-layers')
-  provides=("mesa=$epoch:$pkgver" 'mesa-libgl' 'opengl-driver' 'libgbm.so')
-  conflicts=('mesa')
+  provides=("mesa=$epoch:$pkgver" 'mesa-libgl' 'opengl-driver' 'libgbm.so' 'libva-mesa-driver')
+  conflicts=('mesa' 'libva-mesa-driver')
+  replaces=('libva-mesa-driver')
   cp -a "$srcdir/mesa-stage/usr" "$pkgdir/"
-  rm "$pkgdir/usr/lib/libvulkan_asahi.so"
-  rm "$pkgdir"/usr/share/vulkan/icd.d/*asahi*.json
+  rm "$pkgdir"/usr/lib/libvulkan_*.so
+  rm "$pkgdir"/usr/share/vulkan/icd.d/*.json
   rmdir "$pkgdir/usr/share/vulkan/icd.d" "$pkgdir/usr/share/vulkan" 2>/dev/null || true
 
 }
 package_vulkan-aurora() {
-  pkgdesc='Aurora Honeykrisp Vulkan driver'
+  pkgdesc='Aurora Borealis and PCIe eGPU (RADV, ANV, Hasvk, NVK) Vulkan drivers'
   depends=('expat' 'glibc' 'gcc-libs' 'libdrm' 'libdisplay-info' 'libx11' 'libxcb'
            'libxshmfence' 'systemd-libs' 'vulkan-icd-loader' 'wayland'
            'xcb-util-keysyms' 'zlib' 'zstd')
-  provides=("vulkan-asahi=$epoch:$pkgver" "vulkan-asahi-aurora=$epoch:$pkgver" 'vulkan-driver')
-  conflicts=('vulkan-asahi' 'vulkan-asahi-aurora')
+  provides=("vulkan-asahi=$epoch:$pkgver" "vulkan-asahi-aurora=$epoch:$pkgver"
+            "vulkan-radeon=$epoch:$pkgver" "vulkan-intel=$epoch:$pkgver"
+            "vulkan-nouveau=$epoch:$pkgver" 'vulkan-driver')
+  conflicts=('vulkan-asahi' 'vulkan-asahi-aurora' 'vulkan-radeon' 'vulkan-intel' 'vulkan-nouveau')
   replaces=('vulkan-asahi-aurora')
-  install -Dm755 "$srcdir/mesa-stage/usr/lib/libvulkan_asahi.so" "$pkgdir/usr/lib/libvulkan_asahi.so"
-  install -d "$pkgdir/usr/share/vulkan/icd.d"
-  cp -a "$srcdir"/mesa-stage/usr/share/vulkan/icd.d/*asahi*.json "$pkgdir/usr/share/vulkan/icd.d/"
+  install -d "$pkgdir/usr/lib" "$pkgdir/usr/share/vulkan/icd.d"
+  for drv in asahi radeon intel intel_hasvk nouveau; do
+    install -Dm755 "$srcdir/mesa-stage/usr/lib/libvulkan_${drv}.so" "$pkgdir/usr/lib/libvulkan_${drv}.so"
+  done
+  cp -a "$srcdir"/mesa-stage/usr/share/vulkan/icd.d/*.json "$pkgdir/usr/share/vulkan/icd.d/" 
 }
 
 # ALARM extra ships opencl-mesa, formerly opencl-rusticl-mesa.
