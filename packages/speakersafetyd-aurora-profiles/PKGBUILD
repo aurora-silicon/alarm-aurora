@@ -1,16 +1,18 @@
 pkgname=speakersafetyd-aurora-profiles
 pkgver=1
-pkgrel=2
+pkgrel=3
 pkgdesc='speakersafetyd profiles for Aurora-supported Macs and warm restarts'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('GPL-2.0-only')
-source=('j616.conf' 'j575c.conf' '96-speakersafetyd-aurora.rules' '50-aurora-warm-restart.conf')
+source=('j616.conf' 'j575c.conf' '96-speakersafetyd-aurora.rules' '50-aurora-warm-restart.conf'
+        '60-aurora-volume-lock-cap.conf')
 sha256sums=('a410bfd1a17cb4ebaed95278152029c6e9dd5862d52a918c12a4b3db01f0ffaf'
             '76be6775346992cdae9506af593181fa22a3271917bd08c0208df64e286c14b1'
             '40363041bdbe7b3686212ae1bd58dcb369253a921e45e6cb7c78cfb37787e7c3'
-            '63e866903fec3e48c810d67fe86e8e1ba17253644e3de9ac2dfc2a562591a521')
+            '63e866903fec3e48c810d67fe86e8e1ba17253644e3de9ac2dfc2a562591a521'
+            '6dddae60ed42bc97763665b0d2e4ab3cd1af19c8c4e8fe561760c7953873a094')
 package() {
   # speakersafetyd comes from asahi-alarm; the profile files build without it.
   # j575c.conf needs a speakersafetyd that tries the machine's own file
@@ -27,4 +29,7 @@ package() {
   install -Dm644 96-speakersafetyd-aurora.rules "$pkgdir/usr/lib/udev/rules.d/96-speakersafetyd-aurora.rules"
   # A restart within the same boot starts from the worst-case temperature.
   install -Dm644 50-aurora-warm-restart.conf "$pkgdir/usr/lib/systemd/system/speakersafetyd.service.d/50-aurora-warm-restart.conf"
+  # The kernel lets only a CAP_SYS_ADMIN process take and renew the speaker
+  # volume lock.
+  install -Dm644 60-aurora-volume-lock-cap.conf "$pkgdir/usr/lib/systemd/system/speakersafetyd.service.d/60-aurora-volume-lock-cap.conf"
 }
