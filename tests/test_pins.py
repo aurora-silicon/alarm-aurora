@@ -75,10 +75,13 @@ class PinTests(unittest.TestCase):
             self.assertIn(name, replaces)
         for name in ("'speakerguardd<0.2'", "'asahi-audio-aurora'", "'speakerguardd-v2<=1.0.0alpha.1-25'"):
             self.assertIn(name, conflicts)
-        # speakersafetyd: replaced only up to the builds this repository shipped,
-        # never conflicted, so a later explicit install by the user stays.
-        self.assertIn("'speakersafetyd<2.0.1-2'", replaces)
-        self.assertIn("'speakersafetyd-aurora-profiles<1-3'", replaces)
+        # speakersafetyd: replaced only for the Aurora builds this repository
+        # shipped (never asahi-alarm 2.0.1-1), never conflicted, so a later
+        # explicit install by the user survives pacman -Syu.
+        for entry in ("'speakersafetyd=2.0.1-1.2'", "'speakersafetyd=2.0.1-1.1'",
+                      "'speakersafetyd<2.0.1-1'", "'speakersafetyd-aurora-profiles<1-3'"):
+            self.assertIn(entry, replaces)
+        self.assertNotIn("'speakersafetyd<2.0.1-2'", replaces)
         self.assertFalse([n for n in conflicts if 'speakersafetyd' in n], conflicts)
         self.assertFalse([n for n in replaces if n.strip("'") in ('speakersafetyd', 'speakersafetyd-aurora-profiles')], replaces)
         self.assertIn("'asahi-audio'", re.search(r"(?ms)^conflicts=\((.*?)\)", audio).group(1).split())
