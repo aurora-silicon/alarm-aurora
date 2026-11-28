@@ -92,6 +92,23 @@ class PeripheralAdmissionTests(unittest.TestCase):
         self.assertIn('blacklist dockchannel-hid', blacklist)
         self.assertIn('  add_module dockchannel-hid', (PACKAGE / 'aurora-vendor.install').read_text().splitlines())
 
+    def test_initrd_bundles_wireless_regulatory_db_and_rebuilds_on_upgrade(self):
+        install_hook = (PACKAGE / 'aurora-vendor.install').read_text().splitlines()
+        self.assertIn('  add_module mt7932-fullmac', install_hook)
+        self.assertIn('  add_file /usr/lib/firmware/regulatory.db', install_hook)
+        self.assertIn('  add_file /usr/lib/firmware/regulatory.db.p7s', install_hook)
+        alpm_hook = (PACKAGE / 'aurora-firmware.hook').read_text().splitlines()
+        for target in ('usr/lib/initcpio/install/aurora-vendor',
+                       'usr/lib/firmware/regulatory.db',
+                       'usr/lib/firmware/regulatory.db.p7s'):
+            self.assertIn(f'Target = {target}', alpm_hook)
+        self.assertIn('Exec = /usr/bin/mkinitcpio -P', alpm_hook)
+        pkgbuild = (PACKAGE / 'PKGBUILD').read_text()
+        self.assertIn("'wireless-regdb'", pkgbuild)
+        self.assertIn("'aurora-firmware.hook'", pkgbuild)
+        self.assertIn('install -Dm644 aurora-firmware.hook "$pkgdir/usr/share/libalpm/hooks/95-aurora-firmware.hook"',
+                      pkgbuild)
+
     def test_failed_firmware_handoff_still_admits_input(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

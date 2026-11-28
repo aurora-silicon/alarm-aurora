@@ -1,12 +1,12 @@
 pkgname=aurora-wifi-firmware
 pkgver=0.3
-pkgrel=1
+pkgrel=3
 pkgdesc='Keep the Wi-Fi and Bluetooth firmware on the stub firmware'"'"'s macOS restore image (read by HTTP ranges, applied at the next boot)'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/aurora-installer/tree/main/tools/wifi-firmware'
 license=('MIT')
-_commit=873ce2e1f48c66bf2e6b66bdedbfb32559c865b8
+_commit=b2383137c7f6049ca3652722a2346dd928d54c45
 depends=('python' 'python-cryptography' 'util-linux' 'systemd')
 # lzfse is in-tree (packages/lzfse), so it cannot be a hard dependency of a
 # package the CI builds against the stock ALARM repositories; Aurora images
@@ -16,7 +16,7 @@ optdepends=('lzfse: decoding the stub firmware'"'"'s restore image (required for
 makedepends=('make')
 install=aurora-wifi-firmware.install
 source=("aurora-installer-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-installer/tar.gz/$_commit")
-sha256sums=('8b36951670bf09a7bbf0cc597c2559e1fd41bfacc05bdb06ff3643198a3a62e8')
+sha256sums=('0423c2e3a16fb075042f63b769eae8070a773652f34619cef1a2755336d9991b')
 
 check() {
   cd "aurora-installer-$_commit"

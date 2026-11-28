@@ -77,8 +77,11 @@ esac
 FEX = ROOT / 'packages/fex-emu'
 PROVIDER = '/usr/share/guestos/aurora-fex-mesa'
 
-# Mount doubles over a stack of "path device busy" lines, newest last: enough
-# to model the provider's overlay and its binds without mounting anything.
+# Mount doubles over a stack of "path device busy flags" lines, newest last:
+# enough to model the provider's overlay and its binds without mounting
+# anything. A bind takes its source's flags and adds its own options, as
+# util-linux applies them to the new bind; a bind remount sets the flags of the
+# newest mount at a path.
 MOUNT_DOUBLES = {
     'mountpoint': '''#!/bin/bash
 [[ $1 == -q ]] && shift
@@ -87,15 +90,23 @@ grep -q "^$1 " "$TEST_ROOT/mounts"
     'umount': '''#!/bin/bash
 printf 'umount %s\\n' "$*" >> "$TEST_ROOT/log"
 line=$(grep -n "^$1 " "$TEST_ROOT/mounts" | tail -n1) || exit 32
-[[ ${line##* } == 0 ]] || exit 32
+[[ $(cut -d' ' -f3 <<<"${line#*:}") == 0 ]] || exit 32
 sed -i "${line%%:*}d" "$TEST_ROOT/mounts"
 ''',
     'mount': '''#!/bin/bash
 printf 'mount %s\\n' "$*" >> "$TEST_ROOT/log"
 [[ ${MOUNT_FAILS:-no} == no ]] || exit 1
-[[ $1 == --bind && $2 == -o && $3 == ro ]] || exit 2
-dev=$(grep "^$4 " "$TEST_ROOT/mounts" | tail -n1 | cut -d' ' -f2)
-echo "$5 ${dev:?} 0" >> "$TEST_ROOT/mounts"
+if [[ $1 == -o && $2 == remount,bind,* && $# == 3 ]]; then
+  [[ ${REMOUNT_FAILS:-no} == no ]] || exit 1
+  line=$(grep -n "^$3 " "$TEST_ROOT/mounts" | tail -n1) || exit 32
+  read -r path dev busy _ <<<"${line#*:}"
+  sed -i "${line%%:*}s|.*|$path $dev $busy ${2#remount,bind,}|" "$TEST_ROOT/mounts"
+  exit 0
+fi
+[[ $1 == --bind && $2 == -o && $# == 5 ]] || exit 2
+read -r _ dev _ flags <<<"$(grep "^$4 " "$TEST_ROOT/mounts" | tail -n1)"
+flags=$(printf '%s\\n' ${flags//,/ } ${3//,/ } | sort -u | paste -sd,)
+echo "$5 ${dev:?} 0 $flags" >> "$TEST_ROOT/mounts"
 ''',
     'stat': '''#!/bin/bash
 [[ $1 == -c && $2 == %d ]] || exit 2
@@ -144,7 +155,8 @@ class FexRootfsTests(unittest.TestCase):
     """aurora-fex-rootfs points FEX's global RootFS at the provider only while
     it is a usable tree, through a bind that FEX's programs can keep busy."""
 
-    def run_select(self, mounts=(), files=FEDORA_TREE, config=False, mount_fails=False, write_fails=False):
+    def run_select(self, mounts=(), files=FEDORA_TREE, config=False, mount_fails=False, write_fails=False,
+                   remount_fails=False):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
@@ -157,7 +169,8 @@ class FexRootfsTests(unittest.TestCase):
             run.mkdir(parents=True)
             (run / 'Config.json').write_text('{"Config": {"RootFS": "stale"}}\n')
         names = {'provider': str(provider), 'rootfs': str(run / 'rootfs')}
-        (root / 'mounts').write_text(''.join(f'{names[p]} {d} {b}\n' for p, d, b in mounts))
+        (root / 'mounts').write_text(''.join(f'{names[m[0]]} {m[1]} {m[2]} {m[3] if len(m) > 3 else "ro"}\n'
+                                          for m in mounts))
         (root / 'log').touch()
         bin_dir = root / 'bin'
         bin_dir.mkdir()
@@ -171,12 +184,14 @@ class FexRootfsTests(unittest.TestCase):
         script = script.replace(f'provider={PROVIDER}\n', f'provider={provider}\n')
         script = script.replace('dir=/run/fex-emu\n', f'dir={run}\n')
         env = dict(os.environ, PATH=f'{bin_dir}:{os.environ["PATH"]}', TEST_ROOT=str(root),
-                   MOUNT_FAILS='yes' if mount_fails else 'no')
+                   MOUNT_FAILS='yes' if mount_fails else 'no', REMOUNT_FAILS='yes' if remount_fails else 'no')
         result = subprocess.run(['sh', '-c', script], env=env, stderr=subprocess.PIPE, text=True)
         self.stderr = result.stderr
         stack = [line.split() for line in (root / 'mounts').read_text().splitlines()]
         reverse = {v: k for k, v in names.items()}
-        stack = [(reverse[p], d, b) for p, d, b in stack]
+        # The flags of the newest mount at each path.
+        self.flags = {reverse[p]: set(f.split(',')) for p, _, _, f in stack}
+        stack = [(reverse[p], d, b) for p, d, b, _ in stack]
         rootfs_config = read_config(run / 'Config.json')
         return result.returncode, stack, rootfs_config, (root / 'log').read_text(), str(run / 'rootfs'), run
 
@@ -188,7 +203,8 @@ class FexRootfsTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assert_selected(cfg, rootfs)
         self.assertEqual(stack, [('provider', 'ovl1', '0'), ('rootfs', 'ovl1', '0')])
-        self.assertIn(f'mount --bind -o ro {run.parent.parent}/provider {rootfs}\n', log)
+        self.assertIn(f'mount --bind -o ro,nosuid,nodev {run.parent.parent}/provider {rootfs}\n', log)
+        self.assertEqual(self.flags['rootfs'], {'ro', 'nosuid', 'nodev'})
         self.assertEqual(oct((run / 'Config.json').stat().st_mode & 0o777), '0o644')
         self.assertEqual([p.name for p in run.iterdir() if p.name.startswith('.')], [])
 
@@ -234,7 +250,29 @@ class FexRootfsTests(unittest.TestCase):
         _, stack, cfg, log, rootfs, _ = self.run_select(mounts=[('provider', 'ovl1', 0), ('rootfs', 'ovl1', 1)])
         self.assert_selected(cfg, rootfs)
         self.assertEqual(stack, [('provider', 'ovl1', '0'), ('rootfs', 'ovl1', '1')])
-        self.assertEqual(log, '')
+        self.assertEqual(log, f'mount -o remount,bind,ro,nosuid,nodev {rootfs}\n')
+
+    def test_bind_is_read_only_nosuid_nodev(self):
+        # Also over a provider that has only ro, as one mounted before.
+        for flags in ('ro', 'ro,nosuid,nodev'):
+            with self.subTest(provider=flags):
+                status, _, cfg, _, rootfs, _ = self.run_select(mounts=[('provider', 'ovl1', 0, flags)])
+                self.assertEqual(status, 0)
+                self.assert_selected(cfg, rootfs)
+                self.assertEqual(self.flags['rootfs'], {'ro', 'nosuid', 'nodev'})
+
+    def test_kept_bind_gets_nosuid_nodev(self):
+        # A bind made, read-only only, before this; a program still uses it.
+        _, stack, cfg, _, rootfs, _ = self.run_select(mounts=[('provider', 'ovl1', 0), ('rootfs', 'ovl1', 1, 'ro')])
+        self.assert_selected(cfg, rootfs)
+        self.assertEqual(stack, [('provider', 'ovl1', '0'), ('rootfs', 'ovl1', '1')])
+        self.assertEqual(self.flags['rootfs'], {'ro', 'nosuid', 'nodev'})
+
+    def test_failed_remount_leaves_the_stock_image(self):
+        status, _, cfg, _, _, _ = self.run_select(mounts=[('provider', 'ovl1', 0)], config=True, remount_fails=True)
+        self.assertNotEqual(status, 0)
+        self.assertIsNone(cfg)
+        self.assertIn('nosuid and nodev', self.stderr)
 
     def test_unused_stale_bind_is_replaced(self):
         _, stack, cfg, _, rootfs, _ = self.run_select(mounts=[('provider', 'ovl2', 0), ('rootfs', 'ovl1', 0)])
@@ -394,3 +432,17 @@ class FexInstallTests(unittest.TestCase):
         self.assertIn('Target = usr/share/guestos/aurora-fex-mesa-layer/.aurora-mesa-commit\n', hook)
         self.assertIn('When = PostTransaction\n', hook)
         self.assertIn('Exec = /usr/lib/fex-emu/aurora-fex-rootfs\n', hook)
+
+
+class FexOverlayMountTests(unittest.TestCase):
+    """The provider is mounted read-only, nosuid and nodev, as the stock guest
+    image below it is."""
+
+    def test_overlay_is_read_only_nosuid_nodev(self):
+        unit = (ROOT / 'packages/mesa-aurora-fex-guest/aurora-fex-mesa.service').read_text()
+        starts = [line for line in unit.splitlines() if line.startswith('ExecStart=')]
+        self.assertEqual(len(starts), 1)
+        args = starts[0].split()
+        self.assertEqual(args[1:4], ['-t', 'overlay', 'overlay'])
+        options = args[args.index('-o') + 1].split(',')
+        self.assertTrue({'ro', 'nosuid', 'nodev'} <= set(options), options)

@@ -5,12 +5,12 @@
 pkgbase=speakerguardd-v2
 pkgname=('speakerguardd-v2')
 pkgver=1.0.0alpha.2
-pkgrel=10
+pkgrel=12
 # Pin (speakerguardd main after v1.0.0-alpha.2: speakerguardd#200, #212, #213,
 # #215, #225, #226, #228, #229, #231, #232, #234, #236, #238, #239, #240,
-# #241, #242, #243, #244, #246, #248, #249, #250, #251, #252, #218, #262): the one place to move (with the first sha256sums
+# #241, #242, #243, #244, #246, #248, #249, #250, #251, #252, #218, #262, #265, #266, #268, #270): the one place to move (with the first sha256sums
 # entry and sources.json speakerguardd-v2).
-_commit=4136af409161d8aa44e12b6aa2d0502bb5ea2490
+_commit=89b6e40e6dab5bee69790d783a11628f85591338
 _src=speakerguardd-$_commit
 pkgdesc='In-graph speaker protection for Apple Silicon Macs (speakerguardd 1.0)'
 arch=('aarch64')
@@ -20,7 +20,7 @@ license=('MIT')
 makedepends=('rust' 'cargo' 'python')
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/speakerguardd/tar.gz/$_commit"
         README.md)
-sha256sums=('270abb58cdc7181322cea41ce9619bcd956f3615df829c8b6a9fd1f720a7178f'
+sha256sums=('f7ee11b038971e518aae284c951799eb3291326e775e7ed0318657b0a51b0698'
             'acbcde75b69a51864e18a6f918934b4062b0dbec578c58f10276c957541180c3')
 # The crates this package ships; the rig and benchmark crates stay out.
 _crates=(-p sgv2-core -p sgv2-lv2 -p sgv2-supervisor -p aurora-speaker-tuning)

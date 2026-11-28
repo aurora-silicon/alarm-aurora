@@ -6,13 +6,13 @@
 
 _auroraver=7.3.0
 _aurorarel=1
-pkgrel=41
+pkgrel=46
 
 # Immutable pin on aurora-silicon/linux main. Every bump is a
 # PR that moves _commit; its cold-boot qualification is recorded in
 # the PR's attached qualification evidence before channel publication.
-_commit=9125b31475836ce0a6634df45b539c6d604f36a5
-_sha256=9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b
+_commit=4a42f31050028aa7b9e5dc007e7ea231acc66356
+_sha256=dfc8d5a4e79d0a4f81ce4b904d6f5842f388976a5778d1aa1cffae9ee0af210b
 
 # 1 with a kernel pin whose configuration resolves CONFIG_ARM64_CTXR_EXECMEM=y
 # (aurora-silicon/linux#985), which keeps every kernel code page inside the
@@ -31,8 +31,9 @@ if (( _ctxr_execmem )); then _ctxr_provides=('aurora-ctxr-execmem'); fi
 # video encoder for aura to enable from the ADT (aura/pull/167), and its
 # DisplayPort audio needs the T8140 SIO tables (aura/pull/122). 1.0.0b12:
 # with the T8140 fabric power states (linux#1298) only aura/pull/190 enables
-# the encoder's whole power-domain chain.
-_aura_version=1.0.0b12
+# the encoder's whole power-domain chain. 1.0.0b17: the device trees of the
+# main 4a42f310 pin are qualified with the b17 Stage 2 this repository ships.
+_aura_version=1.0.0b17
 
 # The DT ABI generation this kernel's trees use and need (dtb-abi, installed as
 # /usr/lib/modules/<release>/dtb-abi). update-m1n1 refuses to put newer-
@@ -59,10 +60,10 @@ source=(validate-config.py "linux-${_commit}.tar.gz::https://codeload.github.com
         rust-toolchain.toml bindgen-kernel.py config 50-aurora-user4k.cfg aurora-userpages.hook
         dtb-abi)
 sha256sums=('534214d07ad388822b3d7ca2b63efce988c1424131329775479ebbd7552715b0'
-            '9a3969b52c6f41017b36e8bc805b63b0215fddf31b91fc5d45dd7854ab3c4f7b'
+            'dfc8d5a4e79d0a4f81ce4b904d6f5842f388976a5778d1aa1cffae9ee0af210b'
             '76cef34049e1e22be3abc0c9a457c381f8cdcf7ac419322c928555d269f0be08'
             '84a03d5fea19cae243c89f50c1736c639622d25d4d1de8d7d53ebd8f603c0f62'
-            '12a712faddcd8d624b28641b63187796e29732d34fb18d0b3a037443b74c3dcc'
+            '91a9605d040ef1159e0c17c5fce2655d0f3e2aa914ce122f89a0ea971911eadb'
             '26293576b6b9091cc8a725a85326b945f32fc87127878c8704d2f3927d58bd69'
             '85455ba75cdbb6ffbe90871154100f1d2bc271ec18071b5b98acf5bc7b1ec6b6'
             '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865')
@@ -145,6 +146,15 @@ prepare() {
   for option in DM_CRYPT DM_INTEGRITY BT NF_TABLES EXFAT_FS HID_GENERIC; do
     grep -Eqx "CONFIG_${option}=[ym]" build/base/.config || {
       echo "linux-aurora requires CONFIG_${option} (y or m)" >&2; return 1;
+    }
+  done
+  # Apple N1 radios (T6050 and the J813/J873 transport): a pin whose source
+  # defines their drivers must build them, or those Macs ship with no Wi-Fi or
+  # Bluetooth. This catches a shared fragment that omits them.
+  for option in APPLE_CENTAURI APPLE_CENTAURI_T6050 APPLE_CENTAURI_T6050_WIFI BT_CENTAURI BT_HCICENTAURI; do
+    grep -rqx --include='Kconfig*' "config ${option}" drivers || continue
+    grep -Eqx "CONFIG_${option}=[ym]" build/base/.config || {
+      echo "linux-aurora requires CONFIG_${option} (y or m): this pin's source has the driver" >&2; return 1;
     }
   done
   _make O="$PWD/build/base" prepare

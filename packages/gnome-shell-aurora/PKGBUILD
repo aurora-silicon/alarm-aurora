@@ -1,20 +1,21 @@
-# Arch's gnome-shell 51.1-1 recipe with one Aurora patch: keep built-in panels
-# on the system/NVRAM brightness level (aurora-panel-nits) instead of restoring
-# stale per-user ~/.local/share/gnome-shell/brightnesses on login. The same
-# patch is in fedora-aurora's Fedora 45 gnome-shell package.
-# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
-# Maintainer: Fabian Bornschein <fabiscafe@archlinux.org>
-
+# Arch's gnome-shell 1:51.1-1 recipe (Jan Alexander Steffens, Fabian Bornschein) with one
+# Aurora patch: a built-in panel neither loads nor saves the shell's per-colour-mode brightness
+# level, so it always starts from the system's backlight level (the one aurora-panel-nits shares
+# with the boot loader). Stock GNOME Shell 51 keeps one saved level per colour mode and re-applies
+# it on every login and colour mode switch; a level saved as 0 (for example while a tool held the
+# backlight at 0 the first time HDR was turned on) put the panel at its minimum on every HDR switch
+# and login. The same patch is in fedora-aurora's gnome-shell package. The API documentation stays
+# in ALARM's gnome-shell-docs.
 pkgname=gnome-shell-aurora
 _tag=51.1
 pkgver=51.1.aurora1
 pkgrel=1
 epoch=1
-pkgdesc="Next generation desktop shell"
+pkgdesc="Next generation desktop shell, keeping built-in panels at the system brightness level"
 url="https://gitlab.gnome.org/GNOME/gnome-shell"
 arch=(aarch64)
 license=(GPL-3.0-or-later)
-provides=("gnome-shell=$_tag")
+provides=("gnome-shell=1:$_tag")
 conflicts=(gnome-shell)
 replaces=(gnome-shell)
 depends=(
@@ -46,7 +47,6 @@ depends=(
   libgweather-4
   libibus
   libical
-  libmutter-51.so
   libnm
   libnma-gtk4
   libpipewire
@@ -68,6 +68,7 @@ makedepends=(
   asciidoc
   bash-completion
   evolution-data-server
+  gi-docgen
   git
   glib2-devel
   gnome-keybindings
@@ -76,20 +77,6 @@ makedepends=(
   python-docutils
   sassc
 )
-optdepends=(
-  'evolution-data-server: Evolution calendar integration'
-  'gnome-bluetooth-3.0: Bluetooth support'
-  'gnome-control-center: System settings'
-  'gnome-disk-utility: Mount with keyfiles'
-  'gnome-extensions-app: Manage gnome-shell extensions'
-  'gst-plugin-pipewire: Screen recording'
-  'gst-plugins-good: Screen recording'
-  'power-profiles-daemon: Power profile switching'
-  'python-gobject: gnome-shell-test-tool performance tester'
-  'python-simplejson: gnome-shell-test-tool performance tester'
-  'switcheroo-control: Multi-GPU support'
-)
-groups=(gnome)
 source=(
   # GNOME Shell tags use SSH signatures which makepkg doesn't understand
   "git+https://gitlab.gnome.org/GNOME/gnome-shell.git#tag=$_tag"
@@ -105,6 +92,7 @@ b2sums=('3a73c33e084fa093f49cae9c83e784e29d9f4f5536b43edc389401de89d7d6e193dceb7
         'f6c455d39e92f630ce5f5587a5d2391ce011e31aa3e189b29d76c89a2ee90083f606440d1f9ce493424f9a597ddc03466a9ea3c0fdbe0c48eb949723291ffed7')
 
 prepare() {
+  # Inject gvc
   ln -s libgnome-volume-control gvc
 
   cd gnome-shell
@@ -120,6 +108,7 @@ build() {
   CFLAGS="${CFLAGS/-O2/-O3} -fno-semantic-interposition"
   LDFLAGS+=" -Wl,-Bsymbolic-functions"
 
+  # Inject subprojects
   export MESON_PACKAGE_CACHE_DIR="$srcdir"
 
   arch-meson gnome-shell build "${meson_options[@]}"
@@ -127,7 +116,21 @@ build() {
 }
 
 package() {
+  depends+=(libmutter-51.so)
+  optdepends=(
+    'evolution-data-server: Evolution calendar integration'
+    'gnome-bluetooth-3.0: Bluetooth support'
+    'gnome-control-center: System settings'
+    'gnome-disk-utility: Mount with keyfiles'
+    'gnome-extensions-app: Manage gnome-shell extensions'
+    'gst-plugin-pipewire: Screen recording'
+    'gst-plugins-good: Screen recording'
+    'power-profiles-daemon: Power profile switching'
+    'python-gobject: gnome-shell-test-tool performance tester'
+    'python-simplejson: gnome-shell-test-tool performance tester'
+    'switcheroo-control: Multi-GPU support'
+  )
+  groups=(gnome)
+
   meson install -C build --no-rebuild --destdir "$pkgdir"
 }
-
-# vim:set sw=2 sts=-1 et:

@@ -102,6 +102,23 @@ class ParityTests(unittest.TestCase):
         self.assertIn('"$pkgdir/usr/share/glib-2.0/schemas/60_aurora-apple-keys.gschema.override"',
                       pkgbuild)
 
+    def test_brcmfmac_wifi_powersave_dropin(self):
+        # Scoped to driver:brcmfmac via a named [connection-*] section so it
+        # enables 802.11 power save on Apple Broadcom radios without affecting
+        # other drivers and takes precedence over generic [connection] defaults.
+        directory = ROOT / 'packages' / 'aurora-system-fixes'
+        conf = configparser.ConfigParser(interpolation=None)
+        conf.optionxform = str
+        conf.read_string((directory / '85-aurora-brcmfmac-powersave.conf').read_text())
+        self.assertEqual(conf.sections(), ['connection-aurora-brcmfmac-powersave'])
+        self.assertEqual(dict(conf['connection-aurora-brcmfmac-powersave']), {
+            'match-device': 'driver:brcmfmac',
+            'wifi.powersave': '3',
+        })
+        pkgbuild = (directory / 'PKGBUILD').read_text()
+        self.assertIn('"$pkgdir/usr/lib/NetworkManager/conf.d/85-aurora-brcmfmac-powersave.conf"',
+                      pkgbuild)
+
     def test_power_defaults_apply_on_every_apple_silicon_mac(self):
         # Neither setting depends on the SoC: one unit, wanted by sysinit.target
         # from the package, skipped by ConditionFirmware off Apple silicon.

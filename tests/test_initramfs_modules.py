@@ -57,6 +57,28 @@ class InitramfsModuleTests(unittest.TestCase):
         self.assertIn('install -Dm644 aurora-boot.hook "$pkgdir/usr/share/libalpm/hooks/95-aurora-boot.hook"',
                       pkgbuild)
 
+    def test_static_device_nodes_are_ordered_before_udev_in_initramfs(self):
+        # Arch's mkinitcpio systemd hook omits systemd-tmpfiles-setup-dev-early.service,
+        # breaking the transitive ordering between kmod-static-nodes.service and
+        # systemd-tmpfiles-setup-dev.service and racing /dev/btrfs-control creation
+        # against udev's 64-btrfs.rules.
+        dropin = [line.strip() for line in (BOOT/'10-aurora-kmod-static-nodes.conf').read_text().splitlines()]
+        self.assertIn('[Unit]', dropin)
+        self.assertIn('Wants=kmod-static-nodes.service', dropin)
+        self.assertIn('After=kmod-static-nodes.service', dropin)
+        pkgbuild = (BOOT/'PKGBUILD').read_text()
+        self.assertIn("'10-aurora-kmod-static-nodes.conf'", pkgbuild)
+        self.assertIn(
+            'install -Dm644 10-aurora-kmod-static-nodes.conf '
+            '"$pkgdir/usr/lib/systemd/system/systemd-tmpfiles-setup-dev.service.d/10-aurora-kmod-static-nodes.conf"',
+            pkgbuild,
+        )
+        hook = (BOOT/'aurora-boot.hook').read_text().splitlines()
+        self.assertIn(
+            'Target = usr/lib/systemd/system/systemd-tmpfiles-setup-dev.service.d/10-aurora-kmod-static-nodes.conf',
+            hook,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

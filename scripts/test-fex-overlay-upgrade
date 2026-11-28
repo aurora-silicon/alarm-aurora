@@ -7,6 +7,13 @@ proof=/proof
 mkdir -p "$proof" /usr/share/guestos/fex-mesa/usr
 exec > >(tee "$proof/fex-overlay.log") 2>&1
 work=$(mktemp -d)
+# The newest mount at $1 is read-only, nosuid and nodev, as the stock guest
+# image is mounted.
+ro_nosuid_nodev() {
+  local options
+  options=,$(findmnt -n -o OPTIONS -M "$1" | tail -n1),
+  [[ $options == *,ro,* && $options == *,nosuid,* && $options == *,nodev,* ]]
+}
 make_fixture() {
   local version=$1 root=$work/root-$1
   mkdir -p "$root/usr/share/libalpm/hooks" "$root/usr/share/guestos/aurora-fex-mesa-layer/usr" "$root/usr/share/guestos/aurora-fex-mesa" "$root/usr/lib/systemd/system"
@@ -30,6 +37,7 @@ systemctl start aurora-fex-mesa.service
 systemctl is-active aurora-fex-mesa.service
 refute touch /usr/share/guestos/aurora-fex-mesa/read-only-probe
 findmnt /usr/share/guestos/aurora-fex-mesa > "$proof/mount-before.txt"
+ro_nosuid_nodev /usr/share/guestos/aurora-fex-mesa
 pacman --config "$work/pacman.conf" -U --noconfirm "$work/fixture-1-2.pkg.tar.gz"
 systemctl is-active aurora-fex-mesa.service
 grep -x 1-2 /usr/share/guestos/aurora-fex-mesa/usr/aurora-layer
@@ -118,6 +126,8 @@ selected() {
   mountpoint -q "$rootfs"
   [[ $(stat -c %d "$rootfs") == $(stat -c %d "$provider") ]]
   refute touch "$rootfs/read-only-probe"
+  ro_nosuid_nodev "$provider"
+  ro_nosuid_nodev "$rootfs"
   grep -aqx "aurora $1" "$rootfs/usr/lib/libvulkan_asahi.so"
   grep -aqx stock "$rootfs/usr/lib64/ld-linux-x86-64.so.2"
 }

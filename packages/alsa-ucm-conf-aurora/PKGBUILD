@@ -1,12 +1,12 @@
 pkgname=alsa-ucm-conf-aurora
 pkgver=10.aurora2
-pkgrel=6
+pkgrel=8
 pkgdesc='Aurora Apple Silicon ALSA profiles including J700'
 arch=('any')
 groups=('aurora-platform-apple-silicon')
 url='https://github.com/aurora-silicon/alsa-ucm-conf-asahi'
 license=('BSD-3-Clause')
-_commit=96b3206d2f4c6f89145a2f1b5395a833fb2ae0af
+_commit=4d1cf44b641a633cc2da471add68a06489912ea1
 makedepends=('git')
 depends=('alsa-ucm-conf')
 provides=("alsa-ucm-conf-asahi=$pkgver" "alsa-ucm-conf-asahi-aurora=$pkgver")

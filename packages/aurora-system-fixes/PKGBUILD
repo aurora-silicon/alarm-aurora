@@ -1,6 +1,6 @@
 pkgname=aurora-system-fixes
 pkgver=1
-pkgrel=16
+pkgrel=18
 pkgdesc='Aurora systemd drop-ins awaiting named upstream fixes'
 arch=('any')
 url='https://github.com/aurora-silicon/alarm-aurora'
@@ -12,6 +12,7 @@ source=(malcontent-signal.conf malcontent-webd-update-signal.conf LICENSE 50-aft
         90-aurora-reboot-watchdog.conf 64-aurora-trackpad-clicks.rules
         60-aurora-trackpad-palms.quirks
         aurora-power-defaults.service
+        85-aurora-brcmfmac-powersave.conf
         60_aurora-apple-keys.gschema.override
         70-aurora-accel.rules aurora-accel.sysusers 36-aurora-accel-permissions.hook)
 sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '866a2b6a4d7c7408a0a3b9d33a932c548c4fedec6917d414f237f0064e7aa6f1' '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9'
@@ -27,6 +28,7 @@ sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '
             'dffdbfc709f0022c719af09fc2c938e7e78e4d4a48556b9e7f5c53b10d1da4b1'
             'ebdf7eb43ddae220cbfd179c9b024e993581b4df97baa98a7a7c8b204c9a5711'
             '056719d6fb9b560c0f63bff70a978efe84a4d48bdf63bb6cf1bd8c3b4127378e'
+            'c97d450173ebbd43d302d29be203e4de8d53aa068783409859b15f88df4bea9f'
             '3b070f509b229a9e47ebc621fd1399072db1223c84158592911ba4c8c65ab942'
             'e36c2e4c678dc2e1b7f56ffae658bb18a2ee2be395a611ed4e718278263c298f'
             'd6a709184c9ff1c9a45d041d10419a43dfcad9fe7a6e632b05f3117ab4405d26'
@@ -34,7 +36,7 @@ sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '
 
 package() {
   # Built in this repository, so not a build-time dependency.
-  depends+=('aurora-panel-nits' 'aurora-nvram' 'aurora-btsync')
+  depends+=('aurora-panel-nits' 'aurora-nvram' 'aurora-btsync' 'aurora-wifisync')
   install -Dm644 50-after-swapfile.conf \
     "$pkgdir/usr/lib/systemd/system/var-swap-swapfile2.swap.d/50-after-swapfile.conf"
   install -Dm644 61-aurora-dmi-id.rules "$pkgdir/usr/lib/udev/rules.d/61-aurora-dmi-id.rules"
@@ -68,6 +70,9 @@ package() {
   install -Dm644 aurora-power-defaults.service "$pkgdir/usr/lib/systemd/system/aurora-power-defaults.service"
   install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
   ln -s ../aurora-power-defaults.service "$pkgdir/usr/lib/systemd/system/sysinit.target.wants/aurora-power-defaults.service"
+  # Enable 802.11 power save on Apple Broadcom (brcmfmac) radios.
+  install -Dm644 85-aurora-brcmfmac-powersave.conf \
+    "$pkgdir/usr/lib/NetworkManager/conf.d/85-aurora-brcmfmac-powersave.conf"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   local unit
   for unit in malcontent-timerd malcontent-timer-extension-agent malcontent-webd; do
