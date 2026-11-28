@@ -2,14 +2,14 @@
 # fork's submodules are pinned at its gitlinks (sources.json extra_sources).
 pkgbase=fex-emu
 pkgname=(fex-emu fex-emu-steam)
-pkgver=2610.r202611250455.05d2618882d
-pkgrel=2
+pkgver=2610.r202611270653.4f0c04b785f
+pkgrel=1
 pkgdesc='Fast usermode x86 and x86-64 emulator for ARM64 (Aurora build)'
 arch=('aarch64')
 url='https://github.com/aurora-silicon/fex'
 license=('MIT' 'Apache-2.0' 'BSL-1.0' 'BSD-3-Clause' 'GPL-2.0-only')
-_commit=05d2618882d41bca4492ccb0385919121bee20cd
-_sha256=b93abcd9f2fa3e2fc1e2ce8a1dc8e84e9ebd510ddd01ea739ad23f890f91a3a1
+_commit=4f0c04b785fa9d07f1c085474ee4c9f0f2f23ded
+_sha256=fe2170c698afca6816665d9383118bfc2151c47f635a6634bf19089975aa895a
 _describe=FEX-${pkgver%%.r*}-aurora-g${_commit::7}
 makedepends=('cmake' 'ninja' 'clang' 'lld' 'llvm' 'python' 'python-setuptools' 'python-packaging'
              'fmt' 'xxhash' 'catch2' 'libepoxy' 'sdl2-compat' 'qt6-declarative' 'pkgconf')

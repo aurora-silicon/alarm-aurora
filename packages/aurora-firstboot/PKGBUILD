@@ -1,14 +1,14 @@
 pkgbase=aurora-firstboot
 pkgname=(aurora-firstboot aurora-power-budget aurora-gamemode aurora-secboot)
 pkgver=0.1.13
-pkgrel=8
+pkgrel=9
 pkgdesc='Aurora per-install root encryption and Linux owner setup'
 arch=('any')
 license=('MIT')
 url='https://github.com/aurora-silicon/aurora-platform'
-_commit=20c328448a51f680ef545b3fb5d1d3a9c6abc9a3
+_commit=0d07f1ba78b15a54afa0aa9fbb616609fa7f3db7
 source=("$pkgbase-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-platform/tar.gz/$_commit")
-sha256sums=('3d7f9e273ac3f626c75f6518afe21b736ce20dfb84779843b62d9a6f9ddcfd31')
+sha256sums=('b2b54bf53d87cbeda1c13e14ae6bc14b79238c7cdcbf8548bdf107969bd0f15d')
 package_aurora-firstboot() {
   depends=('bash' 'cryptsetup>=2.8' 'btrfs-progs' 'util-linux' 'coreutils' 'systemd' 'python' 'shadow' 'sudo' 'kbd' 'procps-ng' 'mkinitcpio')
   install=aurora-firstboot.install
