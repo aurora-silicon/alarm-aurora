@@ -57,6 +57,15 @@ still block the candidate whose hash they contain. `journalctl -u aurora-stage2-
 `asahi-scripts`' install script applies `90-aurora-stage2.preset` on install and on the upgrade that brings
 the units (`systemctl --preset-mode=enable-only preset`), as Fedora's `%systemd_post` and `%triggerun` do.
 
+Nothing is written to the ESP unless this boot shows that Stage 1 loads the target (fedora-aurora#452).
+A Stage 1 from aura 1.0.0b12 on records the SHA-256 of the image it loaded in
+`/chosen/aurora,boot-security`, and the target must have it. With an older Stage 1 that has aura-try, the
+target must exist and carry the running Stage 2's version. A candidate whose aura release is older than
+the running Stage 2's is not written either (`sudo env AURORA_STAGE2_ALLOW_DOWNGRADE=1 update-m1n1` once
+to allow it). In both cases pacman's kernel update still completes, and the updater names the file Stage 1
+loads, for example `Stage 1 loads aura/stage2.bin, not m1n1/boot-ctxr.bin: not touching the boot chain`.
+A trial this updater armed that never booted is withdrawn when it fails either check.
+
 ### DT ABI generations
 
 `linux-aurora` ships `/usr/lib/modules/<release>/dtb-abi` (`packages/linux-aurora/dtb-abi`, the same value

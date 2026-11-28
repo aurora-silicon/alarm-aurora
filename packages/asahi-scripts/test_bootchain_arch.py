@@ -372,6 +372,48 @@ class ArchTrial(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), b'GOOD-STAGE2')
         self.assertFalse(self.marker.exists())
 
+    def esp(self):
+        esp = self.root / 'esp'
+        return {p.relative_to(esp).as_posix(): p.read_bytes() for p in sorted(esp.rglob('*')) if p.is_file()}
+
+    def loaded(self, data):
+        """This boot's record of the image Stage 1 loaded (aura 1.0.0b12 on, secboot.c)."""
+        node = '/proc/device-tree/chosen/aurora,boot-security/measurement@0'
+        for name, value in (('stage', 'stage1'), ('component', 'next-stage')):
+            self.put(f'{node}/{name}', value.encode() + b'\0')
+        self.put(f'{node}/sha256', hashlib.sha256(data).digest())
+
+    def test_stage1_loading_another_file_gets_no_trial(self):
+        # fedora-aurora#452 on Arch's layout: Stage 1 loads aura/stage2.bin, not boot.bin.
+        self.trial_setup()
+        self.put('/proc/device-tree/chosen/aura,stage1-version', b'1.0.0b13\0')
+        self.loaded(self.put('/esp/aura/stage2.bin', b'LAB-STAGE2').read_bytes())
+        before = self.esp()
+        with patch('builtins.print') as log:
+            self.apply()
+        self.assertEqual(self.esp(), before)
+        self.assertFalse(self.attempts.exists() and list(self.attempts.iterdir()))
+        text = ' '.join(str(call.args[0]) for call in log.call_args_list)
+        self.assertIn('Stage 1 loads aura/stage2.bin, not m1n1/boot.bin: not touching the boot chain', text)
+        self.assertIn('Stage 2 left unchanged', text)
+        # The same boot with Stage 1 loading boot.bin arms the trial.
+        self.loaded(self.target.read_bytes())
+        self.apply()
+        self.assertEqual(self.marker.read_bytes(), b'armed\nm1n1/boot.bin.next\n')
+
+    def test_direct_replacement_needs_the_same_proof_and_no_downgrade(self):
+        self.trial_setup()
+        self.put('/proc/device-tree/chosen/aura,stage1-version', b'1.0.0b3\0')  # No aura-try.
+        self.put('/usr/lib/asahi-boot/m1n1.bin', b'AURA##aura_ver##1.0.0b12\0')
+        self.put('/proc/device-tree/chosen/asahi,m1n1-stage2-version', b'1.0.0b13\0')
+        with patch('builtins.print'):
+            self.apply()
+        self.unchanged()
+        self.env['AURORA_STAGE2_ALLOW_DOWNGRADE'] = '1'
+        self.apply()
+        self.assertTrue(self.target.read_bytes().startswith(b'AURA##aura_ver##1.0.0b12\0'))
+        self.assertEqual(self.backup.read_bytes(), b'GOOD-STAGE2')
+
 
 if __name__ == '__main__':
     unittest.main()

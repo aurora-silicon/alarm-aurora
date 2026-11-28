@@ -3,8 +3,10 @@
 """Arch Linux ARM layout for Aurora's shared Stage 2 updater.
 
 bootchain.py is fedora-aurora's packages/update-m1n1/bootchain.py, unchanged.
-It owns the DT ABI generation guard, the aura-try trial, the boot-time commit
-and the guard. This file only says where Arch keeps things:
+It owns the DT ABI generation guard, the aura-try trial, the boot-time commit,
+the guard, and the checks that Stage 2 goes only to the file this boot's Stage 1
+loads and is never an older aura than the running one (fedora-aurora#452).
+This file only says where Arch keeps things:
 
 - a kernel package installs /usr/lib/modules/<release>/{vmlinuz,dtbs/,dtb-abi}
   and mkinitcpio copies its image to /boot/vmlinuz-<pkgbase>;
@@ -85,6 +87,8 @@ class ArchUpdate(bootchain.Update):
         previous = target.read_bytes() if target.exists() else None
         if previous is not None and previous != payload and self.supports_trial():
             self.stage_trial(selected, payload)
+        elif previous != payload and (hold := self.stage2_hold(target, payload)):
+            self.keep(hold)
         elif previous != payload:
             # Finish and sync the candidate before changing even the backup.
             fd, name = tempfile.mkstemp(prefix=f'.{target.name}.', dir=target.parent)
@@ -103,7 +107,7 @@ class ArchUpdate(bootchain.Update):
                 bootchain.sync_dir(target.parent)
             finally:
                 staged.unlink(missing_ok=True)
-        print(f'Stage 2 verified at {target}; DTBs from kernel {selected}')
+        print(f'Stage 2 {"left unchanged" if self.held else "verified"} at {target}; DTBs from kernel {selected}')
 
 
 def main():
