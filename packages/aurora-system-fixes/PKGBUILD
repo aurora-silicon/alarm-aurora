@@ -1,13 +1,14 @@
 pkgname=aurora-system-fixes
 pkgver=1
-pkgrel=18
+pkgrel=19
 pkgdesc='Aurora systemd drop-ins awaiting named upstream fixes'
 arch=('any')
 url='https://github.com/aurora-silicon/alarm-aurora'
 license=('MIT')
 depends=('systemd' 'bluez>=5.87' 'ethtool' 'iw' 'procps-ng')
 source=(malcontent-signal.conf malcontent-webd-update-signal.conf LICENSE 50-after-swapfile.conf
-        61-aurora-dmi-id.rules 60-aurora-dmi-vendor.hwdb drkonqi-ordering.conf nm-dispatcher-persist.conf
+        61-aurora-dmi-id.rules 60-aurora-dmi-vendor.hwdb 60-aurora-gpu-switcheroo.hwdb
+        drkonqi-ordering.conf nm-dispatcher-persist.conf
         62-aurora-gpu-render-only.rules aurora-wake-for-network 63-aurora-wake-for-network.rules
         90-aurora-reboot-watchdog.conf 64-aurora-trackpad-clicks.rules
         60-aurora-trackpad-palms.quirks
@@ -19,6 +20,7 @@ sha256sums=('d4e37dcfda529120f3a0e24e8b60fea6e16e4fb115a91e77bf1d03565f2621c5' '
             '47f566640dbb31023b46db86695608adea7782e00f49f622e50be21491455a10'
             'bfc15b89689f807c5e66bae31359c2842b28af57b73f0fde6f9396c7ad0ac54c'
             'db7b2900eb3c4caaa195b12a4affd0bbcc82fbc091e1fa93b0ea3db97e6cf7b9'
+            'debc6ff4a718f219c03b07055ea4d28272adeb70247d9bff38338e6f0496901c'
             '290e49ac91460cf801e49ffc0233efca075e0305855fa8ef81e90262d7ed1fcc'
             'faa2b065fd84a14cf1e106eec88fb337b2b787fd9d08e58301f85a3288e685cc'
             '8bddd9fa90a3c89c6409431c4c2e2c49e842b49cfbf1ec3dddd2270d34d8c7d6'
@@ -62,6 +64,7 @@ package() {
   install -Dm644 60_aurora-apple-keys.gschema.override \
     "$pkgdir/usr/share/glib-2.0/schemas/60_aurora-apple-keys.gschema.override"
   install -Dm644 60-aurora-dmi-vendor.hwdb "$pkgdir/usr/lib/udev/hwdb.d/60-aurora-dmi-vendor.hwdb"
+  install -Dm644 60-aurora-gpu-switcheroo.hwdb "$pkgdir/usr/lib/udev/hwdb.d/60-aurora-gpu-switcheroo.hwdb"
   # A stalled reboot or kexec is reset within the Apple watchdog's ~178 s range (systemd default: 10 min).
   install -Dm644 90-aurora-reboot-watchdog.conf "$pkgdir/usr/lib/systemd/system.conf.d/90-aurora-reboot-watchdog.conf"
   # Apple silicon power defaults: PCIe ASPM substates, no realtime utilization floor.

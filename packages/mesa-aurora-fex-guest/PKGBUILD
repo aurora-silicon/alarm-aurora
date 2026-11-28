@@ -2,7 +2,7 @@
 pkgname=mesa-aurora-fex-guest
 epoch=1
 pkgver=26.3.0_devel.202611260351.36623c0a4a5
-pkgrel=2
+pkgrel=3
 pkgdesc='Aurora Mesa x86_64 and i686 graphics layer for the FEX guest'
 arch=('any')
 url='https://github.com/aurora-silicon/mesa'
@@ -22,20 +22,26 @@ makedepends=('meson' 'ninja' 'gcc-libs' 'gcc' 'lib32-gcc-libs' 'lib32-glibc' 'cl
              'systemd-libs' 'lib32-systemd' 'xcb-util-keysyms' 'lib32-xcb-util-keysyms')
 source=("mesa-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/mesa/tar.gz/$_commit"
         aurora-fex-mesa.service
-        60-aurora-fex-mesa-upgrade.hook)
+        60-aurora-fex-mesa-upgrade.hook
+        0001-radv-amdgpu-pad-page-cpu-page-size.patch)
 sha256sums=('7906acc54411e0c61b6c4a5539d555cc0831b95603c80d37311a2bcd49313336' 'bb5094ed9c5377aae62925f57c7f3c3f75bd3d64b2cd70647277398bc4aa19f3'
-            'acd1e005a05bd8e229300a846863b6fcb3c29f389d66d9c8b903cb5d70913503')
+            'acd1e005a05bd8e229300a846863b6fcb3c29f389d66d9c8b903cb5d70913503'
+            '93a9986aadcd0958a52630761369a3d7df40968c29a2912f20292dbb8c5d9739')
 # The embedded x86 layer is not linked against the host's libraries.
 options=('!strip' '!debug')
 install=mesa-aurora-fex-guest.install
 
+prepare() {
+  patch -d "mesa-$_commit" -Np1 -i "$srcdir/0001-radv-amdgpu-pad-page-cpu-page-size.patch"
+}
 build() {
   [[ $(uname -m) == x86_64 ]] || { echo 'Build the FEX guest layer on x86_64 Arch' >&2; return 1; }
   cd "mesa-$_commit"
   export MESA_GIT_SHA1_OVERRIDE=$_commit
   unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS PKG_CONFIG_PATH
   local common=(--prefix=/usr --buildtype=release -Db_ndebug=true --wrap-mode=nodownload
-    -Dplatforms=x11,wayland -Dgallium-drivers=asahi,zink,softpipe -Dvulkan-drivers=asahi
+    -Dplatforms=x11,wayland -Dgallium-drivers=asahi,radeonsi,r600,r300,iris,crocus,nouveau,zink,softpipe -Dvulkan-drivers=asahi,amd,intel,intel_hasvk
+    -Damd-use-llvm=false -Ddraw-use-llvm=false
     -Dvulkan-layers= -Dglx=dri -Degl=enabled -Dgbm=enabled -Dgles1=disabled -Dgles2=enabled
     -Dglvnd=enabled -Dgallium-rusticl=false -Dbuild-tests=false -Dvalgrind=disabled
     -Dvideo-codecs= -Dmicrosoft-clc=disabled -Dlibunwind=disabled -Dlmsensors=disabled)
