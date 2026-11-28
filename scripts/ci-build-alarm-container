@@ -10,7 +10,18 @@ package=${1:?package name required}
 [[ $package =~ ^[a-z0-9][a-z0-9-]*$ && -f $root/packages/$package/PKGBUILD ]]
 pacman-key --init
 pacman-key --populate archlinuxarm
-pacman -Syu --noconfirm --needed base-devel git sudo python
+# mirror.archlinuxarm.org redirects across community mirrors that can be
+# momentarily out of sync between sync DBs and package archives (HTTP 404).
+# Force a DB refresh (-Syyu) on retries so a stale DB does not repeat a 404.
+attempt=1
+while true; do
+  if (( attempt > 1 )); then flags=-Syyu; else flags=-Syu; fi
+  if pacman "$flags" --noconfirm --needed base-devel git sudo python; then
+    break
+  fi
+  (( attempt++ < 3 ))
+  sleep 15
+done
 # Match Arch build chroots, which generate en_US.UTF-8 (see ci-build-package).
 sed -i 's/^#\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
 grep -q '^en_US\.UTF-8 UTF-8' /etc/locale.gen
