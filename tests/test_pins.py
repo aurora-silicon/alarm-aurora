@@ -10,7 +10,7 @@ import updatelib  # noqa: E402
 class PinTests(unittest.TestCase):
     def test_hardware_recipes_match_the_recorded_source_pins(self):
         pins = json.loads((ROOT / 'sources.json').read_text())
-        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd', 'speakerguardd-v2', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-touchid-rearm', 'aurora-sep-host-state', 'aurora-fido', 'aurora-sep-sk', 'aurora-sep-luks', 'aurora-wifi-firmware']:
+        for name in ['aura', 'uboot-aurora', 'mesa-aurora', 'speakerguardd-v2', 'aurora-audio', 'alsa-ucm-conf-aurora', 'aurora-bless', 'avd-fw', 'libva-v4l2-request-avd', 'upower-aurora', 'omarchy-ane-tools', 'mil-hwx-compiler', 'aurora-camera-denoise', 'aurora-kbd-light', 'aurora-xart', 'aurora-touchid-rearm', 'aurora-sep-host-state', 'aurora-fido', 'aurora-sep-sk', 'aurora-sep-luks', 'aurora-wifi-firmware']:
             self.assertIn(pins[name]['commit'], (ROOT / 'packages' / name / 'PKGBUILD').read_text())
         self.assertIn(pins['kernel-aurora']['commit'], (ROOT / 'packages/linux-aurora/PKGBUILD').read_text())
         firstboot = (ROOT / 'packages/aurora-firstboot/PKGBUILD').read_text()
@@ -31,7 +31,7 @@ class PinTests(unittest.TestCase):
         self.assertIn("('v4-t0', 0x10000, '", firmware)
         version = re.search(r'(?m)^pkgver=(\S+)$', firmware).group(1)
         self.assertGreaterEqual(updatelib.alpm_vercmp(version, '0.1.aurora4'), 0)
-    def test_speakerguardd_v2_switches_by_preset_beside_the_legacy_stack(self):
+    def test_speakerguardd_v2_is_the_only_speaker_stack(self):
         pins = json.loads((ROOT / 'sources.json').read_text())['speakerguardd-v2']
         text = (ROOT / 'packages/speakerguardd-v2/PKGBUILD').read_text()
         self.assertIn(pins['sha256'], text)
@@ -42,10 +42,13 @@ class PinTests(unittest.TestCase):
         self.assertEqual(pins['version'], '1.0.0-alpha.2')
         self.assertNotRegex(text, r'(?m)^\s*(conflicts|replaces|provides)=')
         main = text.split('package_speakerguardd-v2() {', 1)[1].split('\n}', 1)[0]
-        # The gate in every unit decides; the older daemons carry it the other way round.
+        # The gate in every unit decides. No other speaker daemon exists to gate:
+        # no drop-in for speakersafetyd.service or speakerguardd.service.
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate v2'", text)
         self.assertIn("f'ExecCondition={lx}/speakerguardd-gate prepare'", text)
-        self.assertIn('for u in speakersafetyd speakerguardd; do', main)
+        self.assertNotIn("Path('packaging/systemd/legacy-gate.conf')", text)
+        self.assertNotIn('install -Dm644 legacy-gate.conf', main)
+        self.assertNotRegex(main, r'(speakersafetyd|speakerguardd)\.service\.d')
         self.assertIn('packaging/session/gate.json', main)
         # verify needs the macOS parity attestation (speakerguardd#114).
         self.assertIn('packaging/session/parity.json', main)
@@ -55,14 +58,32 @@ class PinTests(unittest.TestCase):
         self.assertIn("'pipewire-speaker-graph>=2'", deps)
         self.assertIn('pipewire-speaker-graph=2', (ROOT / 'packages/pipewire/PKGBUILD').read_text())
         self.assertNotIn('machines.json', main)
-        # The default audio stack keeps the legacy daemons as the fallback and
-        # pulls v2 with the upgrade tool, whose preset switches a Mac at boot
-        # only on a passing self-check; it replaces only the retired builds.
+        # aurora-audio, which every install has, pulls v2 and the upgrade tool
+        # and replaces the Asahi stack on the upgrade; no recipe of it remains.
+        for name in ('speakersafetyd', 'speakersafetyd-aurora-profiles', 'speakerguardd'):
+            self.assertFalse((ROOT / 'packages' / name).exists(), name)
+            self.assertNotIn(name, json.loads((ROOT / 'sources.json').read_text()))
         audio = (ROOT / 'packages/aurora-audio/PKGBUILD').read_text()
-        self.assertIn("'speakersafetyd' 'speakerguardd' 'alsa-utils-aurora'", audio)
-        self.assertIn("'speakerguardd-v2>=1.0.0alpha.2-1' 'aurora-speaker-upgrade>=0.1-0.18'", audio)
-        self.assertIn("conflicts=('asahi-audio' 'asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
-        self.assertIn("replaces=('asahi-audio-aurora' 'speakerguardd-v2<=1.0.0alpha.1-25')", audio)
+        deps = re.search(r"(?ms)^\s*depends=\((.*?)\)", audio.split('package() {', 1)[1]).group(1).split()
+        self.assertIn("'speakerguardd-v2>=1.0.0alpha.2-13'", deps)
+        self.assertIn("'aurora-speaker-upgrade>=0.1-0.29'", deps)
+        self.assertNotIn("'speakersafetyd'", deps)
+        self.assertNotIn("'speakerguardd'", deps)
+        for field in ('conflicts', 'replaces'):
+            names = re.search(rf"(?ms)^{field}=\((.*?)\)", audio).group(1).split()
+            for name in ("'speakersafetyd'", "'speakersafetyd-aurora-profiles'", "'speakerguardd<0.2'",
+                         "'asahi-audio-aurora'", "'speakerguardd-v2<=1.0.0alpha.1-25'"):
+                self.assertIn(name, names, field)
+        self.assertIn("'asahi-audio'", re.search(r"(?ms)^conflicts=\((.*?)\)", audio).group(1).split())
+        # A v2 build at that floor exists in this tree.
+        self.assertGreaterEqual(updatelib.alpm_vercmp(
+            '1.0.0alpha.2-' + re.search(r'(?m)^pkgrel=(\S+)$', text).group(1), '1.0.0alpha.2-13'), 0)
+        # The Asahi speaker graphs are not restored or installed for any Mac.
+        self.assertNotIn('0001-restore-legacy-speaker-graphs.patch', audio)
+        self.assertIn('0001-install-no-speaker-graphs.patch', audio)
+        self.assertIn('99-aurora-speaker-irq.conf', audio)
+        boot = (ROOT / 'packages/aurora-boot/PKGBUILD').read_text()
+        self.assertNotIn('speakersafetyd', boot)
         for pkg in (ROOT / 'packages').glob('*/PKGBUILD'):
             if pkg.parent.name in ('speakerguardd-v2', 'aurora-audio'):
                 continue
