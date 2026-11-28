@@ -7,6 +7,8 @@ KERNEL = ROOT / 'packages/linux-aurora'
 # Desktop images unlock a LUKS root, run Bluetooth and a firewall, read exFAT
 # media and take generic HID input. A kernel without any of these must not ship.
 REQUIRED = ('DM_CRYPT', 'DM_INTEGRITY', 'BT', 'NF_TABLES', 'EXFAT_FS', 'HID_GENERIC')
+# Apple N1 radio drivers: required whenever the pinned source defines them.
+RADIOS = ('APPLE_CENTAURI', 'APPLE_CENTAURI_T6050', 'APPLE_CENTAURI_T6050_WIFI', 'BT_CENTAURI', 'BT_HCICENTAURI')
 
 
 def values(path):
@@ -42,6 +44,14 @@ class KernelConfigTests(unittest.TestCase):
         found = re.search(r'for option in ([A-Z0-9_ ]+); do\n\s+grep -Eqx "CONFIG_\$\{option\}=\[ym\]"', recipe)
         self.assertIsNotNone(found)
         self.assertEqual(set(found[1].split()), set(REQUIRED))
+
+    def test_build_requires_the_n1_radio_drivers_the_source_defines(self):
+        recipe = (KERNEL / 'PKGBUILD').read_text()
+        found = re.search(r'for option in ([A-Z0-9_ ]+); do\n'
+                          r'\s+grep -rqx --include=\'Kconfig\*\' "config \$\{option\}" drivers \|\| continue\n'
+                          r'\s+grep -Eqx "CONFIG_\$\{option\}=\[ym\]" build/base/\.config', recipe)
+        self.assertIsNotNone(found)
+        self.assertEqual(set(found[1].split()), set(RADIOS))
 
 
 if __name__ == '__main__':
