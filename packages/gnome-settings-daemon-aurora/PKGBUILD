@@ -6,7 +6,7 @@
 
 pkgname=gnome-settings-daemon-aurora
 _tag=51.1
-pkgver=51.1.aurora1
+pkgver=51.1.aurora2
 pkgrel=1
 pkgdesc="GNOME Settings Daemon"
 url="https://gitlab.gnome.org/GNOME/gnome-settings-daemon"
@@ -69,14 +69,17 @@ source=(
   "git+https://gitlab.gnome.org/GNOME/gnome-settings-daemon.git#tag=$_tag"
   "git+https://gitlab.gnome.org/GNOME/libgnome-volume-control.git"
   0001-color-ambient-white-point.patch
+  0002-power-Normalize-ambient-brightness-to-neutral-50-percent.patch
 )
 b2sums=('52dd4163a11446ad7de40f0ac736dcbed18d72efbdb164bd790c947c375c840adde0d88a2ad2a920b29ed70611b87cf838c07478c228ccbf8cbde618582853f8'
         'SKIP'
-        'cc88b5e361e3d87e26c526c9ec45578be930f99ec228bb49cfce133b5e4df3f84666d853871a0b547aaab5045459b73e8f05608639a00db9e005054ebd40faba')
+        'cc88b5e361e3d87e26c526c9ec45578be930f99ec228bb49cfce133b5e4df3f84666d853871a0b547aaab5045459b73e8f05608639a00db9e005054ebd40faba'
+        '458a19778c1b0ac28905638c50e4eb6877aec712a97fc08687d081f1e3f7d03bdc3887fec4dc033f2c2e975a0fe3748639985dd137e467145543b3fe40b3b4f2')
 
 prepare() {
   cd gnome-settings-daemon
   git apply -v ../0001-color-ambient-white-point.patch
+  git apply -v ../0002-power-Normalize-ambient-brightness-to-neutral-50-percent.patch
 
   git submodule init
   git submodule set-url subprojects/gvc "$srcdir/libgnome-volume-control"
