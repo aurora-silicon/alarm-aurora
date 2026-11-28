@@ -75,10 +75,13 @@ class PinTests(unittest.TestCase):
             self.assertIn(name, replaces)
         for name in ("'speakerguardd<0.2'", "'asahi-audio-aurora'", "'speakerguardd-v2<=1.0.0alpha.1-25'"):
             self.assertIn(name, conflicts)
-        # speakersafetyd: replaced only up to the builds this repository shipped,
-        # never conflicted, so a later explicit install by the user stays.
-        self.assertIn("'speakersafetyd<2.0.1-2'", replaces)
-        self.assertIn("'speakersafetyd-aurora-profiles<1-3'", replaces)
+        # speakersafetyd: replaced only for the Aurora builds this repository
+        # shipped (never asahi-alarm 2.0.1-1), never conflicted, so a later
+        # explicit install by the user survives pacman -Syu.
+        for entry in ("'speakersafetyd=2.0.1-1.2'", "'speakersafetyd=2.0.1-1.1'",
+                      "'speakersafetyd<2.0.1-1'", "'speakersafetyd-aurora-profiles<1-3'"):
+            self.assertIn(entry, replaces)
+        self.assertNotIn("'speakersafetyd<2.0.1-2'", replaces)
         self.assertFalse([n for n in conflicts if 'speakersafetyd' in n], conflicts)
         self.assertFalse([n for n in replaces if n.strip("'") in ('speakersafetyd', 'speakersafetyd-aurora-profiles')], replaces)
         self.assertIn("'asahi-audio'", re.search(r"(?ms)^conflicts=\((.*?)\)", audio).group(1).split())
@@ -89,6 +92,12 @@ class PinTests(unittest.TestCase):
         self.assertNotIn('0001-restore-legacy-speaker-graphs.patch', audio)
         self.assertIn('0001-install-no-speaker-graphs.patch', audio)
         self.assertIn('99-aurora-speaker-irq.conf', audio)
+        # User opt-out tool, docs, and upgrade migration hook.
+        self.assertIn('install=aurora-audio.install', audio)
+        self.assertIn('aurora-speaker-stack', audio)
+        self.assertIn('aurora-speaker-stack.8', audio)
+        self.assertIn('aurora-speaker-stack migrate --on-upgrade',
+                      (ROOT / 'packages/aurora-audio/aurora-audio.install').read_text())
         boot = (ROOT / 'packages/aurora-boot/PKGBUILD').read_text()
         self.assertNotIn('speakersafetyd', boot)
         for pkg in (ROOT / 'packages').glob('*/PKGBUILD'):
