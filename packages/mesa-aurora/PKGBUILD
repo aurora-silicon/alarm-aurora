@@ -18,7 +18,7 @@ _commit=36623c0a4a5a3e2a94fedd5f0874258d8126648d
 # first build makes those compilers and the packaged one uses them.
 makedepends=('git' 'meson' 'ninja' 'python-mako' 'python-yaml' 'python-packaging' 'rust'
              'rust-bindgen' 'clang' 'llvm' 'libclc' 'spirv-llvm-translator' 'spirv-tools'
-             'cbindgen' 'glslang' 'libdrm' 'libva' 'expat' 'libglvnd'
+             'cbindgen' 'glslang' 'libdrm' 'libelf' 'libva' 'expat' 'libglvnd'
              'libx11' 'libxcb' 'libxext' 'libxfixes' 'libxrandr' 'libxshmfence' 'libxxf86vm'
              'wayland' 'wayland-protocols' 'vulkan-headers' 'vulkan-icd-loader' 'libdisplay-info'
              'lm_sensors' 'zlib' 'zstd' 'xcb-util-keysyms')
@@ -107,8 +107,8 @@ check() {
 }
 
 package_mesa-aurora() {
-  pkgdesc='Aurora native Asahi Gallium and Zink OpenGL drivers'
-  depends=('expat' 'glibc' 'gcc-libs' 'libdrm' 'libglvnd' 'libx11' 'libxcb' 'libxext'
+  pkgdesc='Aurora OpenGL, PCIe eGPU Gallium, and VA-API drivers'
+  depends=('expat' 'glibc' 'gcc-libs' 'libdrm' 'libelf' 'libglvnd' 'libx11' 'libxcb' 'libxext'
            'libxshmfence' 'libxxf86vm' 'lm_sensors' 'wayland' 'zlib' 'zstd'
            'vulkan-mesa-implicit-layers')
   provides=("mesa=$epoch:$pkgver" 'mesa-libgl' 'opengl-driver' 'libgbm.so' 'libva-mesa-driver')
