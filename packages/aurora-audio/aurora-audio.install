@@ -1,0 +1,7 @@
+post_install() {
+  /usr/bin/aurora-speaker-stack migrate --on-upgrade || :
+}
+
+post_upgrade() {
+  /usr/bin/aurora-speaker-stack migrate --on-upgrade || :
+}

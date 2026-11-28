@@ -89,6 +89,12 @@ class PinTests(unittest.TestCase):
         self.assertNotIn('0001-restore-legacy-speaker-graphs.patch', audio)
         self.assertIn('0001-install-no-speaker-graphs.patch', audio)
         self.assertIn('99-aurora-speaker-irq.conf', audio)
+        # User opt-out tool, docs, and upgrade migration hook.
+        self.assertIn('install=aurora-audio.install', audio)
+        self.assertIn('aurora-speaker-stack', audio)
+        self.assertIn('aurora-speaker-stack.8', audio)
+        self.assertIn('aurora-speaker-stack migrate --on-upgrade',
+                      (ROOT / 'packages/aurora-audio/aurora-audio.install').read_text())
         boot = (ROOT / 'packages/aurora-boot/PKGBUILD').read_text()
         self.assertNotIn('speakersafetyd', boot)
         for pkg in (ROOT / 'packages').glob('*/PKGBUILD'):
