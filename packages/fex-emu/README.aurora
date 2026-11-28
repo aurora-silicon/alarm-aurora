@@ -111,6 +111,38 @@ build. Programs started afterwards use the new provider. A bind still in use
 stays mounted below the new one, and goes at the next change once it is idle.
 A FEXServer keeps the RootFS it started with until its last x86 program exits.
 
+## One FEX for x86 programs and Flatpak sandboxes
+
+binfmt_misc hands x86 and x86-64 programs to
+/usr/lib/x86_64-linux-gnu/GL/aurora/fex/FEX, a copy of FEX and FEXServer
+that carries its own AArch64 loader and libraries. These are the only FEX
+registrations (/usr/lib/binfmt.d/FEX-x86.conf and FEX-x86_64.conf, flags
+POCF). The x86_64 build of the GL.aurora Flatpak extension carries the same
+tree at the same path, so x86_64 Flatpak apps, and the ldconfig step Flatpak
+runs before them, start under FEX in their sandbox too.
+
+The bundle snapshots `glibc` (`ld-linux-aarch64.so.1`, `libc`, `libm`),
+`gcc-libs` (`libstdc++`, `libgcc_s`), `fmt` (`libfmt`), `xxhash`
+(`libxxhash`), and the other shared libraries FEX links from the build root
+into `/usr/lib/x86_64-linux-gnu/GL/aurora/fex`. Every host x86 program and
+x86_64 Flatpak app runs on that snapshot until `fex-emu` is rebuilt, including
+after a security update to `glibc`, `gcc-libs`, `fmt`, or `xxhash`; rebuild
+`fex-emu` when those packages move.
+
+Inside a Flatpak sandbox (`/.flatpak-info` present), FEX parses `[Instance]`
+`instance-id` and isolates both the default per-UID FEXServer socket
+(`<uid>.flatpak-<instance-id>.FEXServer.Socket`, falling back to
+`<uid>.flatpak.FEXServer.Socket`) and the server lock file
+(`Server.flatpak-<instance-id>.lock`, falling back to `Server.flatpak.lock`),
+so host x86 programs (including Steam/Proton) and separate x86_64 Flatpak
+sandboxes (including different runtime branches) do not collide on one
+FEXServer or lock file even with `--share=network` and `--filesystem=home`.
+
 ## Thunks
 
 This build has no host library thunks (as the FEX-Emu package it replaces).
+It ships the guest vDSO thunk (`libVDSO-guest.so`), which needs no host
+library, under `/usr/lib/x86_64-linux-gnu/GL/aurora/fex/GuestThunks/`.
+`aurora-flatpak-gl` copies the FEX bundle (including `GuestThunks/`) into the
+x86_64 GL.aurora extension so FEX and its vDSO thunk stay in lockstep, and the
+Flatpak override points `FEX_THUNKGUESTLIBS` at it.

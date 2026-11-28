@@ -170,6 +170,11 @@ The old manual inputs still work: `publish.yml -f build-run='<ids>' -f release-t
 - A tracker PR is left alone once anyone but the bot pushes to it.
 - `channels.json` on the `channels` branch is the record of what each channel serves; the deployed site
   carries a copy.
+- `fex-emu` snapshots `glibc`, `gcc-libs` (`libstdc++`, `libgcc_s`), `fmt` (`libfmt`), `xxhash`
+  (`libxxhash`), and the other shared libraries FEX links from the build root into
+  `/usr/lib/x86_64-linux-gnu/GL/aurora/fex` (via `fex-bundle`) so FEX starts inside x86_64 Flatpak
+  sandboxes too. Rebuild `fex-emu` (bump `pkgrel`) whenever Arch Linux ARM updates `glibc`,
+  `gcc-libs`, `fmt`, or `xxhash`, including security fixes.
 
 ## Edge
 

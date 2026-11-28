@@ -1,0 +1,53 @@
+# The x86_64 GL.aurora Flatpak extension, for x86_64 apps that run under FEX.
+# CI builds this recipe on x86_64 Arch. The package carries the extension
+# trees; aurora-flatpak-gl adds fex-emu's FEX bundle and guest vDSO thunk and exports them on the
+# Mac (see its aurora-flatpak-gl helper).
+pkgname=aurora-flatpak-gl-x86_64
+epoch=1
+pkgver=26.3.0_devel.202611260351.36623c0a4a5
+pkgrel=2
+pkgdesc='Aurora Mesa x86_64 Flatpak GL extension for Freedesktop 25.08 and 26.08, for apps under FEX'
+arch=('any')
+url='https://github.com/aurora-silicon/alarm-aurora'
+license=('MIT')
+makedepends=('flatpak' 'flatpak-builder' 'dbus' 'python')
+# The extension is x86_64 and runs against the Freedesktop runtime, not this host.
+options=('!strip' '!debug')
+_commit=36623c0a4a5a3e2a94fedd5f0874258d8126648d
+_sha256=7906acc54411e0c61b6c4a5539d555cc0831b95603c80d37311a2bcd49313336
+source=(build-extension.sh org.freedesktop.Platform.GL.aurora.yml.in validate-tree.py LICENSE)
+sha256sums=('286a325f3653a5babacf51afd496bd935f56a887df6e2dfea31637c179f9200d'
+            'b020812f2fcbe396e4d4b93123a4ce48b19d395b22b5ed374408e413b0f8d1d0'
+            'a73ec11dbea94bd3649153a69afa9e2edd34d74241c7c0dc882b3beec0ccb530'
+            '811207d92b81da5b5e97cdfa52542769d8783325da5b422262ccecfa2d23c5a9')
+
+build() {
+  [[ $(uname -m) == x86_64 ]] || { echo 'Build the x86_64 GL extension on x86_64 Arch' >&2; return 1; }
+  export AURORA_MESA_COMMIT=$_commit AURORA_MESA_SHA256=$_sha256
+  # Build in makepkg's isolated home. Never use a host Flatpak installation.
+  export XDG_DATA_HOME="$srcdir/flatpak-data" XDG_CACHE_HOME="$srcdir/flatpak-cache"
+  export XDG_RUNTIME_DIR="$srcdir/flatpak-runtime"
+  install -d -m700 "$XDG_RUNTIME_DIR"
+  dbus-run-session -- bash -euo pipefail -c '
+    flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    for branch in 25.08 26.08; do
+      flatpak install --user --noninteractive --no-related -y flathub \
+        "org.freedesktop.Platform/x86_64/$branch" \
+        "org.freedesktop.Sdk/x86_64/$branch" \
+        "org.freedesktop.Sdk.Extension.llvm22/x86_64/$branch"
+      bash ./build-extension.sh "$branch" "$PWD/trees/$branch" "$PWD/work-$branch"
+    done
+  '
+}
+
+package() {
+  depends=('fex-emu')
+  local branch tree
+  for branch in 25.08 26.08; do
+    tree="$pkgdir/usr/share/aurora-flatpak-gl/x86_64/$branch"
+    install -d "$tree"
+    cp -a "trees/$branch/." "$tree/"
+  done
+  python3 validate-tree.py --trees "$pkgdir/usr/share/aurora-flatpak-gl/x86_64" --commit "$_commit"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

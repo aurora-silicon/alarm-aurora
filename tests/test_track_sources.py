@@ -23,7 +23,7 @@ class AlarmRecipeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for name in list(module.RECIPES.values()) + ['mesa-aurora-fex-guest', 'aurora-flatpak-gl']:
+        for name in list(module.RECIPES.values()) + ['mesa-aurora-fex-guest', 'aurora-flatpak-gl', 'aurora-flatpak-gl-x86_64']:
             shutil.copytree(ROOT / 'packages' / name, self.root / 'packages' / name)
         self.pins = json.loads((ROOT / 'sources.json').read_text())
         (self.root / 'sources.json').write_text(json.dumps(self.pins))
@@ -130,7 +130,7 @@ class AlarmRecipeTests(unittest.TestCase):
         self.assertEqual(self.field('mesa-aurora', 'pkgrel'), '1')
         self.assertEqual(self.field('mesa-aurora', '_commit'), NEW)
         self.assertTrue(item['package_version'].startswith('1:26.3.0_devel.209910230220.'))
-        for name in ('mesa-aurora-fex-guest', 'aurora-flatpak-gl'):
+        for name in ('mesa-aurora-fex-guest', 'aurora-flatpak-gl', 'aurora-flatpak-gl-x86_64'):
             self.assertEqual(self.field(name, '_commit'), NEW)
             self.assertEqual(self.field(name, '_sha256'), 'd' * 64)
             self.assertEqual(self.field(name, 'pkgver'), self.field('mesa-aurora', 'pkgver'))
@@ -138,7 +138,7 @@ class AlarmRecipeTests(unittest.TestCase):
         pins = json.loads((self.root / 'sources.json').read_text())
         self.assertEqual(pins['mesa-aurora-fex-guest'], pins['mesa-aurora'])
         self.assertEqual(module.ci_inputs(['mesa-aurora']), {'packages.yml': {
-            'packages': 'aurora-flatpak-gl mesa-aurora mesa-aurora-fex-guest'}})
+            'packages': 'aurora-flatpak-gl aurora-flatpak-gl-x86_64 mesa-aurora mesa-aurora-fex-guest'}})
 
     def test_a_later_same_day_mesa_update_still_upgrades(self):
         first = self.item('mesa-aurora', upstream_version='26.3.0-devel', version='26.3.0', new='f' * 40,
@@ -184,6 +184,8 @@ class AlarmRecipeTests(unittest.TestCase):
                 self.assertEqual(self.field(key, 'pkgver'), f'{base}.r209910230220.{NEW[:11]}')
                 self.assertEqual(item['package_version'], f'{epoch}{base}.r209910230220.{NEW[:11]}-1')
                 self.assertNotIn(self.pins[key]['commit'], text)
+                if key == 'fex-emu':
+                    self.assertEqual(module.ci_inputs(['fex-emu']), {'packages.yml': {'packages': 'fex-emu'}})
 
     def test_tracked_sources_have_recipes(self):
         tracking = json.loads((ROOT / 'tracking.json').read_text())

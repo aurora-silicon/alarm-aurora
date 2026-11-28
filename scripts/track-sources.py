@@ -28,7 +28,7 @@ RECIPES = {'kernel-aurora': 'linux-aurora', 'aura': 'aura', 'mesa-aurora': 'mesa
 KINDS = {'kernel-aurora': 'kernel', 'mesa-aurora': 'mesa'}
 CI_WORKFLOWS = ['packages.yml']
 # The only files a tracker proposal may change.
-PATCH_PATHS = [r'sources\.json', r'packages/(linux-aurora|aura|mesa-aurora|mesa-aurora-fex-guest|aurora-flatpak-gl|fex-emu|aurora-steam-native)/[^/]+',
+PATCH_PATHS = [r'sources\.json', r'packages/(linux-aurora|aura|mesa-aurora|mesa-aurora-fex-guest|aurora-flatpak-gl|aurora-flatpak-gl-x86_64|fex-emu|aurora-steam-native)/[^/]+',
                rf"packages/({'|'.join(SINGLE_ARCHIVE_RECIPES + GIT_RECIPES)})/PKGBUILD"]
 # fex-emu tracks by hand (merge: manual): the fork's submodules are pinned at
 # its gitlinks in sources.json and PKGBUILD, and a reviewer moves them with it.
@@ -43,7 +43,7 @@ def sync_mesa_consumers(root, pin=None):
         pin = json.loads((root / 'sources.json').read_text())['mesa-aurora']
     if pin['commit'] != fields['_commit']:
         raise ValueError('Mesa source pin must move before its recipes')
-    for name in ('mesa-aurora-fex-guest', 'aurora-flatpak-gl'):
+    for name in ('mesa-aurora-fex-guest', 'aurora-flatpak-gl', 'aurora-flatpak-gl-x86_64'):
         pkgbuild = root / 'packages' / name / 'PKGBUILD'
         text = pkgbuild.read_text()
         old_sha = re.search(r'^_sha256=(.*)$', text, re.M)[1]
@@ -157,7 +157,7 @@ def run_checks(root):
 
 def ci_inputs(packages):
     if 'mesa-aurora' in packages:
-        packages = sorted(set(packages) | {'mesa-aurora-fex-guest', 'aurora-flatpak-gl'})
+        packages = sorted(set(packages) | {'mesa-aurora-fex-guest', 'aurora-flatpak-gl', 'aurora-flatpak-gl-x86_64'})
     return {'packages.yml': {'packages': ' '.join(packages)}}
 
 

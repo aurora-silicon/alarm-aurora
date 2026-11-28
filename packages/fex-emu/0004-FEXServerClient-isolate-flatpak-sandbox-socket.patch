@@ -1,0 +1,112 @@
+Subject: [PATCH] FEXServerClient: isolate default FEXServer socket and lock per Flatpak instance
+
+When FEX runs inside a Flatpak sandbox that shares the host network
+namespace (--share=network), its default abstract AF_UNIX socket
+(`<uid>.FEXServer.Socket`) collides with the host's FEXServer and with
+other Flatpak sandboxes (such as apps on different Freedesktop runtime
+branches). A host FEX process would then connect to a sandbox FEXServer
+(which has no host RootFS), or a sandbox FEX process would connect to
+another sandbox's or the host's FEXServer. Likewise, when a sandbox
+grants `--filesystem=home` alongside a legacy `~/.fex-emu/` directory,
+`Server.lock` is shared between host and sandbox FEXServers.
+
+When `/.flatpak-info` exists, parse `instance-id=` under `[Instance]`
+(sanitizing strictly to `[A-Za-z0-9._-]`, bounded to 32 chars, falling
+back to `.flatpak` if absent/empty) and tag both the default socket name
+(`<uid>.flatpak-<id>.FEXServer.Socket`, or `<uid>.flatpak.FEXServer.Socket`)
+when `ServerSocketPath` is unset and the lock file (`Server.flatpak-<id>.lock`,
+or `Server.flatpak.lock`). Explicit `ServerSocketPath` overrides remain
+untouched.
+---
+ Source/Common/FEXServerClient.cpp | 57 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/Source/Common/FEXServerClient.cpp b/Source/Common/FEXServerClient.cpp
+--- a/Source/Common/FEXServerClient.cpp
++++ b/Source/Common/FEXServerClient.cpp
+@@ -16,6 +16,7 @@
+ #include <cstdlib>
+ #include <fcntl.h>
+ #include <linux/limits.h>
++#include <optional>
+ #include <unistd.h>
+ #include <poll.h>
+ #include <sys/prctl.h>
+@@ -74,7 +75,57 @@ fextl::string GetServerLockFolder() {
+   return FEXCore::Config::GetDataDirectory() + "Server/";
+ }
+ 
++static std::optional<fextl::string> GetFlatpakIsolationTag() {
++  if (::access("/.flatpak-info", F_OK) != 0) {
++    return std::nullopt;
++  }
++
++  fextl::string Info;
++  if (FEXCore::FileLoading::LoadFile(Info, "/.flatpak-info")) {
++    bool InInstance = false;
++    size_t Pos = 0;
++    while (Pos < Info.size()) {
++      size_t End = Info.find('\n', Pos);
++      if (End == fextl::string::npos) {
++        End = Info.size();
++      }
++      std::string_view Line(Info.data() + Pos, End - Pos);
++      if (!Line.empty() && Line.back() == '\r') {
++        Line.remove_suffix(1);
++      }
++      Pos = (End == Info.size()) ? End : End + 1;
++
++      if (!Line.empty() && Line.front() == '[') {
++        InInstance = (Line == "[Instance]");
++        continue;
++      }
++      if (InInstance && Line.starts_with("instance-id=")) {
++        constexpr size_t MaxTagLen = 32;
++        fextl::string Tag;
++        for (char C : Line.substr(12)) {
++          if ((C >= 'A' && C <= 'Z') || (C >= 'a' && C <= 'z') || (C >= '0' && C <= '9') ||
++              C == '.' || C == '_' || C == '-') {
++            Tag.push_back(C);
++            if (Tag.size() == MaxTagLen) {
++              break;
++            }
++          }
++        }
++        if (!Tag.empty()) {
++          return fextl::fmt::format(".flatpak-{}", Tag);
++        }
++        break;
++      }
++    }
++  }
++
++  return fextl::string {".flatpak"};
++}
++
+ fextl::string GetServerLockFile() {
++  if (auto Tag = GetFlatpakIsolationTag()) {
++    return fextl::fmt::format("{}Server{}.lock", GetServerLockFolder(), *Tag);
++  }
+   return GetServerLockFolder() + "Server.lock";
+ }
+ 
+@@ -132,6 +183,9 @@ fextl::string GetServerMountFolder() {
+ fextl::string GetServerSocketName() {
+   FEX_CONFIG_OPT(ServerSocketPath, SERVERSOCKETPATH);
+   if (ServerSocketPath().empty()) {
++    if (auto Tag = GetFlatpakIsolationTag()) {
++      return fextl::fmt::format("{}{}.FEXServer.Socket", ::getuid(), *Tag);
++    }
+     return fextl::fmt::format("{}.FEXServer.Socket", ::getuid());
+   }
+   return ServerSocketPath;
+@@ -165,6 +219,9 @@ fextl::string GetServerSocketPath(bool ForceTmp) {
+ #endif
+ 
+   if (name.empty()) {
++    if (auto Tag = GetFlatpakIsolationTag()) {
++      return fextl::fmt::format("{}/{}{}.FEXServer.Socket", Folder, ::getuid(), *Tag);
++    }
+     return fextl::fmt::format("{}/{}.FEXServer.Socket", Folder, ::getuid());
+   } else {
+     return fextl::fmt::format("{}/{}", Folder, name);

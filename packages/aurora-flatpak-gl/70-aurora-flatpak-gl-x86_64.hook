@@ -1,0 +1,15 @@
+# Export and install the x86_64 GL extension again when its trees or the FEX
+# bundle it carries change. aurora-flatpak-gl's own upgrades run enable from
+# its install script.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/share/aurora-flatpak-gl/x86_64/*/metadata
+Target = usr/lib/x86_64-linux-gnu/GL/aurora/fex/FEX
+Target = usr/lib/x86_64-linux-gnu/GL/aurora/fex/GuestThunks/libVDSO-guest.so
+
+[Action]
+Description = Exporting the x86_64 Aurora Flatpak GL extension...
+When = PostTransaction
+Exec = /usr/lib/aurora-flatpak-gl/aurora-flatpak-gl enable
