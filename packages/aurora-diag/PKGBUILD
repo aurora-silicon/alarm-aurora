@@ -1,11 +1,11 @@
 pkgname=aurora-diag
 pkgver=0.5.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Bring-up diagnostics and regression checks for Apple silicon Macs (development only)'
 arch=('any')
 url='https://github.com/aurora-silicon/aurora-diag'
 license=('MIT')
-_commit=32f232c6abc4d4bf1f88d3d104a97020b1bf5d42
+_commit=9a389236a13038c8b201b29cbda204088ccf75b5
 depends=('python')
 optdepends=('python-textual: the dashboard'
             'alsa-utils: ALSA control readout'
@@ -17,7 +17,7 @@ optdepends=('python-textual: the dashboard'
             'glib2: Mutter power save through gdbus')
 makedepends=('make')
 source=("$pkgname-$_commit.tar.gz::https://codeload.github.com/aurora-silicon/aurora-diag/tar.gz/$_commit")
-sha256sums=('685ae8adcf99b50524fed29080f6e425a91130c43ec8887e7f834e3b2606b560')
+sha256sums=('1f455e8ed302e802570713aac7b0fc186b7f5fa2e0d49fb915911128c1985b3a')
 
 check() {
   make -C "aurora-diag-$_commit" check
